@@ -32,48 +32,31 @@ async function obfuscateBuild() {
       
       const code = await fs.readFile(file, 'utf8');
       
-      // ✅ CONFIGURATION ULTRA-COMPATIBLE (élimine toutes les erreurs de conflit)
+      // ✅ CONFIGURATION STABLE FINALE (100% compatible)
       const obfuscated = JavaScriptObfuscator.obfuscate(code, {
-        // Compactage
+        // Formatage
         compact: true,
         
-        // ✅ DÉSACTIVÉS pour compatibilité Turbopack
-        controlFlowFlattening: false,           // ← DÉSACTIVÉ (cause des conflits)
-        deadCodeInjection: false,               // ← DÉSACTIVÉ (cause des conflits)
+        // ✅ TOUTES les options instables sont DÉSACTIVÉES
+        controlFlowFlattening: false,
+        deadCodeInjection: false,
+        selfDefending: false,
+        splitStrings: false,
+        unicodeEscapeSequence: false,
+        transformObjectKeys: false,
         
-        // Anti-débogage (désactivé)
-        // debugProtection: true,
-        // debugProtectionInterval: true,
-        
-        // Supprime les console.log
-        disableConsoleOutput: true,
-        
-        // Protection des noms de variables
-        identifierNamesGenerator: 'mangled-shuffled',  // ← AMÉLIORÉ
-        
-        // ✅ CRITIQUE - doit être false
+        // ✅ Protection des noms uniquement
+        identifierNamesGenerator: 'mangled',
         renameGlobals: false,
-        
         renameProperties: false,
         
-        // ✅ Désactivé pour compatibilité
-        selfDefending: false,
-        
-        // Protection des strings - MODÉRÉE
+        // ✅ Protection des strings minimale
         stringArray: true,
-        stringArrayEncoding: ['base64'],        // ← CHANGÉ (rc4 → base64)
-        stringArrayThreshold: 1,
-        stringArrayIndexShift: true,
-        rotateStringArray: true,
-        shuffleStringArray: true,
+        stringArrayEncoding: [],           // Pas d'encodage (stable)
+        stringArrayThreshold: 0.3,         // Seuil bas pour stabilité
         
-        // Transformations avancées - CONSERVÉES
-        transformObjectKeys: true,
-        
-        // ✅ DÉSACTIVÉS pour compatibilité
-        unicodeEscapeSequence: false,
-        splitStrings: false,
-        splitStringsChunkLength: 10
+        // ✅ Suppression des logs
+        disableConsoleOutput: true,
       });
       
       await fs.writeFile(file, obfuscated.getObfuscatedCode());
@@ -85,7 +68,7 @@ async function obfuscateBuild() {
   }
   
   console.log(`✅ ${protectedCount}/${files.length} fichiers statiques protégés avec succès !`);
-  console.log('🔐 Votre code est maintenant ILLISIBLE dans F12');
+  console.log('🔐 Code obfusqué (mode stable)');
 }
 
 obfuscateBuild().catch(console.error);
