@@ -13,13 +13,16 @@ import {
 } from '../types/dashboard';
 import { getStationConfig } from '@/lib/supabase/master';
 
-// Type pour les données brutes du joueur provenant de l'API
-interface ApiPlayerData {
+// Interface pour typer la réponse de la relation athletes dans match_history
+interface MatchWithAthlete {
   id: string;
-  pseudo: string;
-  full_name: string;
-  points?: number;
-  rank?: string;
+  date: string;
+  score: number;
+  win: boolean;
+  athletes: {
+    pseudo: string | null;
+    full_name: string;
+  } | null;
 }
 
 export function useDashboardData(
@@ -46,8 +49,8 @@ export function useDashboardData(
   const isInitialMount = useRef(true);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!userCity || !userEmail) {
-      console.log('[useDashboardData] Manque infos:', { userCity, userEmail });
+    if (!supabaseClient || !userCity || !userEmail) {
+      console.log('[useDashboardData] Manque infos:', { supabaseClient: !!supabaseClient, userCity, userEmail });
       setLoading(false);
       return;
     }
@@ -60,48 +63,143 @@ export function useDashboardData(
       const stationConfig = await getStationConfig(userCity, 'FR');
       console.log('[useDashboardData] stationConfig:', stationConfig?.name || 'non trouvée');
 
-      // ✅ 2. CORRECTION : Appel à l'API Route pour les statistiques
-      const statsResponse = await fetch(`/api/staff/dashboard-stats?city=${userCity}&country=FR`);
-      
-      if (!statsResponse.ok) {
-        throw new Error(`Erreur API: ${statsResponse.status}`);
-      }
-      
-      const statsData = await statsResponse.json();
+      // ✅ 2. CORRECTION : Utiliser UNIQUEMENT le client STAFF fourni (service_role)
+      // Le client STAFF a les droits pour lire TOUTES les tables (athletes, match_history, pending_signals, game_launches)
+      const client = supabaseClient;
+      console.log('[useDashboardData] Client STAFF disponible:', !!client);
 
-      // ✅ 3. Données des activités récentes (via client STAFF pour les messages et lancements)
+      // ✅ 3. CITY INFO
+      const cityInfoData: CityInfo = {
+        name: stationConfig?.name || userCity,
+        country: stationConfig?.country_code || 'FR',
+        totalAthletes: 0,
+        activeAthletes: 0
+      };
+
+      // ==========================================
+      // STATISTIQUES (via client STAFF)
+      // ==========================================
+      let totalAthletes = 0;
+      let activeAthletes = 0;
+      let todayMatches = 0;
+      let newAthletesThisMonth = 0;
       let pendingMessages = 0;
       let totalGameLaunches = 0;
-      const activities: RecentActivity[] = [];
 
-      if (supabaseClient) {
+      if (client) {
+        // Total athlètes
+        const { count: totalCount, error: totalError } = await client
+          .from('athletes')
+          .select('*', { count: 'exact', head: true });
+
+        if (totalError) {
+          console.warn('[useDashboardData] Erreur total athletes:', totalError.message);
+        } else {
+          totalAthletes = totalCount || 0;
+          console.log('[useDashboardData] Total athlètes:', totalAthletes);
+        }
+
+        // Athlètes actifs
+        const { count: activeCount, error: activeError } = await client
+          .from('athletes')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'ACTIF');
+
+        if (activeError) {
+          console.warn('[useDashboardData] Erreur active athletes:', activeError.message);
+        } else {
+          activeAthletes = activeCount || 0;
+          console.log('[useDashboardData] Athlètes actifs:', activeAthletes);
+        }
+
+        // Matchs aujourd'hui
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { count: matchesCount, error: matchesError } = await client
+          .from('match_history')
+          .select('*', { count: 'exact', head: true })
+          .gte('date', today.toISOString())
+          .lt('date', tomorrow.toISOString());
+
+        if (matchesError) {
+          console.warn('[useDashboardData] Erreur today matches:', matchesError.message);
+        } else {
+          todayMatches = matchesCount || 0;
+        }
+
+        // Nouveaux athlètes ce mois
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const { count: newCount, error: newError } = await client
+          .from('athletes')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', firstDayOfMonth.toISOString());
+
+        if (newError) {
+          console.warn('[useDashboardData] Erreur new athletes:', newError.message);
+        } else {
+          newAthletesThisMonth = newCount || 0;
+        }
+
         // Messages non lus
-        const { count: msgCount, error: msgError } = await supabaseClient
+        const { count: msgCount, error: msgError } = await client
           .from('pending_signals')
           .select('*', { count: 'exact', head: true })
           .eq('is_read', false);
 
-        if (!msgError) {
+        if (msgError) {
+          console.warn('[useDashboardData] Erreur pending messages:', msgError.message);
+        } else {
           pendingMessages = msgCount || 0;
+          console.log('[useDashboardData] Messages en attente:', pendingMessages);
         }
 
         // Lancements de jeux
-        const { count: launchesCount, error: launchesError } = await supabaseClient
+        const { count: launchesCount, error: launchesError } = await client
           .from('game_launches')
           .select('*', { count: 'exact', head: true });
 
-        if (!launchesError) {
+        if (launchesError) {
+          console.warn('[useDashboardData] Erreur game launches:', launchesError.message);
+        } else {
           totalGameLaunches = launchesCount || 0;
         }
+      } else {
+        console.warn('[useDashboardData] Pas de client STAFF, toutes les stats = 0');
+      }
 
+      setCityInfo({
+        ...cityInfoData,
+        totalAthletes,
+        activeAthletes
+      });
+
+      setStats({
+        totalAthletes,
+        activeAthletes,
+        pendingMessages,
+        todayMatches,
+        totalGameLaunches,
+        newAthletesThisMonth,
+        unreadCount: pendingMessages
+      });
+
+      // ==========================================
+      // ACTIVITÉS RÉCENTES (via client STAFF)
+      // ==========================================
+      const activities: RecentActivity[] = [];
+
+      if (client) {
         // Derniers messages
-        const { data: recentMessages } = await supabaseClient
+        const { data: recentMessages, error: recentMessagesError } = await client
           .from('pending_signals')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (recentMessages) {
+        if (!recentMessagesError && recentMessages) {
           recentMessages.forEach(msg => {
             activities.push({
               id: msg.id,
@@ -115,13 +213,13 @@ export function useDashboardData(
         }
 
         // Derniers lancements de jeux
-        const { data: recentLaunches } = await supabaseClient
+        const { data: recentLaunches, error: launchesError2 } = await client
           .from('game_launches')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (recentLaunches) {
+        if (!launchesError2 && recentLaunches) {
           recentLaunches.forEach(launch => {
             activities.push({
               id: launch.id,
@@ -133,45 +231,74 @@ export function useDashboardData(
             });
           });
         }
+
+        // Derniers matchs
+        const { data: recentMatches, error: matchesError2 } = await client
+          .from('match_history')
+          .select('*, athletes(pseudo, full_name)')
+          .order('date', { ascending: false })
+          .limit(3);
+
+        if (!matchesError2 && recentMatches) {
+          (recentMatches as unknown as MatchWithAthlete[]).forEach(match => {
+            const playerName = match.athletes?.pseudo || match.athletes?.full_name || 'Joueur';
+            activities.push({
+              id: match.id,
+              type: 'match',
+              title: `Match terminé - ${match.win ? 'Victoire' : 'Défaite'}`,
+              description: `${playerName} - ${match.score} pts`,
+              timestamp: match.date,
+              link: '/staff/licencies'
+            });
+          });
+        }
       }
 
-      // ✅ 4. CITY INFO
-      const cityInfoData: CityInfo = {
-        name: stationConfig?.name || userCity,
-        country: stationConfig?.country_code || 'FR',
-        totalAthletes: statsData.totalAthletes || 0,
-        activeAthletes: statsData.activeAthletes || 0
-      };
-
-      setCityInfo(cityInfoData);
-
-      setStats({
-        totalAthletes: statsData.totalAthletes || 0,
-        activeAthletes: statsData.activeAthletes || 0,
-        pendingMessages: pendingMessages,
-        todayMatches: 0,
-        totalGameLaunches: totalGameLaunches,
-        newAthletesThisMonth: statsData.newAthletesThisMonth || 0,
-        unreadCount: pendingMessages
-      });
-
-      // ✅ 5. Top joueurs depuis l'API - CORRECTION : type spécifique au lieu de any
-      if (statsData.topPlayers && statsData.topPlayers.length > 0) {
-        const topPlayersData: TopPlayer[] = statsData.topPlayers.map((player: ApiPlayerData) => ({
-          id: player.id,
-          pseudo: player.pseudo,
-          full_name: player.full_name,
-          points: player.points || 0,
-          rank: player.rank || 'RECRUE',
-          matchesPlayed: 0,
-          winRate: 0
-        }));
-        setTopPlayers(topPlayersData);
-      }
-
-      // Trier les activités par date
+      // Trier par date (plus récent en premier)
       activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setRecentActivities(activities);
+
+      // ==========================================
+      // TOP JOUEURS (via client STAFF)
+      // ==========================================
+      if (client) {
+        const { data: players, error: playersError } = await client
+          .from('athletes')
+          .select('id, pseudo, full_name, points, rank')
+          .order('points', { ascending: false })
+          .limit(5);
+
+        if (!playersError && players) {
+          const topPlayersData: TopPlayer[] = await Promise.all(
+            players.map(async (player) => {
+              const { count: matchesPlayed } = await client
+                .from('match_history')
+                .select('*', { count: 'exact', head: true })
+                .eq('player_id', player.id);
+
+              const { count: wins } = await client
+                .from('match_history')
+                .select('*', { count: 'exact', head: true })
+                .eq('player_id', player.id)
+                .eq('win', true);
+
+              const totalMatches = matchesPlayed || 0;
+              const winRate = totalMatches > 0 ? Math.round((wins || 0) / totalMatches * 100) : 0;
+
+              return {
+                id: player.id,
+                pseudo: player.pseudo,
+                full_name: player.full_name,
+                points: player.points || 0,
+                rank: player.rank || 'RECRUE',
+                matchesPlayed: totalMatches,
+                winRate
+              };
+            })
+          );
+          setTopPlayers(topPlayersData);
+        }
+      }
 
     } catch (err) {
       console.error('[useDashboardData] Erreur chargement dashboard:', err);
@@ -182,6 +309,7 @@ export function useDashboardData(
   }, [supabaseClient, userCity, userEmail]);
 
   // CORRECTION: Utilisation d'un effet qui s'exécute uniquement au montage
+  // pour éviter l'avertissement ESLint sur les setState synchrones
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
