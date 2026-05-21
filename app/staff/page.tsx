@@ -12,6 +12,7 @@ import {
   Target
 } from "lucide-react";
 import { getStaffCity } from "@/actions/staff-actions";
+import { getStaffConfig } from "@/actions/get-staff-config";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // NOUVEAUX COMPOSANTS
@@ -22,7 +23,6 @@ import TopPlayers from "./components/dashboard/TopPlayers";
 import NavigationGrid from "./components/dashboard/NavigationGrid";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { useDashboardData } from "./hooks/useDashboardData";
-import { getStationConfig } from "@/lib/supabase/master";
 
 export default function StaffDashboard() {
   // --- ÉTATS ---
@@ -51,8 +51,8 @@ export default function StaffDashboard() {
         try {
           const { createClient } = await import('@supabase/supabase-js');
           
-          // ✅ DYNAMIQUE : Récupérer la configuration de la ville via getStationConfig
-          const config = await getStationConfig(city, country || 'FR');
+          // ✅ CORRECTION : Utiliser la Server Action getStaffConfig (côté serveur)
+          const config = await getStaffConfig(city, country || 'FR');
           
           if (!config || !config.staff_url || !config.staff_anon_key) {
             console.error(`❌ Configuration STAFF introuvable pour ${city}`);
