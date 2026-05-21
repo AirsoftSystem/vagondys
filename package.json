@@ -8,7 +8,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postbuild": "node scripts/obfuscate-build.js",
     "optimize": "node scripts/optimize-images.js"
   },
   "dependencies": {
