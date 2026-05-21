@@ -2,7 +2,7 @@
 // app/staff/hooks/useDashboardData.ts
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { 
   CityInfo, 
@@ -28,6 +28,7 @@ export function useDashboardData(
   userEmail: string | null
 ): DashboardData {
 
+  // ✅ CORRECTION: Tous les useState ont des valeurs initiales explicites
   const [cityInfo, setCityInfo] = useState<CityInfo | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalAthletes: 0,
@@ -39,8 +40,11 @@ export function useDashboardData(
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ CORRECTION : Ref pour stocker la fonction de refresh stable
+  const refreshRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!supabaseClient || !userCity || !userEmail) {
@@ -173,7 +177,6 @@ export function useDashboardData(
 
       // Derniers matchs (PUBLIC via API)
       if (publicData.recentMatches && publicData.recentMatches.length > 0) {
-        // ✅ CORRECTION: Typage explicite pour éviter 'any'
         publicData.recentMatches.forEach((match: PublicMatchData) => {
           activities.push({
             id: match.id,
@@ -198,6 +201,12 @@ export function useDashboardData(
     }
   }, [supabaseClient, userCity, userEmail]);
 
+  // ✅ CORRECTION : Stocker la fonction de refresh dans une ref
+  useEffect(() => {
+    refreshRef.current = fetchDashboardData;
+  }, [fetchDashboardData]);
+
+  // ✅ CORRECTION : Premier chargement des données avec fonction async wrapper
   useEffect(() => {
     const loadData = async () => {
       await fetchDashboardData();
@@ -205,7 +214,7 @@ export function useDashboardData(
     loadData();
   }, [fetchDashboardData]);
 
-  // Realtime subscriptions (uniquement sur STAFF)
+  // ✅ CORRECTION : Realtime subscriptions avec ref stable
   useEffect(() => {
     if (!supabaseClient) return;
 
@@ -215,14 +224,19 @@ export function useDashboardData(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'pending_signals' },
         () => {
-          fetchDashboardData();
+          // ✅ Utiliser la ref stable pour éviter la dépendance circulaire
+          if (refreshRef.current) {
+            refreshRef.current();
+          }
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_launches' },
         () => {
-          fetchDashboardData();
+          if (refreshRef.current) {
+            refreshRef.current();
+          }
         }
       )
       .subscribe();
@@ -230,7 +244,7 @@ export function useDashboardData(
     return () => {
       supabaseClient.removeChannel(channel);
     };
-  }, [supabaseClient, fetchDashboardData]);
+  }, [supabaseClient]); // ✅ Plus de dépendance à fetchDashboardData
 
   return {
     cityInfo,
