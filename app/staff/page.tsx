@@ -170,9 +170,19 @@ export default function StaffDashboard() {
     };
   }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
 
+  // ✅ CORRECTION : Déconnexion via le client MASTER (pas le client STAFF)
   const handleLogout = async () => {
-    if (!supabaseClient) return;
-    await supabaseClient.auth.signOut();
+    try {
+      // Créer un client MASTER pour la déconnexion (auth centralisée)
+      const { createClient } = await import('@supabase/supabase-js');
+      const masterClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
+      );
+      await masterClient.auth.signOut();
+    } catch (err) {
+      console.error('Erreur déconnexion:', err);
+    }
     window.location.href = "/staff/login";
   };
 
