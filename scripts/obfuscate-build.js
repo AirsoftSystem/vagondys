@@ -18,7 +18,8 @@ async function obfuscateBuild() {
   const files = await glob('.next/static/**/*.js', {
     ignore: [
       '**/*.nft.json',
-      '**/polyfills*.js'
+      '**/polyfills*.js',
+      '**/webpack*.js'
     ]
   });
   
@@ -32,12 +33,12 @@ async function obfuscateBuild() {
       
       const code = await fs.readFile(file, 'utf8');
       
-      // ✅ CONFIGURATION STABLE FINALE (100% compatible)
+      // ✅ CONFIGURATION ULTRA-STABLE (100% compatible Turbopack)
       const obfuscated = JavaScriptObfuscator.obfuscate(code, {
-        // Formatage
+        // Formatage uniquement
         compact: true,
         
-        // ✅ TOUTES les options instables sont DÉSACTIVÉES
+        // ✅ TOUS les transforms désactivés (cause des conflits)
         controlFlowFlattening: false,
         deadCodeInjection: false,
         selfDefending: false,
@@ -45,17 +46,17 @@ async function obfuscateBuild() {
         unicodeEscapeSequence: false,
         transformObjectKeys: false,
         
-        // ✅ Protection des noms uniquement
+        // ✅ Protection des noms (suffisant)
         identifierNamesGenerator: 'mangled',
         renameGlobals: false,
         renameProperties: false,
         
-        // ✅ Protection des strings minimale
-        stringArray: true,
-        stringArrayEncoding: [],           // Pas d'encodage (stable)
-        stringArrayThreshold: 0.3,         // Seuil bas pour stabilité
+        // ✅ String array désactivé (cause des conflits)
+        stringArray: false,                    // ← MODIFIÉ (true → false)
+        stringArrayEncoding: [],
+        stringArrayThreshold: 0,
         
-        // ✅ Suppression des logs
+        // ✅ Suppression des logs conservée
         disableConsoleOutput: true,
       });
       
@@ -68,7 +69,7 @@ async function obfuscateBuild() {
   }
   
   console.log(`✅ ${protectedCount}/${files.length} fichiers statiques protégés avec succès !`);
-  console.log('🔐 Code obfusqué (mode stable)');
+  console.log('🔐 Code obfusqué (mode ultra-stable)');
 }
 
 obfuscateBuild().catch(console.error);
