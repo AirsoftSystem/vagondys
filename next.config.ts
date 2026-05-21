@@ -65,6 +65,18 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  
+  // ✅ CORRIGÉ : Configuration Webpack (sans swcMinify)
+  webpack: (config) => {
+    // Important pour la compatibilité avec certains modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
