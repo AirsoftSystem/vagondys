@@ -1370,6 +1370,7 @@ VAGONDYS/
 ┃  ┃  ┗━ README.txt                                ✅ EXISTANT
 ┃  ┗━ settings.json                                ✅ EXISTANT
 ┣━ actions/
+┃  ┣━ get-staff-config.ts                          ✅ EXISTANT
 ┃  ┗━ staff-actions.ts                             ✅ EXISTANT (Contient le Server Action)
 ┃
 ┣━ app/                                            ✅ EXISTANT
@@ -1469,18 +1470,31 @@ VAGONDYS/
 ┃  ┃  ┣━ auth/                                     ✅ EXISTANT
 ┃  ┃  ┃  ┗━ signup/                                ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ check-athlete/                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ confirm-email/                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ confirm-signal/                           ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ debug-env/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ force-admin/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ notify-read/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ player/                                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ token/                                 ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ record-match/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┗━ staff/                                    ✅ EXISTANT
+┃  ┃     ┣━ dashboard/                             ✅ EXISTANT
+┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃     ┣━ notify-transfer/                       ✅ EXISTANT
+┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃     ┣━ public-data/                           ✅ EXISTANT
 ┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃     ┗━ register-athlete/                      ✅ EXISTANT
 ┃  ┃        ┗━ route.ts                            ✅ EXISTANT
