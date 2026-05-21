@@ -1,3 +1,4 @@
+
 // scripts/obfuscate-build.js
 import JavaScriptObfuscator from 'javascript-obfuscator';
 import fs from 'fs-extra';
@@ -31,46 +32,51 @@ async function obfuscateBuild() {
       
       const code = await fs.readFile(file, 'utf8');
       
-      // Configuration de protection MAXIMALE
+      // ✅ CONFIGURATION DE PROTECTION OPTIMISÉE (compatible Next.js/Turbopack)
       const obfuscated = JavaScriptObfuscator.obfuscate(code, {
-        // Compactage
+        // Compactage - CONSERVÉ
         compact: true,
         
-        // Complexification du flux
+        // ✅ Complexification du flux - Réduit pour compatibilité
         controlFlowFlattening: true,
-        controlFlowFlatteningThreshold: 1,
+        controlFlowFlatteningThreshold: 0.5,     // ← MODIFIÉ (1 → 0.5)
         
-        // Code mort pour embrouiller
+        // ✅ Code mort - Réduit pour compatibilité
         deadCodeInjection: true,
-        deadCodeInjectionThreshold: 0.5,
+        deadCodeInjectionThreshold: 0.3,         // ← MODIFIÉ (0.5 → 0.3)
         
-        // Anti-débogage (désactivé pour éviter les erreurs)
+        // Anti-débogage (désactivé pour éviter les erreurs) - CONSERVÉ
         // debugProtection: true,
         // debugProtectionInterval: true,
         
-        // Supprime les console.log
+        // Supprime les console.log - CONSERVÉ
         disableConsoleOutput: true,
         
-        // Rend les noms de variables illisibles
+        // Rend les noms de variables illisibles - CONSERVÉ
         identifierNamesGenerator: 'mangled',
-        renameGlobals: true,
-        renameProperties: false,
         
-        // Auto-défense
-        selfDefending: true,
+        // ✅ CRITIQUE : renameGlobals false pour éviter conflits avec Next.js
+        renameGlobals: false,                    // ← MODIFIÉ (true → false)
         
-        // Protection des strings
+        renameProperties: false,                 // CONSERVÉ
+        
+        // ✅ Auto-défense - DÉSACTIVÉ (incompatible avec Next.js)
+        selfDefending: false,                    // ← MODIFIÉ (true → false)
+        
+        // Protection des strings - CONSERVÉ
         stringArray: true,
         stringArrayEncoding: ['rc4'],
-        stringArrayThreshold: 1,
+        stringArrayThreshold: 0.8,               // ← MODIFIÉ (1 → 0.8)
         
-        // Transformations avancées
+        // Transformations avancées - CONSERVÉ
         transformObjectKeys: true,
-        unicodeEscapeSequence: true,
         
-        // Empêche la beautification
-        splitStrings: true,
-        splitStringsChunkLength: 10
+        // ✅ Unicode - DÉSACTIVÉ (évite les erreurs de parsing)
+        unicodeEscapeSequence: false,            // ← MODIFIÉ (true → false)
+        
+        // ✅ Split strings - DÉSACTIVÉ (cause des conflits de variables)
+        splitStrings: false,                     // ← MODIFIÉ (true → false)
+        splitStringsChunkLength: 10              // CONSERVÉ (mais splitStrings false)
       });
       
       await fs.writeFile(file, obfuscated.getObfuscatedCode());
