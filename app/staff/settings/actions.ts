@@ -1,5 +1,6 @@
-
 "use server";
+
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * ACTION : searchAthleteAction
@@ -8,24 +9,14 @@
  */
 export async function searchAthleteAction(searchTerm: string) {
   try {
-    // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
-    const { createClient } = await import("@supabase/supabase-js");
-    
-    // ✅ Récupération des variables d'environnement à l'exécution
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_VAGONDYS;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_VAGONDYS;
-    
-    // ✅ Vérification des variables critiques
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase VAGONDYS manquantes dans searchAthleteAction");
-      throw new Error("CONFIGURATION SERVEUR INVALIDE");
-    }
-
     const cleanSearch = searchTerm.trim();
     if (!cleanSearch) return null;
 
     // Utilisation des clés Admin (Service Role) pour un accès total sans restrictions RLS
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL_VAGONDYS!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY_VAGONDYS!
+    );
 
     // Recherche par pseudo ou email avec insensibilité à la casse (ilike)
     const { data, error } = await supabaseAdmin

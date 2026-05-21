@@ -4,13 +4,12 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { fetchGitHubArchive } from "@/lib/supabase/client";
-import { getStationConfig } from "@/lib/supabase/master"; 
+import { getStationConfig, createDynamicClient } from "@/lib/supabase/master"; 
 import { SignalMessage, HistoryMessage, GitHubArchiveData } from "../types/interface";
 
 /**
  * HOOK PERSONNALISÉ : useStaffInterface
  * Centralise 100% de la logique métier, des appels API et de la gestion d'état.
- * Architecture décentralisée "City Aware" - Client STAFF sans conflit avec l'auth MASTER.
  */
 export function useStaffInterface() {
   // --- ÉTATS PRINCIPAUX ---
@@ -18,7 +17,7 @@ export function useStaffInterface() {
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [userCity, setUserCity] = useState<string>("NANTES");
+  const [userCity, setUserCity] = useState<string>("NANTES"); // Ville par défaut
   const [view, setView] = useState<"pending" | "archived">("pending");
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 
@@ -49,13 +48,14 @@ export function useStaffInterface() {
     if (lowerEmail.includes("lille")) return "LILLE";
     if (lowerEmail.includes("toulouse")) return "TOULOUSE";
     if (lowerEmail.includes("madrid")) return "MADRID";
-    return "NANTES";
+    return "NANTES"; // Défaut
   };
 
-  // ✅ Récupérer l'utilisateur connecté depuis le MASTER (auth centralisée)
+  // ✅ CORRECTION : Récupérer l'utilisateur connecté depuis le MASTER (auth centralisée)
   useEffect(() => {
     const checkUser = async () => {
       try {
+        // ✅ Utiliser le client MASTER pour l'authentification (auth centralisée)
         const { createClient: createMasterClient } = await import('@supabase/supabase-js');
         
         const masterClient = createMasterClient(
@@ -79,8 +79,7 @@ export function useStaffInterface() {
     checkUser();
   }, []);
 
-  // ✅ CORRECTION : Initialisation du client STAFF sans conflit d'auth
-  // Désactivation de autoRefreshToken et persistSession pour éviter les conflits avec MASTER
+  // ✅ CORRECTION : Initialisation du client dynamique avec SERVICE_ROLE pour la lecture
   useEffect(() => {
     const initClient = async () => {
       if (userEmail) {
@@ -89,26 +88,20 @@ export function useStaffInterface() {
         try {
           // ✅ Récupérer la configuration de la station
           const config = await getStationConfig(city, 'FR');
-          if (!config || !config.staff_url || !config.staff_service_key) {
-            console.error(`❌ Configuration STAFF introuvable pour ${city}`);
+          if (!config) {
+            console.error(`❌ Configuration introuvable pour ${city}`);
             return;
           }
           
-          // ✅ CORRECTION CRITIQUE : Créer le client STAFF sans auth persistence
-          // pour éviter le conflit "Multiple GoTrueClient instances"
-          const { createClient } = await import('@supabase/supabase-js');
-          const client = createClient(config.staff_url, config.staff_service_key, {
-            auth: {
-              autoRefreshToken: false,  // ← Désactivé pour éviter conflit avec MASTER
-              persistSession: false      // ← Désactivé pour éviter conflit avec MASTER
-            }
-          });
+          // ✅ CORRECTION : Utiliser createDynamicClient avec SERVICE_ROLE
+          // pour bypasser les RLS et lire toutes les données
+          const client = await createDynamicClient(city, 'FR', 'STAFF');
           
           setSupabase(client);
-          console.log(`✅ Client STAFF créé pour ${city} (sans conflit auth)`);
+          console.log(`✅ Client STAFF créé pour ${city} avec SERVICE_ROLE`);
           
         } catch (err) {
-          console.error("❌ Erreur création client STAFF:", err);
+          console.error("❌ Erreur création client dynamique:", err);
         }
       }
     };
@@ -145,9 +138,13 @@ export function useStaffInterface() {
         .select("*")
         .order("created_at", { ascending: false });
 
+      // Filtrer par statut de lecture
       query = view === "pending" ? query.eq("is_read", false) : query.eq("is_read", true);
+      
+      // AJOUT : Forcer confirmed = true (optionnel selon ta logique)
       query = query.eq("confirmed", true);
 
+      // Filtres par mots-clés selon l'email de l'agent (Admin vs Spécialisé)
       const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
       if (!admins.includes(email.toLowerCase())) {
         const lowerEmail = email.toLowerCase();
