@@ -2,7 +2,7 @@
 // app/staff/hooks/useDashboardData.ts
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { 
   CityInfo, 
@@ -41,8 +41,6 @@ export function useDashboardData(
   const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const refreshRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!supabaseClient || !userCity || !userEmail) {
@@ -172,11 +170,6 @@ export function useDashboardData(
     }
   }, [supabaseClient, userCity, userEmail]);
 
-  // ✅ Mettre à jour la ref
-  useEffect(() => {
-    refreshRef.current = fetchDashboardData;
-  }, [fetchDashboardData]);
-
   // ✅ CORRECTION: Chargement initial avec fonction async wrapper
   useEffect(() => {
     const loadData = async () => {
@@ -185,36 +178,7 @@ export function useDashboardData(
     loadData();
   }, [fetchDashboardData]);
 
-  // ✅ Realtime corrigé
-  useEffect(() => {
-    if (!supabaseClient) return;
-
-    const channel = supabaseClient
-      .channel('dashboard-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'pending_signals' },
-        () => {
-          if (refreshRef.current) {
-            refreshRef.current();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'game_launches' },
-        () => {
-          if (refreshRef.current) {
-            refreshRef.current();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(channel);
-    };
-  }, [supabaseClient]);
+  // ✅ PAS DE REALTIME - Supprimé complètement
 
   return {
     cityInfo,
