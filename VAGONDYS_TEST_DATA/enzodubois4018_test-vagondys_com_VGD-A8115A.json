@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-A8115A",
+  "client_identity": {
+    "nom": "Enzo Dubois",
+    "email": "enzodubois4018@test-vagondys.com",
+    "telephone": "0637781331",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-A8115A",
+    "created_at": "2026-02-05T20:57:37.283Z",
+    "payload": {
+      "name": "Enzo Dubois",
+      "pseudo": "EnzoDubois4018",
+      "email": "enzodubois4018@test-vagondys.com",
+      "phone": "0620577508",
+      "city": "Séville",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Dubois | Email: enzodubois4018@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.283Z",
+      "details": {
+        "name": "Enzo Dubois",
+        "email": "enzodubois4018@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzodubois4018@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.283Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.283Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

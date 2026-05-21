@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-0B7CEB",
+  "client_identity": {
+    "nom": "Hugo Dubois",
+    "email": "hugodubois5187@test-vagondys.com",
+    "telephone": "0650241172",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-0B7CEB",
+    "created_at": "2026-02-05T20:57:37.160Z",
+    "payload": {
+      "name": "Hugo Dubois",
+      "pseudo": "HugoDubois5187",
+      "email": "hugodubois5187@test-vagondys.com",
+      "phone": "0663998901",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Dubois | Email: hugodubois5187@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.160Z",
+      "details": {
+        "name": "Hugo Dubois",
+        "email": "hugodubois5187@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugodubois5187@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.160Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.160Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

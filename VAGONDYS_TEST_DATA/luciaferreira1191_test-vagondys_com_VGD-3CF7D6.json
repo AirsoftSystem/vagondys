@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-3CF7D6",
+  "client_identity": {
+    "nom": "Lucia Ferreira",
+    "email": "luciaferreira1191@test-vagondys.com",
+    "telephone": "0654009971",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-3CF7D6",
+    "created_at": "2026-02-05T20:57:37.080Z",
+    "payload": {
+      "name": "Lucia Ferreira",
+      "pseudo": "LuciaFerreira1191",
+      "email": "luciaferreira1191@test-vagondys.com",
+      "phone": "0626950491",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Ferreira | Email: luciaferreira1191@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.080Z",
+      "details": {
+        "name": "Lucia Ferreira",
+        "email": "luciaferreira1191@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciaferreira1191@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.080Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.080Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

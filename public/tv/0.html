@@ -1,0 +1,1033 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAGONDYS - Couloir 1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+        body { background: #0A101A; font-family: 'Orbitron', 'Courier New', monospace; min-height: 100vh; overflow: hidden; position: relative; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+        #bgCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        .tv-container { position: relative; z-index: 10; min-height: 100vh; padding: 20px; display: flex; flex-direction: column; }
+        .header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 20px; margin-bottom: 30px; border-bottom: 2px solid rgba(24, 255, 255, 0.3); flex-wrap: wrap; gap: 15px; }
+        .lane-title { font-family: 'Orbitron', monospace; font-size: 1.8rem; font-weight: 900; letter-spacing: 5px; background: linear-gradient(135deg, #fff, #18FFFF); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 20px rgba(24, 255, 255, 0.3); }
+        .lane-number { color: #ff3333; font-size: 2.2rem; text-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
+        .status-box { display: flex; align-items: center; gap: 12px; background: rgba(0, 0, 0, 0.6); padding: 8px 20px; border-radius: 40px; border: 1px solid rgba(24, 255, 255, 0.3); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+        .led { width: 14px; height: 14px; border-radius: 50%; background: #ff0000; box-shadow: 0 0 8px #ff0000; transition: all 0.3s; }
+        .led.connected { background: #00ff00; box-shadow: 0 0 12px #00ff00; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
+        .status-text { font-family: 'Orbitron', monospace; font-size: 0.8rem; font-weight: bold; letter-spacing: 2px; color: #18FFFF; }
+        
+        /* Grille des scores */
+        .scores-grid { 
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 25px;
+            flex: 1;
+            margin-bottom: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+        }
+        
+        .scores-grid.hidden {
+            display: none !important;
+        }
+        
+        .score-card { 
+            background: rgba(17, 25, 35, 0.15);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(24, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 30px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 200px;
+        }
+        
+        .score-card::before { 
+            content: ''; 
+            position: absolute; 
+            top: -50%; 
+            left: -50%; 
+            width: 200%; 
+            height: 200%; 
+            background: radial-gradient(circle, rgba(24, 255, 255, 0.05), transparent); 
+            opacity: 0; 
+            transition: opacity 0.5s; 
+        }
+        
+        .score-card.active { 
+            border-color: #FFD700; 
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            transform: scale(1.02);
+            background: rgba(30, 40, 55, 0.3);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+        
+        .score-card.active::before { opacity: 0.3; }
+        
+        .player-pseudo { 
+            font-family: 'Orbitron', monospace; 
+            font-size: 1.4rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            margin-bottom: 15px; 
+            color: #fff; 
+            text-shadow: 0 0 8px rgba(24, 255, 255, 0.5); 
+        }
+        
+        .player-score { 
+            font-family: 'Orbitron', monospace; 
+            font-size: 3.5rem; 
+            font-weight: 900; 
+            color: #18FFFF; 
+            text-shadow: 0 0 15px rgba(24, 255, 255, 0.5); 
+            margin: 10px 0; 
+            letter-spacing: 3px; 
+        }
+        
+        .player-time { 
+            font-family: 'Orbitron', monospace; 
+            font-size: 0.9rem; 
+            color: rgba(255, 255, 255, 0.6); 
+            letter-spacing: 1px; 
+        }
+        
+        /* Compteur de tirs */
+        .shot-counter {
+            margin-top: 8px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.65rem;
+            color: rgba(24, 255, 255, 0.5);
+            letter-spacing: 1px;
+        }
+        
+        .shot-counter span {
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        /* Timeout indicator */
+        .timeout-info {
+            margin-top: 6px;
+            font-size: 0.6rem;
+            color: rgba(255, 100, 100, 0.8);
+            font-family: monospace;
+        }
+        
+        .impact-info { 
+            margin-top: 12px; 
+            padding-top: 10px; 
+            border-top: 1px solid rgba(24, 255, 255, 0.2); 
+            font-size: 0.7rem; 
+            color: rgba(255, 215, 0, 0.9); 
+            text-align: center; 
+            font-family: monospace; 
+        }
+        
+        .waiting-message { text-align: center; padding: 40px; font-family: 'Orbitron', monospace; font-size: 1.2rem; letter-spacing: 4px; color: rgba(24, 255, 255, 0.4); text-transform: uppercase; background: rgba(0, 0, 0, 0.3); border-radius: 20px; margin-top: 20px; }
+        
+        .waiting-message.hidden {
+            display: none !important;
+        }
+        
+        /* Overlay FIN GAME */
+        .finish-game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .finish-game-overlay.hidden {
+            display: none !important;
+        }
+        
+        .finish-game-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 7vw;
+            font-weight: 900;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 20px;
+            animation: zoomIn 0.5s ease;
+        }
+        
+        /* Carte Classement */
+        .ranking-card {
+            background: rgba(17, 25, 35, 0.15);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(24, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 25px;
+            margin-bottom: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .ranking-card.hidden {
+            display: none !important;
+        }
+        
+        .ranking-header {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(24, 255, 255, 0.2);
+        }
+        
+        .ranking-subheader {
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 100px;
+            gap: 10px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(24, 255, 255, 0.3);
+        }
+        
+        .ranking-subheader span {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .ranking-subheader span:nth-child(2) { text-align: left; }
+        .ranking-subheader span:nth-child(3) { text-align: right; }
+        .ranking-subheader span:nth-child(4) { text-align: right; }
+        
+        .ranking-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .ranking-item {
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 100px;
+            gap: 10px;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 12px 15px;
+            transition: all 0.2s ease;
+        }
+        
+        .ranking-item:hover {
+            background: rgba(24, 255, 255, 0.1);
+        }
+        
+        .ranking-position {
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #FFD700;
+        }
+        
+        .ranking-pseudo {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #fff;
+            text-align: left;
+        }
+        
+        .ranking-score {
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 800;
+            text-align: right;
+            color: #18FFFF;
+        }
+        
+        .ranking-time {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.8rem;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .ranking-footer {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(24, 255, 255, 0.15);
+            font-family: monospace;
+            font-size: 0.6rem;
+            text-align: center;
+            color: rgba(24, 255, 255, 0.4);
+            letter-spacing: 2px;
+        }
+        
+        .ranking-empty {
+            text-align: center;
+            padding: 30px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.8rem;
+            color: rgba(24, 255, 255, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        /* Overlay d'activation */
+        .activation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+        .activation-overlay.hidden { display: none; }
+        .activation-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 900;
+            text-align: center;
+            background: linear-gradient(135deg, #18FFFF, #00AAFF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 30px rgba(24, 255, 255, 0.5);
+            animation: textPulse 1.5s ease-in-out infinite;
+            margin-bottom: 30px;
+        }
+        @keyframes textPulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); text-shadow: 0 0 50px rgba(24, 255, 255, 0.8); }
+        }
+        .activation-ok {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            padding: 15px 40px;
+            background: rgba(24, 255, 255, 0.1);
+            border: 2px solid #18FFFF;
+            border-radius: 50px;
+            color: #18FFFF;
+            font-weight: bold;
+            letter-spacing: 5px;
+            transition: all 0.3s ease;
+        }
+        .activation-sub { margin-top: 20px; font-size: 0.7rem; color: rgba(24, 255, 255, 0.5); letter-spacing: 2px; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .countdown-overlay { display: none; }
+        
+        .footer { text-align: center; padding-top: 20px; margin-top: 20px; border-top: 1px solid rgba(24, 255, 255, 0.15); font-family: 'Orbitron', monospace; font-size: 0.6rem; letter-spacing: 3px; color: rgba(24, 255, 255, 0.3); }
+        .hidden { display: none !important; }
+        .flex { display: flex !important; }
+        
+        @media (max-width: 768px) {
+            .scores-grid { gap: 15px; }
+            .player-pseudo { font-size: 1rem; }
+            .player-score { font-size: 2.5rem; }
+            .lane-title { font-size: 1rem; }
+            .lane-number { font-size: 1.2rem; }
+            .score-card { padding: 20px 15px; min-height: 160px; }
+            .ranking-subheader { grid-template-columns: 40px 1fr 60px 70px; gap: 5px; }
+            .ranking-subheader span { font-size: 0.55rem; }
+            .ranking-item { grid-template-columns: 40px 1fr 60px 70px; gap: 5px; padding: 8px 12px; }
+            .ranking-position { font-size: 0.8rem; }
+            .ranking-pseudo { font-size: 0.7rem; }
+            .ranking-score { font-size: 0.8rem; }
+            .ranking-time { font-size: 0.65rem; }
+            .ranking-header { font-size: 0.9rem; letter-spacing: 2px; }
+            .shot-counter { font-size: 0.55rem; }
+        }
+        @media (max-width: 480px) {
+            .scores-grid { gap: 10px; }
+            .player-score { font-size: 1.8rem; }
+            .player-pseudo { font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bgCanvas"></canvas>
+    
+    <!-- Overlay d'activation -->
+    <div id="activationOverlay" class="activation-overlay">
+        <div class="activation-text">VAGONDYS READY</div>
+        <div class="activation-ok">🔴 APPUYEZ SUR OK 🔴</div>
+        <div class="activation-sub">PLEIN ÉCRAN ACTIF</div>
+    </div>
+    
+    <div class="tv-container">
+        <div class="header">
+            <div class="lane-title">COULOIR <span id="laneNumber" class="lane-number">1</span></div>
+            <div class="status-box"><div id="led" class="led"></div><span id="statusText" class="status-text">DÉCONNECTÉ</span></div>
+        </div>
+        
+        <!-- Grille des scores (cartes joueurs) -->
+        <div id="scoresGrid" class="scores-grid"></div>
+        
+        <!-- Carte Classement -->
+        <div id="rankingCard" class="ranking-card hidden">
+            <div class="ranking-header">🏆 CLASSEMENT FINAL 🏆</div>
+            <div class="ranking-subheader">
+                <span>RANG</span>
+                <span>JOUEUR</span>
+                <span>SCORE</span>
+                <span>TEMPS</span>
+            </div>
+            <div id="rankingList" class="ranking-list"></div>
+            <div class="ranking-footer">En attente de la prochaine partie...</div>
+        </div>
+        
+        <div id="waitingMessage" class="waiting-message">EN ATTENTE DE PARTIE</div>
+        <div class="footer">VAGONDYS OFFICIAL SYSTEM — AFFICHAGE EN DIRECT</div>
+    </div>
+    <div id="countdownOverlay" class="countdown-overlay hidden"></div>
+    
+    <!-- Overlay FIN GAME -->
+    <div id="finishGameOverlay" class="finish-game-overlay hidden">
+        <div class="finish-game-text">FIN GAME</div>
+    </div>
+
+    <script>
+        const laneId = 0;
+        document.getElementById('laneNumber').textContent = laneId + 1;
+        
+        let ws = null, reconnectTimeout = null, playerCount = 4, activePlayerIndex = -1;
+        let players = [];
+        let playersFinalScores = [];
+        let finishGameInProgress = false;
+        let finishGameTimeout = null;
+        
+        // Compteur de tirs
+        let currentShotCount = 0;
+        
+        // Flag pour éviter les appels multiples de FIN GAME
+        let gameEnded = false;
+        
+        // ✅ NOUVEAU : Variable pour suivre l'état de la partie
+        let isGameInProgress = false;
+        
+        // Stockage des logs pour l'historique
+        let currentSessionLogs = [];
+        let currentSessionDate = null;
+        
+        // Clé localStorage pour l'historique
+        const HISTORY_KEY = `vagondys_lane_${laneId}_history`;
+        
+        // ✅ Fonction utilitaire pour nettoyer un pseudo (enlever le préfixe distance)
+        function cleanPseudo(pseudo) {
+            if (!pseudo) return pseudo;
+            // Enlever les préfixes 5m_, 10m_, 15m_
+            if (pseudo.startsWith('5m_') || pseudo.startsWith('10m_') || pseudo.startsWith('15m_')) {
+                return pseudo.substring(3); // Supprime les 3 premiers caractères (ex: "5m_")
+            }
+            return pseudo;
+        }
+        
+        // ==========================================
+        // GESTION DE L'HISTORIQUE (localStorage)
+        // ==========================================
+        
+        function loadHistory() {
+            try {
+                const saved = localStorage.getItem(HISTORY_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch(e) { console.error('Erreur chargement historique:', e); }
+            return [];
+        }
+        
+        function saveHistory(history) {
+            try {
+                if (history.length > 50) history = history.slice(-50);
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+                console.log(`✅ Historique sauvegardé (${history.length} parties)`);
+            } catch(e) { console.error('Erreur sauvegarde historique:', e); }
+        }
+        
+        function saveCurrentGameToHistory() {
+            if (currentSessionLogs.length === 0) return;
+            
+            const logsText = currentSessionLogs.join('\n');
+            
+            const gameData = {
+                id: `${new Date().toISOString().replace(/[:.]/g, '-')}_lane${laneId}`,
+                date: currentSessionDate || new Date().toISOString(),
+                laneId: laneId,
+                mode: null,
+                playerCount: playerCount,
+                players: [],
+                podium: [],
+                logs: logsText
+            };
+            
+            const modeMatch = logsText.match(/([⭐🏆🎯]*)\s*(MODE\s+)?([A-Z]+)\s*-\s*(\d+)\s*joueurs/i);
+            if (modeMatch) {
+                gameData.mode = modeMatch[3] || 'UNKNOWN';
+                gameData.playerCount = parseInt(modeMatch[4]) || playerCount;
+            }
+            
+            const pseudoMatches = logsText.matchAll(/🎮\s+(\S+)/g);
+            const pseudosSet = new Set();
+            for (const match of pseudoMatches) {
+                pseudosSet.add(cleanPseudo(match[1]));
+            }
+            gameData.players = Array.from(pseudosSet);
+            
+            const podiumMatches = logsText.matchAll(/([🥇🥈🥉\d\.]+)\s+(\S+)\s*-\s*(\d+)\s*pts?\s*\|\s*([\d.]+)s/g);
+            for (const match of podiumMatches) {
+                gameData.podium.push({
+                    position: match[1].trim(),
+                    pseudo: cleanPseudo(match[2]),
+                    score: parseInt(match[3]),
+                    temps: parseFloat(match[4])
+                });
+            }
+            
+            if (gameData.podium.length === 0 && playersFinalScores.length > 0) {
+                const sorted = [...playersFinalScores].sort((a, b) => b.score - a.score || a.time - b.time);
+                sorted.forEach((player, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}.`;
+                    gameData.podium.push({
+                        position: medal,
+                        pseudo: cleanPseudo(player.pseudo),
+                        score: player.score,
+                        temps: player.time
+                    });
+                });
+            }
+            
+            const history = loadHistory();
+            history.unshift(gameData);
+            saveHistory(history);
+            console.log(`📝 Partie sauvegardée: ${gameData.mode} - ${gameData.players.length} joueurs`);
+        }
+        
+        // ==========================================
+        // GESTION PLEIN ÉCRAN
+        // ==========================================
+        let fullscreenActivated = false;
+        const activationOverlay = document.getElementById('activationOverlay');
+        
+        function activateFullscreen() {
+            if (fullscreenActivated) return;
+            console.log('🖥️ Activation du plein écran...');
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().catch(e => console.log('Erreur plein écran:', e));
+            } else if (docEl.webkitRequestFullscreen) {
+                docEl.webkitRequestFullscreen();
+            } else if (docEl.msRequestFullscreen) {
+                docEl.msRequestFullscreen();
+            }
+            fullscreenActivated = true;
+            activationOverlay.style.opacity = '0';
+            setTimeout(() => {
+                activationOverlay.classList.add('hidden');
+            }, 500);
+        }
+        
+        function handleActivation(e) {
+            if (fullscreenActivated) return;
+            if (e.type === 'keydown' && (e.key === 'Enter' || e.keyCode === 13)) {
+                e.preventDefault();
+                activateFullscreen();
+            } else if (e.type !== 'keydown') {
+                activateFullscreen();
+            }
+        }
+        
+        if (activationOverlay) {
+            activationOverlay.addEventListener('click', handleActivation);
+            document.addEventListener('keydown', handleActivation);
+        }
+        
+        // ==========================================
+        // FOND ANIMÉ
+        // ==========================================
+        const canvas = document.getElementById('bgCanvas'), ctx = canvas.getContext('2d');
+        let particles = [], animationId = null;
+        
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        function createParticles() { particles = []; const count = Math.min(150, Math.floor(window.innerWidth * 0.1)); for (let i = 0; i < count; i++) particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: 1 + Math.random() * 4, speedX: (Math.random() - 0.5) * 0.6, speedY: 0.5 + Math.random() * 1.2, alpha: 0.2 + Math.random() * 0.4 }); }
+        function animateBackground() { if (!ctx) return; ctx.fillStyle = '#0A101A'; ctx.fillRect(0, 0, canvas.width, canvas.height); for (const p of particles) { ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.4})`; ctx.fill(); p.x += p.speedX; p.y += p.speedY; if (p.y > canvas.height) { p.y = 0; p.x = Math.random() * canvas.width; } if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0; } const centerX = canvas.width / 2, centerY = canvas.height * 0.55, radius = canvas.width * 0.28; const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius); gradient.addColorStop(0, `rgba(24, 255, 255, ${0.08 + Math.sin(Date.now() * 0.001) * 0.02})`); gradient.addColorStop(1, 'rgba(24, 255, 255, 0)'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); animationId = requestAnimationFrame(animateBackground); }
+        function initBackground() { resizeCanvas(); createParticles(); animateBackground(); window.addEventListener('resize', () => { resizeCanvas(); createParticles(); }); }
+        
+        // ==========================================
+        // FONCTIONS D'AFFICHAGE
+        // ==========================================
+        
+        function updateShotCounter(playerIndex, shotNumber, isTimeout) {
+            const scoresGrid = document.getElementById('scoresGrid');
+            if (!scoresGrid || scoresGrid.classList.contains('hidden')) return;
+            const card = scoresGrid.children[playerIndex];
+            if (card) {
+                const oldCounter = card.querySelector('.shot-counter');
+                if (oldCounter) oldCounter.remove();
+                const oldTimeout = card.querySelector('.timeout-info');
+                if (oldTimeout) oldTimeout.remove();
+                
+                const counterDiv = document.createElement('div');
+                counterDiv.className = 'shot-counter';
+                counterDiv.innerHTML = `🔫 Tir <span>${shotNumber}/20</span>`;
+                card.appendChild(counterDiv);
+                
+                if (isTimeout) {
+                    const timeoutDiv = document.createElement('div');
+                    timeoutDiv.className = 'timeout-info';
+                    timeoutDiv.innerHTML = `⏰ TIMEOUT (1.5s) - Bonus réinitialisé`;
+                    card.appendChild(timeoutDiv);
+                    setTimeout(() => {
+                        if (timeoutDiv.parentNode) timeoutDiv.remove();
+                    }, 3000);
+                }
+            }
+        }
+        
+        function updateImpact(playerIndex, impactText) {
+            const scoresGrid = document.getElementById('scoresGrid');
+            if (!scoresGrid || scoresGrid.classList.contains('hidden')) return;
+            const card = scoresGrid.children[playerIndex];
+            if (card) {
+                let impactDiv = card.querySelector('.impact-info');
+                if (!impactDiv) {
+                    impactDiv = document.createElement('div');
+                    impactDiv.className = 'impact-info';
+                    card.appendChild(impactDiv);
+                }
+                impactDiv.textContent = impactText;
+                impactDiv.style.opacity = '0';
+                setTimeout(() => { impactDiv.style.opacity = '1'; }, 50);
+                setTimeout(() => { if (impactDiv.textContent === impactText) impactDiv.textContent = ''; }, 3000);
+            }
+        }
+        
+        function updateUI() {
+            const scoresGrid = document.getElementById('scoresGrid');
+            if (scoresGrid.classList.contains('hidden')) return;
+            
+            while (scoresGrid.children.length < playerCount) { 
+                const card = document.createElement('div'); 
+                card.className = 'score-card'; 
+                card.innerHTML = `<div class="player-pseudo">J${scoresGrid.children.length + 1}</div><div class="player-score">0</div><div class="player-time">⏱ 0.000s</div>`; 
+                scoresGrid.appendChild(card); 
+            }
+            for (let i = 0; i < scoresGrid.children.length; i++) scoresGrid.children[i].style.display = i < playerCount ? 'block' : 'none';
+            for (let i = 0; i < playerCount; i++) { 
+                const card = scoresGrid.children[i]; 
+                if (!card) continue; 
+                const pseudoDiv = card.querySelector('.player-pseudo'), scoreDiv = card.querySelector('.player-score'), timeDiv = card.querySelector('.player-time'); 
+                if (players[i]) { 
+                    // ✅ CORRECTION : Nettoyer le pseudo avant affichage
+                    if (pseudoDiv) pseudoDiv.textContent = cleanPseudo(players[i].pseudo); 
+                    if (scoreDiv) scoreDiv.textContent = players[i].score; 
+                    if (timeDiv) timeDiv.textContent = `⏱ ${players[i].time.toFixed(3)}s`; 
+                } 
+                if (i === activePlayerIndex) card.classList.add('active'); else card.classList.remove('active'); 
+            }
+            const hasScore = players.some(p => p && p.score > 0); 
+            const waitingMsg = document.getElementById('waitingMessage');
+            if (waitingMsg) waitingMsg.style.display = hasScore ? 'none' : 'block';
+        }
+        
+        function initPlayers() { 
+            players = [];
+            for (let i = 0; i < playerCount; i++) {
+                players.push({ pseudo: `J${i + 1}`, score: 0, time: 0 });
+            }
+            activePlayerIndex = -1; 
+            currentShotCount = 0;
+            updateUI(); 
+        }
+        
+        function afficherClassementDansCarte() {
+            const rankingList = document.getElementById('rankingList');
+            
+            if (playersFinalScores.length === 0) {
+                rankingList.innerHTML = '<div class="ranking-empty">Aucune donnée disponible</div>';
+                return;
+            }
+            
+            const classement = [...playersFinalScores];
+            classement.sort((a, b) => {
+                if (a.score !== b.score) return b.score - a.score;
+                return a.time - b.time;
+            });
+            
+            rankingList.innerHTML = '';
+            
+            classement.forEach((joueur, index) => {
+                const item = document.createElement('div');
+                item.className = 'ranking-item';
+                
+                let medal = '';
+                if (index === 0) medal = '🥇 ';
+                else if (index === 1) medal = '🥈 ';
+                else if (index === 2) medal = '🥉 ';
+                else medal = `${index + 1}. `;
+                
+                const tempsSec = typeof joueur.time === 'number' ? joueur.time.toFixed(3) : '0.000';
+                const scoreAff = typeof joueur.score === 'number' ? joueur.score : 0;
+                
+                // ✅ CORRECTION : Nettoyer le pseudo dans le classement
+                const pseudoPropre = cleanPseudo(joueur.pseudo);
+                
+                item.innerHTML = `
+                    <div class="ranking-position">${medal}</div>
+                    <div class="ranking-pseudo">${pseudoPropre}</div>
+                    <div class="ranking-score">${scoreAff} pts</div>
+                    <div class="ranking-time">${tempsSec} s</div>
+                `;
+                rankingList.appendChild(item);
+            });
+        }
+        
+        function montrerClassement() {
+            const rankingCard = document.getElementById('rankingCard');
+            const scoresGrid = document.getElementById('scoresGrid');
+            const waitingMsg = document.getElementById('waitingMessage');
+            
+            afficherClassementDansCarte();
+            rankingCard.classList.remove('hidden');
+            scoresGrid.classList.add('hidden');
+            if (waitingMsg) waitingMsg.classList.add('hidden');
+        }
+        
+        function cacherClassement() {
+            const rankingCard = document.getElementById('rankingCard');
+            const scoresGrid = document.getElementById('scoresGrid');
+            const waitingMsg = document.getElementById('waitingMessage');
+            
+            rankingCard.classList.add('hidden');
+            scoresGrid.classList.remove('hidden');
+            if (waitingMsg) waitingMsg.classList.remove('hidden');
+        }
+        
+        function sauvegarderScoresFinaux() {
+            playersFinalScores = [];
+            for (let i = 0; i < players.length; i++) {
+                if (players[i]) {
+                    playersFinalScores.push({
+                        pseudo: players[i].pseudo,
+                        score: players[i].score,
+                        time: players[i].time
+                    });
+                }
+            }
+            console.log('💾 Scores finaux sauvegardés:', playersFinalScores);
+        }
+        
+        function showCountdown(value) {
+            console.log(`🔴 COUNTDOWN: ${value}`);
+        }
+        
+        function triggerFinishGameSequence() {
+            if (finishGameInProgress) return;
+            finishGameInProgress = true;
+            gameEnded = true;
+            isGameInProgress = false;
+            
+            console.log('🏁 DÉCLENCHEMENT FIN GAME');
+            
+            sauvegarderScoresFinaux();
+            saveCurrentGameToHistory();
+            
+            currentSessionLogs = [];
+            currentSessionDate = null;
+            
+            const finishOverlay = document.getElementById('finishGameOverlay');
+            if (finishGameTimeout) clearTimeout(finishGameTimeout);
+            
+            finishOverlay.classList.remove('hidden');
+            finishOverlay.classList.add('flex');
+            
+            finishGameTimeout = setTimeout(() => {
+                finishOverlay.classList.add('hidden');
+                finishOverlay.classList.remove('flex');
+                montrerClassement();
+                finishGameInProgress = false;
+                finishGameTimeout = null;
+            }, 3000);
+        }
+        
+        function setConnected(connected) { 
+            const led = document.getElementById('led'), status = document.getElementById('statusText'); 
+            if (connected) { 
+                led.classList.add('connected'); 
+                status.textContent = 'CONNECTÉ'; 
+            } else { 
+                led.classList.remove('connected'); 
+                status.textContent = 'DÉCONNECTÉ'; 
+            } 
+        }
+        
+        // ==========================================
+        // TRAITEMENT DES MESSAGES WEBSOCKET
+        // ==========================================
+        function handleMessage(data) {
+            if (data.type === 'log') {
+                const log = data.content;
+                console.log('📥 LOG:', log);
+                
+                // Détection du début d'une nouvelle session
+                if (log.includes('--- SESSION DU')) {
+                    const dateMatch = log.match(/--- SESSION DU (.+) À (.+) ---/);
+                    if (dateMatch) {
+                        currentSessionDate = new Date(`${dateMatch[1]} ${dateMatch[2]}`).toISOString();
+                    }
+                    currentSessionLogs = [];
+                }
+                
+                // Ajouter le log à la session courante
+                currentSessionLogs.push(log);
+                
+                // Détection de fin de partie
+                const isGameEnd = (
+                    log.includes('CLASSEMENT FINAL') ||
+                    log.includes('VICTOIRE:') ||
+                    log.includes('FINAL:') ||
+                    (log.includes('CLASSEMENT') && log.includes('PODIUM'))
+                );
+                
+                if (isGameEnd && !gameEnded && !finishGameInProgress) {
+                    triggerFinishGameSequence();
+                }
+                
+                const isPlayerCountLog = log.match(/(\d) JOUEURS/);
+                if (isPlayerCountLog && !log.includes('CLASSEMENT FINAL')) { 
+                    const newPlayerCount = parseInt(isPlayerCountLog[1]);
+                    if (!isGameInProgress && newPlayerCount !== playerCount) {
+                        playerCount = newPlayerCount; 
+                        initPlayers(); 
+                        updateUI();
+                    } else if (!isGameInProgress && newPlayerCount === playerCount) {
+                        updateUI();
+                    }
+                }
+                
+                // Début d'une nouvelle partie
+                if (log.includes('🔫 JEU EN COURS - LED ÉTEINTE')) {
+                    console.log('🎮 Nouvelle partie détectée');
+                    cacherClassement();
+                    gameEnded = false;
+                    finishGameInProgress = false;
+                    currentShotCount = 0;
+                    isGameInProgress = true;
+                    if (finishGameTimeout) {
+                        clearTimeout(finishGameTimeout);
+                        finishGameTimeout = null;
+                    }
+                }
+                
+                // ✅ CORRECTION : Nettoyer le pseudo du joueur
+                const playerMatch = log.match(/🎮 (\S+)/); 
+                if (playerMatch && !log.includes('IMPACT') && !log.includes('Score:')) { 
+                    let pseudoStart = cleanPseudo(playerMatch[1]);
+                    let found = false;
+                    for (let i = 0; i < players.length; i++) { 
+                        if (players[i].pseudo === pseudoStart || players[i].pseudo === `J${i+1}`) { 
+                            players[i].pseudo = pseudoStart;
+                            activePlayerIndex = i;
+                            found = true;
+                            break; 
+                        } 
+                    }
+                    if (!found && players.length > 0) {
+                        for (let i = 0; i < players.length; i++) {
+                            if (players[i].pseudo === `J${i+1}`) {
+                                players[i].pseudo = pseudoStart;
+                                activePlayerIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    currentShotCount = 0;
+                    updateUI(); 
+                }
+                
+                // Détection du tir (compteur)
+                const tirMatch = log.match(/🚀 Tir (\d+)\/20/);
+                if (tirMatch && activePlayerIndex >= 0) {
+                    currentShotCount = parseInt(tirMatch[1]);
+                    updateShotCounter(activePlayerIndex, currentShotCount, false);
+                }
+                
+                // Détection du timeout
+                const timeoutMatch = log.match(/⏰ Timeout/);
+                if (timeoutMatch && activePlayerIndex >= 0) {
+                    updateShotCounter(activePlayerIndex, currentShotCount, true);
+                }
+                
+                const impactMatch = log.match(/🎯 IMPACT: BP\d+ en ([\d.]+)s \| (\d+) \+(\d+) = (\d+)/);
+                if (impactMatch && activePlayerIndex >= 0 && players[activePlayerIndex]) {
+                    const temps = parseFloat(impactMatch[1]);
+                    const pointsBase = parseInt(impactMatch[2]);
+                    const bonus = parseInt(impactMatch[3]);
+                    const scoreDuTir = parseInt(impactMatch[4]);
+                    players[activePlayerIndex].score = scoreDuTir;
+                    players[activePlayerIndex].time += temps;
+                    updateImpact(activePlayerIndex, `🎯 +${scoreDuTir} pts (${temps}s | ${pointsBase}+${bonus})`);
+                    updateUI();
+                }
+                
+                const scoreMatch = log.match(/💰 Score: (\d+)/);
+                if (scoreMatch && activePlayerIndex >= 0 && players[activePlayerIndex]) { 
+                    players[activePlayerIndex].score = parseInt(scoreMatch[1]); 
+                    updateUI(); 
+                }
+                
+                // ✅ CORRECTION : Nettoyer le pseudo dans finishMatch
+                const finishMatch = log.match(/🏁 (\S+) \| Score: (\d+) \| Temps: ([\d.]+)s/);
+                if (finishMatch) {
+                    const pseudo = cleanPseudo(finishMatch[1]);
+                    const score = parseInt(finishMatch[2]);
+                    const temps = parseFloat(finishMatch[3]);
+                    for (let i = 0; i < players.length; i++) { 
+                        if (players[i].pseudo === pseudo) { 
+                            players[i].score = score; 
+                            players[i].time = temps; 
+                            break; 
+                        } 
+                    }
+                    updateUI();
+                }
+                
+                const cdMatch = log.match(/COUNTDOWN: (\d+|VIZ)/);
+                if (cdMatch) {
+                    const value = cdMatch[1];
+                    if (value === 'VIZ') showCountdown('VIZ');
+                    else showCountdown(parseInt(value));
+                }
+            }
+            
+            if (data.type === 'score') { 
+                if (players[data.playerIndex]) { 
+                    players[data.playerIndex].score = data.score; 
+                    updateUI(); 
+                } 
+            }
+            
+            if (data.type === 'game_status') { 
+                if (data.message === 'NEXT_PLAYER' && data.playerIndex !== undefined) { 
+                    activePlayerIndex = data.playerIndex; 
+                    currentShotCount = 0;
+                    updateUI(); 
+                } 
+                if (data.message === 'COUNTDOWN' && data.value) showCountdown(data.value); 
+                if (data.message === 'FIN_GAME' && !gameEnded && !finishGameInProgress) {
+                    triggerFinishGameSequence();
+                }
+            }
+        }
+        
+        // ==========================================
+        // CONNEXION WEBSOCKET
+        // ==========================================
+        function connectWebSocket() {
+            let ip = '192.168.1.30';
+            try { 
+                const savedIps = localStorage.getItem('vagondys_lanes_ips'); 
+                if (savedIps) { 
+                    const ips = JSON.parse(savedIps); 
+                    if (ips[laneId] && ips[laneId].ip) ip = ips[laneId].ip; 
+                } 
+            } catch (e) { 
+                console.error('Erreur lecture IP:', e); 
+            }
+            const wsUrl = `ws://${ip}:8765`;
+            console.log(`Connexion WebSocket à ${wsUrl}`);
+            if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            try { 
+                ws = new WebSocket(wsUrl); 
+                ws.onopen = () => { 
+                    console.log('WebSocket connecté'); 
+                    setConnected(true); 
+                    initPlayers(); 
+                    cacherClassement();
+                    playersFinalScores = [];
+                    finishGameInProgress = false;
+                    gameEnded = false;
+                    isGameInProgress = false;
+                    currentShotCount = 0;
+                    currentSessionLogs = [];
+                    currentSessionDate = null;
+                    ws.send(JSON.stringify({ type: 'tv_display', laneId: laneId })); 
+                }; 
+                ws.onmessage = (event) => { 
+                    try { 
+                        const data = JSON.parse(event.data); 
+                        handleMessage(data); 
+                    } catch (e) { 
+                        console.error('Erreur parsing:', e); 
+                    } 
+                }; 
+                ws.onclose = () => { 
+                    console.log('WebSocket déconnecté'); 
+                    setConnected(false); 
+                    reconnectTimeout = setTimeout(connectWebSocket, 5000); 
+                }; 
+                ws.onerror = (err) => { 
+                    console.error('Erreur WebSocket:', err); 
+                    setConnected(false); 
+                }; 
+            } catch (err) { 
+                console.error('Erreur connexion:', err); 
+                setConnected(false); 
+                reconnectTimeout = setTimeout(connectWebSocket, 5000); 
+            }
+        }
+        
+        initBackground(); 
+        initPlayers(); 
+        connectWebSocket();
+    </script>
+</body>
+</html>

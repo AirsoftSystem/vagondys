@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D750FC",
+  "client_identity": {
+    "nom": "Manon Moreau",
+    "email": "manonmoreau5089@test-vagondys.com",
+    "telephone": "0616883918",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D750FC",
+    "created_at": "2026-02-05T20:59:23.970Z",
+    "payload": {
+      "name": "Manon Moreau",
+      "pseudo": "ManonMoreau5089",
+      "email": "manonmoreau5089@test-vagondys.com",
+      "phone": "0619663200",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Moreau | Email: manonmoreau5089@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.970Z",
+      "details": {
+        "name": "Manon Moreau",
+        "email": "manonmoreau5089@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonmoreau5089@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.970Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.970Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

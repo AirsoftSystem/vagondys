@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-C3BF83",
+  "client_identity": {
+    "nom": "Emma Dubois",
+    "email": "emmadubois6075@test-vagondys.com",
+    "telephone": "0660055491",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-C3BF83",
+    "created_at": "2026-02-05T20:59:23.627Z",
+    "payload": {
+      "name": "Emma Dubois",
+      "pseudo": "EmmaDubois6075",
+      "email": "emmadubois6075@test-vagondys.com",
+      "phone": "0624071783",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Dubois | Email: emmadubois6075@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.627Z",
+      "details": {
+        "name": "Emma Dubois",
+        "email": "emmadubois6075@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmadubois6075@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.627Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.627Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

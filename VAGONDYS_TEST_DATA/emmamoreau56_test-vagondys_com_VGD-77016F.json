@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-77016F",
+  "client_identity": {
+    "nom": "Emma Moreau",
+    "email": "emmamoreau56@test-vagondys.com",
+    "telephone": "0667449545",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-77016F",
+    "created_at": "2026-02-05T20:57:36.657Z",
+    "payload": {
+      "name": "Emma Moreau",
+      "pseudo": "EmmaMoreau56",
+      "email": "emmamoreau56@test-vagondys.com",
+      "phone": "0634868561",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Moreau | Email: emmamoreau56@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.657Z",
+      "details": {
+        "name": "Emma Moreau",
+        "email": "emmamoreau56@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmamoreau56@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.657Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.657Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

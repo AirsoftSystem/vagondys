@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-F186AC",
+  "client_identity": {
+    "nom": "Léa Martinez",
+    "email": "léamartinez196@test-vagondys.com",
+    "telephone": "0682169311",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-F186AC",
+    "created_at": "2026-02-05T20:57:36.659Z",
+    "payload": {
+      "name": "Léa Martinez",
+      "pseudo": "LéaMartinez196",
+      "email": "léamartinez196@test-vagondys.com",
+      "phone": "0648365337",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Martinez | Email: léamartinez196@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.659Z",
+      "details": {
+        "name": "Léa Martinez",
+        "email": "léamartinez196@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léamartinez196@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.659Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.659Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

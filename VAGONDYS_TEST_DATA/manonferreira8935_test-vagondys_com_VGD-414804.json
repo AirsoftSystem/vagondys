@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-414804",
+  "client_identity": {
+    "nom": "Manon Ferreira",
+    "email": "manonferreira8935@test-vagondys.com",
+    "telephone": "0654673954",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-414804",
+    "created_at": "2026-02-05T20:57:37.230Z",
+    "payload": {
+      "name": "Manon Ferreira",
+      "pseudo": "ManonFerreira8935",
+      "email": "manonferreira8935@test-vagondys.com",
+      "phone": "0693842811",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Ferreira | Email: manonferreira8935@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.230Z",
+      "details": {
+        "name": "Manon Ferreira",
+        "email": "manonferreira8935@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonferreira8935@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.230Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.230Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-16550D",
+  "client_identity": {
+    "nom": "Manon Rousseau",
+    "email": "manonrousseau7046@test-vagondys.com",
+    "telephone": "0677094604",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-16550D",
+    "created_at": "2026-02-05T20:57:37.259Z",
+    "payload": {
+      "name": "Manon Rousseau",
+      "pseudo": "ManonRousseau7046",
+      "email": "manonrousseau7046@test-vagondys.com",
+      "phone": "0673094887",
+      "city": "Séville",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Rousseau | Email: manonrousseau7046@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.259Z",
+      "details": {
+        "name": "Manon Rousseau",
+        "email": "manonrousseau7046@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonrousseau7046@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.259Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.259Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

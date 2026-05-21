@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-BCA5DA",
+  "client_identity": {
+    "nom": "Lucia Lefebvre",
+    "email": "lucialefebvre5700@test-vagondys.com",
+    "telephone": "0689835909",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-BCA5DA",
+    "created_at": "2026-02-05T20:57:37.218Z",
+    "payload": {
+      "name": "Lucia Lefebvre",
+      "pseudo": "LuciaLefebvre5700",
+      "email": "lucialefebvre5700@test-vagondys.com",
+      "phone": "0672376323",
+      "city": "Madrid",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Lefebvre | Email: lucialefebvre5700@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.218Z",
+      "details": {
+        "name": "Lucia Lefebvre",
+        "email": "lucialefebvre5700@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucialefebvre5700@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.218Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.218Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

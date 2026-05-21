@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B32ED5",
+  "client_identity": {
+    "nom": "Manon Lefebvre",
+    "email": "manonlefebvre5829@test-vagondys.com",
+    "telephone": "0668432077",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B32ED5",
+    "created_at": "2026-02-05T20:59:23.936Z",
+    "payload": {
+      "name": "Manon Lefebvre",
+      "pseudo": "ManonLefebvre5829",
+      "email": "manonlefebvre5829@test-vagondys.com",
+      "phone": "0610840263",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Lefebvre | Email: manonlefebvre5829@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.936Z",
+      "details": {
+        "name": "Manon Lefebvre",
+        "email": "manonlefebvre5829@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonlefebvre5829@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.936Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.936Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

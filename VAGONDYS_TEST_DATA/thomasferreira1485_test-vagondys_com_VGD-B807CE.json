@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B807CE",
+  "client_identity": {
+    "nom": "Thomas Ferreira",
+    "email": "thomasferreira1485@test-vagondys.com",
+    "telephone": "0686306144",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B807CE",
+    "created_at": "2026-02-05T20:59:23.527Z",
+    "payload": {
+      "name": "Thomas Ferreira",
+      "pseudo": "ThomasFerreira1485",
+      "email": "thomasferreira1485@test-vagondys.com",
+      "phone": "0643842660",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Ferreira | Email: thomasferreira1485@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.527Z",
+      "details": {
+        "name": "Thomas Ferreira",
+        "email": "thomasferreira1485@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasferreira1485@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.527Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.527Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

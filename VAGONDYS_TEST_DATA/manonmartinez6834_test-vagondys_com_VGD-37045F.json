@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-37045F",
+  "client_identity": {
+    "nom": "Manon Martinez",
+    "email": "manonmartinez6834@test-vagondys.com",
+    "telephone": "0624051304",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-37045F",
+    "created_at": "2026-02-05T20:59:23.747Z",
+    "payload": {
+      "name": "Manon Martinez",
+      "pseudo": "ManonMartinez6834",
+      "email": "manonmartinez6834@test-vagondys.com",
+      "phone": "0695496039",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Martinez | Email: manonmartinez6834@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.747Z",
+      "details": {
+        "name": "Manon Martinez",
+        "email": "manonmartinez6834@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonmartinez6834@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.747Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.747Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

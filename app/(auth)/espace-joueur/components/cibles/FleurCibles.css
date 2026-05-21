@@ -1,0 +1,88 @@
+/* ========================================== */
+/* FLEUR DE CIBLES - Positions absolues */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+.fleur-cibles-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1.5rem;
+}
+
+/* Conteneur de base pour toutes les cibles */
+.cible-position {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+/* Cible 1 - Centre */
+.cible-position-1 {
+  top: 50%;
+  left: 50%;
+}
+
+/* Anneau intérieur */
+.cible-position-2 {
+  top: 30%;
+  left: 50%;
+}
+.cible-position-3 {
+  top: 50%;
+  left: 70%;
+}
+.cible-position-4 {
+  top: 70%;
+  left: 50%;
+}
+.cible-position-5 {
+  top: 50%;
+  left: 30%;
+}
+
+/* Anneau extérieur */
+.cible-position-6 {
+  top: 20%;
+  left: 50%;
+}
+.cible-position-7 {
+  top: 30%;
+  left: 70%;
+}
+.cible-position-8 {
+  top: 50%;
+  left: 80%;
+}
+.cible-position-9 {
+  top: 70%;
+  left: 70%;
+}
+.cible-position-10 {
+  top: 80%;
+  left: 50%;
+}
+.cible-position-11 {
+  top: 70%;
+  left: 30%;
+}
+.cible-position-12 {
+  top: 50%;
+  left: 20%;
+}
+.cible-position-13 {
+  top: 30%;
+  left: 30%;
+}
+
+/* Titre */
+.cible-titre {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-41836E",
+  "client_identity": {
+    "nom": "Emma Lopes",
+    "email": "emmalopes7425@test-vagondys.com",
+    "telephone": "0686099547",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-41836E",
+    "created_at": "2026-02-05T20:59:23.523Z",
+    "payload": {
+      "name": "Emma Lopes",
+      "pseudo": "EmmaLopes7425",
+      "email": "emmalopes7425@test-vagondys.com",
+      "phone": "0627902804",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Lopes | Email: emmalopes7425@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.523Z",
+      "details": {
+        "name": "Emma Lopes",
+        "email": "emmalopes7425@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmalopes7425@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.523Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.523Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

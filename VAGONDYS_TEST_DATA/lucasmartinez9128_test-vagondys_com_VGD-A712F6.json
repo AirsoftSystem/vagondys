@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-A712F6",
+  "client_identity": {
+    "nom": "Lucas Martinez",
+    "email": "lucasmartinez9128@test-vagondys.com",
+    "telephone": "0630621276",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-A712F6",
+    "created_at": "2026-02-05T20:59:23.546Z",
+    "payload": {
+      "name": "Lucas Martinez",
+      "pseudo": "LucasMartinez9128",
+      "email": "lucasmartinez9128@test-vagondys.com",
+      "phone": "0681865425",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucas Martinez | Email: lucasmartinez9128@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.546Z",
+      "details": {
+        "name": "Lucas Martinez",
+        "email": "lucasmartinez9128@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucasmartinez9128@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.546Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.546Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

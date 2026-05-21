@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-87C318",
+  "client_identity": {
+    "nom": "Hugo Moreau",
+    "email": "hugomoreau4181@test-vagondys.com",
+    "telephone": "0671409119",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-87C318",
+    "created_at": "2026-02-05T20:59:23.918Z",
+    "payload": {
+      "name": "Hugo Moreau",
+      "pseudo": "HugoMoreau4181",
+      "email": "hugomoreau4181@test-vagondys.com",
+      "phone": "0677996638",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Moreau | Email: hugomoreau4181@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.918Z",
+      "details": {
+        "name": "Hugo Moreau",
+        "email": "hugomoreau4181@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugomoreau4181@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.918Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.918Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

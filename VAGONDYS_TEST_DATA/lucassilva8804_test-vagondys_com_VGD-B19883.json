@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B19883",
+  "client_identity": {
+    "nom": "Lucas Silva",
+    "email": "lucassilva8804@test-vagondys.com",
+    "telephone": "0697629713",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B19883",
+    "created_at": "2026-02-05T20:57:37.323Z",
+    "payload": {
+      "name": "Lucas Silva",
+      "pseudo": "LucasSilva8804",
+      "email": "lucassilva8804@test-vagondys.com",
+      "phone": "0695169523",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucas Silva | Email: lucassilva8804@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.323Z",
+      "details": {
+        "name": "Lucas Silva",
+        "email": "lucassilva8804@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucassilva8804@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.323Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.323Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

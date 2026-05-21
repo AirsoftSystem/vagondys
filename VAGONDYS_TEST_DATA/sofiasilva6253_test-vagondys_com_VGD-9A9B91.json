@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-9A9B91",
+  "client_identity": {
+    "nom": "Sofia Silva",
+    "email": "sofiasilva6253@test-vagondys.com",
+    "telephone": "0621922342",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-9A9B91",
+    "created_at": "2026-02-05T20:57:37.162Z",
+    "payload": {
+      "name": "Sofia Silva",
+      "pseudo": "SofiaSilva6253",
+      "email": "sofiasilva6253@test-vagondys.com",
+      "phone": "0638361139",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Silva | Email: sofiasilva6253@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.162Z",
+      "details": {
+        "name": "Sofia Silva",
+        "email": "sofiasilva6253@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiasilva6253@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.162Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.162Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

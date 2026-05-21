@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-453902",
+  "client_identity": {
+    "nom": "Thomas Martinez",
+    "email": "thomasmartinez6834@test-vagondys.com",
+    "telephone": "0648681738",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-453902",
+    "created_at": "2026-02-05T20:59:23.622Z",
+    "payload": {
+      "name": "Thomas Martinez",
+      "pseudo": "ThomasMartinez6834",
+      "email": "thomasmartinez6834@test-vagondys.com",
+      "phone": "0684261195",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Martinez | Email: thomasmartinez6834@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.622Z",
+      "details": {
+        "name": "Thomas Martinez",
+        "email": "thomasmartinez6834@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasmartinez6834@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.622Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.622Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

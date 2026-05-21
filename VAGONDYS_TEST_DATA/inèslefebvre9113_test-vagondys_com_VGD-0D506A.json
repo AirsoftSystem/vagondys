@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-0D506A",
+  "client_identity": {
+    "nom": "Inès Lefebvre",
+    "email": "inèslefebvre9113@test-vagondys.com",
+    "telephone": "0670792054",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-0D506A",
+    "created_at": "2026-02-05T20:59:23.606Z",
+    "payload": {
+      "name": "Inès Lefebvre",
+      "pseudo": "InèsLefebvre9113",
+      "email": "inèslefebvre9113@test-vagondys.com",
+      "phone": "0670282968",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Lefebvre | Email: inèslefebvre9113@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.606Z",
+      "details": {
+        "name": "Inès Lefebvre",
+        "email": "inèslefebvre9113@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèslefebvre9113@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.606Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.606Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

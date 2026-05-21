@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+@theme {
+  /* Uniquement des variables ici */
+  --font-main: "Geist Sans";
+  
+  /* Les keyframes sont autorisés ici */
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+}
+
+/* Les classes utilitaires doivent être EN DEHORS du bloc @theme */
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+html,
+body {
+  background-color: #0b0b0b;
+  color: #f5f5f5;
+}
+
+/* ================================
+   RESET TOTAL DU FOOTER (VAGONDYS)
+   ================================ */
+
+footer a {
+  text-decoration: none !important;
+}
+
+footer a::before,
+footer a::after {
+  text-decoration: none !important;
+  content: none !important;
+}
+
+footer svg,
+footer svg path,
+footer svg line {
+  text-decoration: none !important;
+  stroke: currentColor !important;
+}
+
+/* Utilitaire Accessibilité */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.btn-gradient {
+  /* gradient identique à bg-gradient-to-r from-red-600 to-red-500 */
+  background-image: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+  transition: background-image 200ms ease, box-shadow 200ms ease, transform 120ms ease;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.18), inset 0 -2px 6px rgba(255,255,255,0.02);
+}
+
+.btn-gradient:hover {
+  background-image: linear-gradient(90deg, #b91c1c 0%, #dc2626 100%);
+  transform: translateY(-2px);
+}
+
+.btn-gradient:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* Relift for neutral button (optional, for MARQUER COMME LU) */
+.btn-relief {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.tactical-grid-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.03;
+  background-image: 
+    linear-gradient(#fff 1px, transparent 1px), 
+    linear-gradient(90deg, #fff 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* ========================================== */
+/* PROGRESS BARS - Style VAGONDYS */
+/* ========================================== */
+
+/* Barre de progression pour le grade */
+.rank-progress-bar {
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.rank-progress-bar[data-progress] {
+  width: calc(attr(data-progress) * 1%);
+}
+
+/* Alternative si attr() ne fonctionne pas */
+@supports not (width: attr(data-progress)) {
+  .rank-progress-bar[data-progress] {
+    width: calc(var(--progress-value) * 1%);
+  }
+}
+
+/* Version avec variable CSS (fallback) */
+.rank-progress-bar {
+  --progress: 0;
+  width: calc(var(--progress) * 1%);
+}
+
+.rank-progress-bar[data-progress] {
+  --progress: attr(data-progress);
+}
+
+/* Pour les navigateurs modernes */
+@supports (width: attr(data-progress type(<number>))) {
+  .rank-progress-bar[data-progress] {
+    width: attr(data-progress type(<number>), 0%);
+  }
+}
+
+/* Pour les barres de progression dynamiques */
+[style*="--progress-width"] {
+  width: var(--progress-width);
+}
+
+/* ========================================== */
+/* ANIMATIONS POUR BOUTONS OFFICIELS */
+/* ========================================== */
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 0.8s ease-in-out infinite;
+}
+
+/* ========================================== */
+/* LIVE SCORE CARD - DYNAMIC STYLES */
+/* ========================================== */
+
+.live-score-card {
+  background: linear-gradient(135deg, var(--gradient-start, #AEDCFA), var(--gradient-end, #91C9F9));
+  box-shadow: var(--active-shadow, 0 8px 20px rgba(0, 0, 0, 0.3));
+  transform: var(--active-scale, scale(1));
+  border: 2px solid rgba(24, 255, 255, 0.43);
+  transition: all 0.3s ease;
+}
+
+.live-score-card.active-card {
+  box-shadow: 0 0 18px 2px rgba(255, 200, 0, 0.7), inset 0 0 20px rgba(255, 255, 255, 0.3);
+  transform: scale(1.02);
+}
+
+/* ========================================== */
+/* ANIMATED BACKGROUND */
+/* ========================================== */
+
+.animated-background {
+  pointer-events: none;
+}
+
+/* ========================================== */
+/* COUNTDOWN DISPLAY */
+/* ========================================== */
+
+.countdown-display {
+  text-shadow: 0 0 30px rgba(24, 255, 255, 0.8), 0 0 60px rgba(24, 255, 255, 0.4);
+  transition: transform 0.2s ease-out;
+}
+
+.countdown-pulse {
+  transform: scale(1.2);
+}
+
+/* ========================================== */
+/* FIN GAME OVERLAY */
+/* ========================================== */
+
+.fin-game-overlay {
+  transition: opacity 0.5s ease;
+}
+
+.fin-game-overlay.overlay-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fin-game-overlay.overlay-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fin-game-content {
+  transform: scale(1);
+}
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 1s ease-in-out infinite;
+}

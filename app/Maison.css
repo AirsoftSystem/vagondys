@@ -1,0 +1,23 @@
+.barre-niveau-container {
+  width: 100%;
+  background-color: #18181b;
+  height: 6px;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+  margin-top: 8px;
+}
+
+.barre-remplissage {
+  height: 100%;
+  background-color: #dc2626;
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left;
+  width: 100%;
+}
+
+.w-0 { transform: scaleX(0); }
+.w-25 { transform: scaleX(0.25); }
+.w-50 { transform: scaleX(0.5); }
+.w-75 { transform: scaleX(0.75); }
+.w-100 { transform: scaleX(1); }

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-909183",
+  "client_identity": {
+    "nom": "Mateo Martinez",
+    "email": "mateomartinez4277@test-vagondys.com",
+    "telephone": "0615009484",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-909183",
+    "created_at": "2026-02-05T20:57:37.026Z",
+    "payload": {
+      "name": "Mateo Martinez",
+      "pseudo": "MateoMartinez4277",
+      "email": "mateomartinez4277@test-vagondys.com",
+      "phone": "0635462693",
+      "city": "Lyon",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Martinez | Email: mateomartinez4277@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.026Z",
+      "details": {
+        "name": "Mateo Martinez",
+        "email": "mateomartinez4277@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateomartinez4277@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.026Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.026Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

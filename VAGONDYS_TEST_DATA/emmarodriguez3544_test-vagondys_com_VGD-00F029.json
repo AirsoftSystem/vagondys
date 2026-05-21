@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-00F029",
+  "client_identity": {
+    "nom": "Emma Rodriguez",
+    "email": "emmarodriguez3544@test-vagondys.com",
+    "telephone": "0657412833",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-00F029",
+    "created_at": "2026-02-05T20:59:23.899Z",
+    "payload": {
+      "name": "Emma Rodriguez",
+      "pseudo": "EmmaRodriguez3544",
+      "email": "emmarodriguez3544@test-vagondys.com",
+      "phone": "0656065302",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Rodriguez | Email: emmarodriguez3544@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.899Z",
+      "details": {
+        "name": "Emma Rodriguez",
+        "email": "emmarodriguez3544@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmarodriguez3544@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.899Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.899Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

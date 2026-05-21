@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-EC55F2",
+  "client_identity": {
+    "nom": "Martim Rousseau",
+    "email": "martimrousseau4008@test-vagondys.com",
+    "telephone": "0627443362",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-EC55F2",
+    "created_at": "2026-02-05T20:59:23.959Z",
+    "payload": {
+      "name": "Martim Rousseau",
+      "pseudo": "MartimRousseau4008",
+      "email": "martimrousseau4008@test-vagondys.com",
+      "phone": "0639970703",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Rousseau | Email: martimrousseau4008@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.959Z",
+      "details": {
+        "name": "Martim Rousseau",
+        "email": "martimrousseau4008@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimrousseau4008@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.959Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.959Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

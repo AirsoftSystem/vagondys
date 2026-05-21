@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-0A13A3",
+  "client_identity": {
+    "nom": "Léa Garcia",
+    "email": "léagarcia355@test-vagondys.com",
+    "telephone": "0663046215",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-0A13A3",
+    "created_at": "2026-02-05T20:57:37.104Z",
+    "payload": {
+      "name": "Léa Garcia",
+      "pseudo": "LéaGarcia355",
+      "email": "léagarcia355@test-vagondys.com",
+      "phone": "0684146978",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Garcia | Email: léagarcia355@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.104Z",
+      "details": {
+        "name": "Léa Garcia",
+        "email": "léagarcia355@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léagarcia355@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.104Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.104Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

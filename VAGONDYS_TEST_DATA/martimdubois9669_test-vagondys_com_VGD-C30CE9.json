@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-C30CE9",
+  "client_identity": {
+    "nom": "Martim Dubois",
+    "email": "martimdubois9669@test-vagondys.com",
+    "telephone": "0687396233",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-C30CE9",
+    "created_at": "2026-02-05T20:59:23.849Z",
+    "payload": {
+      "name": "Martim Dubois",
+      "pseudo": "MartimDubois9669",
+      "email": "martimdubois9669@test-vagondys.com",
+      "phone": "0632170014",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Dubois | Email: martimdubois9669@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.849Z",
+      "details": {
+        "name": "Martim Dubois",
+        "email": "martimdubois9669@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimdubois9669@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.849Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.849Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

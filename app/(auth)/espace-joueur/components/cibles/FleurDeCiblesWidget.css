@@ -1,0 +1,222 @@
+/* ========================================== */
+/* FLEUR DE CIBLES WIDGET - Styles spécifiques */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+/* ========================================== */
+/* 1. CONTENEUR PRINCIPAL
+/* ========================================== */
+.fleur-cibles-widget-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1.5rem;
+  padding: 1rem;
+}
+
+/* ========================================== */
+/* 2. LIGNES DE CONNEXION SVG
+/* ========================================== */
+.fleur-cibles-lignes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.fleur-cibles-ligne {
+  stroke: #27272a;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+/* ========================================== */
+/* 3. POSITIONNEMENT DES CIBLES
+/* ========================================== */
+.cible-position {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+}
+
+.cible-position[data-left] {
+  left: attr(data-left px);
+  top: attr(data-top px);
+  width: attr(data-width px);
+  height: attr(data-height px);
+}
+
+.cible-centrale-container,
+.cible-normale-container {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s;
+  width: 120px;
+  height: 120px;
+}
+
+.cible-centrale-container[data-size],
+.cible-normale-container[data-size] {
+  width: attr(data-size px);
+  height: attr(data-size px);
+}
+
+.cible-centrale-container:hover,
+.cible-normale-container:hover {
+  transform: scale(1.1);
+}
+
+/* ========================================== */
+/* 4. COULEURS DES ZONES - ACTIVES & INACTIVES
+/* ========================================== */
+
+/* Cible centrale - Zone noire (zone 4) */
+.cible-zone-noire-active { fill: #000000; }
+.cible-zone-noire-inactive { fill: rgba(0, 0, 0, 0.05); }
+
+/* Cible centrale - Anneau gris timeout (zone 5) */
+.cible-anneau-gris-active { stroke: #3f3f46; }
+.cible-anneau-gris-inactive { stroke: rgba(63, 63, 70, 0.05); }
+
+/* Cible centrale - Points bleus (zones 1-3) */
+.cible-point-bleu-active { fill: #2563eb; }
+.cible-point-bleu-inactive { fill: rgba(37, 99, 235, 0.05); }
+
+/* Cible centrale - Point rouge central (zone 0) */
+.cible-point-rouge-active { fill: #dc2626; }
+.cible-point-rouge-inactive { fill: rgba(220, 38, 38, 0.05); }
+
+/* Cible normale - Anneaux rouges (zones 0, 2, 4) */
+.cible-anneau-rouge-active { fill: #dc2626; }
+.cible-anneau-rouge-inactive { fill: rgba(220, 38, 38, 0.05); }
+
+/* Cible normale - Anneaux bleus (zones 1, 3) */
+.cible-anneau-bleu-active { fill: #2563eb; }
+.cible-anneau-bleu-inactive { fill: rgba(37, 99, 235, 0.05); }
+
+/* Cible normale - Anneau noir (zone 5 - 0 pt) */
+.cible-anneau-noir-active { fill: #000000; }
+.cible-anneau-noir-inactive { fill: rgba(0, 0, 0, 0.05); }
+
+/* Cible normale - Anneau gris timeout (zone 6) */
+.cible-anneau-gris-active { fill: #3f3f46; }
+.cible-anneau-gris-inactive { fill: rgba(63, 63, 70, 0.05); }
+
+/* ========================================== */
+/* 5. TOOLTIP
+/* ========================================== */
+.cible-tooltip {
+  position: absolute;
+  top: -2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+  color: white;
+}
+
+.cible-centrale-container:hover .cible-tooltip,
+.cible-normale-container:hover .cible-tooltip {
+  opacity: 1;
+}
+
+/* ========================================== */
+/* 6. TITRE
+/* ========================================== */
+.fleur-cibles-titre {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.fleur-cibles-titre-texte {
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #71717a;
+}
+
+/* ========================================== */
+/* 7. LÉGENDE DES COULEURS
+/* ========================================== */
+.fleur-cibles-legende {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.375rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #52525b;
+}
+
+.fleur-cibles-legende-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.fleur-cibles-legende-couleur {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+.fleur-cibles-legende-couleur.rouge { background-color: #dc2626; }
+.fleur-cibles-legende-couleur.bleu { background-color: #2563eb; }
+.fleur-cibles-legende-couleur.noir { 
+  background-color: #000000;
+  border: 1px solid #3f3f46;
+}
+.fleur-cibles-legende-couleur.gris { background-color: #3f3f46; }
+
+/* ========================================== */
+/* 8. FALLBACK POUR LES NAVIGATEURS
+/* ========================================== */
+
+/* Fallback pour les navigateurs qui ne supportent pas attr() */
+@supports not (width: attr(data-size px)) {
+  
+  /* Dimensions par défaut pour les conteneurs */
+  .cible-centrale-container,
+  .cible-normale-container {
+    width: 120px;
+    height: 120px;
+  }
+  
+  /* Positions par défaut pour les cibles */
+  .cible-position {
+    left: 0;
+    top: 0;
+    width: 48px;
+    height: 48px;
+  }
+  
+  /* Classes de positionnement spécifiques */
+  /* Ces classes seront appliquées dynamiquement en JS si nécessaire */
+}

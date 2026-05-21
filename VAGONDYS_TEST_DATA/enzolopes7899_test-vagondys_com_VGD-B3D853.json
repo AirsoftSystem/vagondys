@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B3D853",
+  "client_identity": {
+    "nom": "Enzo Lopes",
+    "email": "enzolopes7899@test-vagondys.com",
+    "telephone": "0688919458",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B3D853",
+    "created_at": "2026-02-05T20:59:23.859Z",
+    "payload": {
+      "name": "Enzo Lopes",
+      "pseudo": "EnzoLopes7899",
+      "email": "enzolopes7899@test-vagondys.com",
+      "phone": "0694301955",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Lopes | Email: enzolopes7899@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.859Z",
+      "details": {
+        "name": "Enzo Lopes",
+        "email": "enzolopes7899@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzolopes7899@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.859Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.859Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

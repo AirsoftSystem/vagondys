@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-922461",
+  "client_identity": {
+    "nom": "Martim Silva",
+    "email": "martimsilva9718@test-vagondys.com",
+    "telephone": "0680152569",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-922461",
+    "created_at": "2026-02-05T20:59:24.075Z",
+    "payload": {
+      "name": "Martim Silva",
+      "pseudo": "MartimSilva9718",
+      "email": "martimsilva9718@test-vagondys.com",
+      "phone": "0652890788",
+      "city": "Nice",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Silva | Email: martimsilva9718@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.075Z",
+      "details": {
+        "name": "Martim Silva",
+        "email": "martimsilva9718@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimsilva9718@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.075Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.075Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

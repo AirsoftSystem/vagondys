@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D65AE3",
+  "client_identity": {
+    "nom": "Manon Garcia",
+    "email": "manongarcia5338@test-vagondys.com",
+    "telephone": "0674756047",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D65AE3",
+    "created_at": "2026-02-05T20:57:37.234Z",
+    "payload": {
+      "name": "Manon Garcia",
+      "pseudo": "ManonGarcia5338",
+      "email": "manongarcia5338@test-vagondys.com",
+      "phone": "0683317398",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Garcia | Email: manongarcia5338@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.234Z",
+      "details": {
+        "name": "Manon Garcia",
+        "email": "manongarcia5338@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manongarcia5338@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.234Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.234Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

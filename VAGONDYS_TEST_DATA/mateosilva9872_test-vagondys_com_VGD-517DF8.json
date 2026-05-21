@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-517DF8",
+  "client_identity": {
+    "nom": "Mateo Silva",
+    "email": "mateosilva9872@test-vagondys.com",
+    "telephone": "0613277399",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-517DF8",
+    "created_at": "2026-02-05T20:57:36.824Z",
+    "payload": {
+      "name": "Mateo Silva",
+      "pseudo": "MateoSilva9872",
+      "email": "mateosilva9872@test-vagondys.com",
+      "phone": "0693732762",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Silva | Email: mateosilva9872@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.824Z",
+      "details": {
+        "name": "Mateo Silva",
+        "email": "mateosilva9872@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateosilva9872@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.824Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.824Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

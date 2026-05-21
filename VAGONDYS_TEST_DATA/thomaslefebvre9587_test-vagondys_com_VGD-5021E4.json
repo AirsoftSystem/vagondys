@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-5021E4",
+  "client_identity": {
+    "nom": "Thomas Lefebvre",
+    "email": "thomaslefebvre9587@test-vagondys.com",
+    "telephone": "0688349508",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-5021E4",
+    "created_at": "2026-02-05T20:59:24.098Z",
+    "payload": {
+      "name": "Thomas Lefebvre",
+      "pseudo": "ThomasLefebvre9587",
+      "email": "thomaslefebvre9587@test-vagondys.com",
+      "phone": "0625523306",
+      "city": "Madrid",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Lefebvre | Email: thomaslefebvre9587@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.098Z",
+      "details": {
+        "name": "Thomas Lefebvre",
+        "email": "thomaslefebvre9587@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomaslefebvre9587@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.098Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.098Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,301 @@
+/* ========================================== */
+/* GLOBAL PROGRESS BAR - Styles spécifiques */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+/* ========================================== */
+/* 1. CONTENEUR PRINCIPAL
+/* ========================================== */
+.global-progress-container {
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+/* ========================================== */
+/* 2. EN-TÊTE
+/* ========================================== */
+.global-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.global-progress-title {
+  font-size: 0.625rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #71717a;
+}
+
+.global-progress-grade {
+  font-size: 0.5625rem;
+  font-family: monospace;
+  color: #52525b;
+}
+
+/* ========================================== */
+/* 3. BARRE DE PROGRESSION
+/* ========================================== */
+.global-progress-bar-wrapper {
+  position: relative;
+  width: 100%;
+  height: 1.5rem;
+  background-color: #18181b;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+}
+
+.global-progress-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #16a34a, #4ade80);
+  transition: width 0.3s;
+  height: 100%;
+  z-index: 1;
+  width: 0%;
+}
+
+/* ========================================== */
+/* 4. SÉPARATEURS DE GRADES DANS LA BARRE
+/* ========================================== */
+.global-progress-separators {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.global-progress-separator {
+  position: relative;
+  height: 100%;
+}
+
+/* Application de la largeur via data-width */
+.global-progress-separator[data-width] {
+  width: attr(data-width %);
+}
+
+/* Trait vertical de séparation - visible dans la barre */
+.global-progress-separator-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  transform: translateX(-50%);
+  width: 2px;
+  background-color: #ffffff;
+  z-index: 16;
+}
+
+/* Dégradé de couleurs selon l'arborescence des grades */
+
+/* Grades 1-12 : Blanc (Guerrier I-III, Élite I-III, Maître I-III, Grand Maître I-III) */
+.global-progress-separator[data-index="0"] .global-progress-separator-line,
+.global-progress-separator[data-index="1"] .global-progress-separator-line,
+.global-progress-separator[data-index="2"] .global-progress-separator-line,
+.global-progress-separator[data-index="3"] .global-progress-separator-line,
+.global-progress-separator[data-index="4"] .global-progress-separator-line,
+.global-progress-separator[data-index="5"] .global-progress-separator-line,
+.global-progress-separator[data-index="6"] .global-progress-separator-line,
+.global-progress-separator[data-index="7"] .global-progress-separator-line,
+.global-progress-separator[data-index="8"] .global-progress-separator-line,
+.global-progress-separator[data-index="9"] .global-progress-separator-line,
+.global-progress-separator[data-index="10"] .global-progress-separator-line,
+.global-progress-separator[data-index="11"] .global-progress-separator-line {
+  background-color: #ffffff;
+}
+
+/* Grades 13-15 : Jaune (Épique I, II, III) */
+.global-progress-separator[data-index="12"] .global-progress-separator-line,
+.global-progress-separator[data-index="13"] .global-progress-separator-line,
+.global-progress-separator[data-index="14"] .global-progress-separator-line {
+  background-color: #ffff00;
+}
+
+/* Grades 16-19 : Orange (Épique IV, V, Légende I, II) */
+.global-progress-separator[data-index="15"] .global-progress-separator-line,
+.global-progress-separator[data-index="16"] .global-progress-separator-line,
+.global-progress-separator[data-index="17"] .global-progress-separator-line,
+.global-progress-separator[data-index="18"] .global-progress-separator-line {
+  background-color: #ffa500;
+}
+
+/* Grades 20-23 : Rouge (Légende III, Immortel Mythique1000, 100, 10) */
+.global-progress-separator[data-index="19"] .global-progress-separator-line,
+.global-progress-separator[data-index="20"] .global-progress-separator-line,
+.global-progress-separator[data-index="21"] .global-progress-separator-line,
+.global-progress-separator[data-index="22"] .global-progress-separator-line {
+  background-color: #ff0000;
+}
+
+/* Pas de trait après Immortel_1 (index 23) car c'est le dernier grade */
+/* Le dernier trait est automatiquement masqué par la règle ci-dessous */
+
+/* Masquer le dernier trait (après Immortel_1) */
+.global-progress-separator:last-child .global-progress-separator-line {
+  display: none;
+}
+
+/* ========================================== */
+/* 5. TEXTE CENTRÉ
+/* ========================================== */
+.global-progress-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.global-progress-percent {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 
+    0 0 10px rgba(0, 255, 255, 0.5),
+    0 0 20px rgba(0, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================== */
+/* 6. FALLBACK POUR LES NAVIGATEURS (avec les pourcentages exacts)
+/* ========================================== */
+
+/* Fallback pour width: attr() avec data-progress */
+@supports not (width: attr(data-progress)) {
+  .global-progress-fill[data-progress="0"] { width: 0%; }
+  .global-progress-fill[data-progress="1"] { width: 1%; }
+  .global-progress-fill[data-progress="2"] { width: 2%; }
+  .global-progress-fill[data-progress="3"] { width: 3%; }
+  .global-progress-fill[data-progress="4"] { width: 4%; }
+  .global-progress-fill[data-progress="5"] { width: 5%; }
+  .global-progress-fill[data-progress="6"] { width: 6%; }
+  .global-progress-fill[data-progress="7"] { width: 7%; }
+  .global-progress-fill[data-progress="8"] { width: 8%; }
+  .global-progress-fill[data-progress="9"] { width: 9%; }
+  .global-progress-fill[data-progress="10"] { width: 10%; }
+  .global-progress-fill[data-progress="11"] { width: 11%; }
+  .global-progress-fill[data-progress="12"] { width: 12%; }
+  .global-progress-fill[data-progress="13"] { width: 13%; }
+  .global-progress-fill[data-progress="14"] { width: 14%; }
+  .global-progress-fill[data-progress="15"] { width: 15%; }
+  .global-progress-fill[data-progress="16"] { width: 16%; }
+  .global-progress-fill[data-progress="17"] { width: 17%; }
+  .global-progress-fill[data-progress="18"] { width: 18%; }
+  .global-progress-fill[data-progress="19"] { width: 19%; }
+  .global-progress-fill[data-progress="20"] { width: 20%; }
+  .global-progress-fill[data-progress="21"] { width: 21%; }
+  .global-progress-fill[data-progress="22"] { width: 22%; }
+  .global-progress-fill[data-progress="23"] { width: 23%; }
+  .global-progress-fill[data-progress="24"] { width: 24%; }
+  .global-progress-fill[data-progress="25"] { width: 25%; }
+  .global-progress-fill[data-progress="26"] { width: 26%; }
+  .global-progress-fill[data-progress="27"] { width: 27%; }
+  .global-progress-fill[data-progress="28"] { width: 28%; }
+  .global-progress-fill[data-progress="29"] { width: 29%; }
+  .global-progress-fill[data-progress="30"] { width: 30%; }
+  .global-progress-fill[data-progress="31"] { width: 31%; }
+  .global-progress-fill[data-progress="32"] { width: 32%; }
+  .global-progress-fill[data-progress="33"] { width: 33%; }
+  .global-progress-fill[data-progress="34"] { width: 34%; }
+  .global-progress-fill[data-progress="35"] { width: 35%; }
+  .global-progress-fill[data-progress="36"] { width: 36%; }
+  .global-progress-fill[data-progress="37"] { width: 37%; }
+  .global-progress-fill[data-progress="38"] { width: 38%; }
+  .global-progress-fill[data-progress="39"] { width: 39%; }
+  .global-progress-fill[data-progress="40"] { width: 40%; }
+  .global-progress-fill[data-progress="41"] { width: 41%; }
+  .global-progress-fill[data-progress="42"] { width: 42%; }
+  .global-progress-fill[data-progress="43"] { width: 43%; }
+  .global-progress-fill[data-progress="44"] { width: 44%; }
+  .global-progress-fill[data-progress="45"] { width: 45%; }
+  .global-progress-fill[data-progress="46"] { width: 46%; }
+  .global-progress-fill[data-progress="47"] { width: 47%; }
+  .global-progress-fill[data-progress="48"] { width: 48%; }
+  .global-progress-fill[data-progress="49"] { width: 49%; }
+  .global-progress-fill[data-progress="50"] { width: 50%; }
+  .global-progress-fill[data-progress="51"] { width: 51%; }
+  .global-progress-fill[data-progress="52"] { width: 52%; }
+  .global-progress-fill[data-progress="53"] { width: 53%; }
+  .global-progress-fill[data-progress="54"] { width: 54%; }
+  .global-progress-fill[data-progress="55"] { width: 55%; }
+  .global-progress-fill[data-progress="56"] { width: 56%; }
+  .global-progress-fill[data-progress="57"] { width: 57%; }
+  .global-progress-fill[data-progress="58"] { width: 58%; }
+  .global-progress-fill[data-progress="59"] { width: 59%; }
+  .global-progress-fill[data-progress="60"] { width: 60%; }
+  .global-progress-fill[data-progress="61"] { width: 61%; }
+  .global-progress-fill[data-progress="62"] { width: 62%; }
+  .global-progress-fill[data-progress="63"] { width: 63%; }
+  .global-progress-fill[data-progress="64"] { width: 64%; }
+  .global-progress-fill[data-progress="65"] { width: 65%; }
+  .global-progress-fill[data-progress="66"] { width: 66%; }
+  .global-progress-fill[data-progress="67"] { width: 67%; }
+  .global-progress-fill[data-progress="68"] { width: 68%; }
+  .global-progress-fill[data-progress="69"] { width: 69%; }
+  .global-progress-fill[data-progress="70"] { width: 70%; }
+  .global-progress-fill[data-progress="71"] { width: 71%; }
+  .global-progress-fill[data-progress="72"] { width: 72%; }
+  .global-progress-fill[data-progress="73"] { width: 73%; }
+  .global-progress-fill[data-progress="74"] { width: 74%; }
+  .global-progress-fill[data-progress="75"] { width: 75%; }
+  .global-progress-fill[data-progress="76"] { width: 76%; }
+  .global-progress-fill[data-progress="77"] { width: 77%; }
+  .global-progress-fill[data-progress="78"] { width: 78%; }
+  .global-progress-fill[data-progress="79"] { width: 79%; }
+  .global-progress-fill[data-progress="80"] { width: 80%; }
+  .global-progress-fill[data-progress="81"] { width: 81%; }
+  .global-progress-fill[data-progress="82"] { width: 82%; }
+  .global-progress-fill[data-progress="83"] { width: 83%; }
+  .global-progress-fill[data-progress="84"] { width: 84%; }
+  .global-progress-fill[data-progress="85"] { width: 85%; }
+  .global-progress-fill[data-progress="86"] { width: 86%; }
+  .global-progress-fill[data-progress="87"] { width: 87%; }
+  .global-progress-fill[data-progress="88"] { width: 88%; }
+  .global-progress-fill[data-progress="89"] { width: 89%; }
+  .global-progress-fill[data-progress="90"] { width: 90%; }
+  .global-progress-fill[data-progress="91"] { width: 91%; }
+  .global-progress-fill[data-progress="92"] { width: 92%; }
+  .global-progress-fill[data-progress="93"] { width: 93%; }
+  .global-progress-fill[data-progress="94"] { width: 94%; }
+  .global-progress-fill[data-progress="95"] { width: 95%; }
+  .global-progress-fill[data-progress="96"] { width: 96%; }
+  .global-progress-fill[data-progress="97"] { width: 97%; }
+  .global-progress-fill[data-progress="98"] { width: 98%; }
+  .global-progress-fill[data-progress="99"] { width: 99%; }
+  .global-progress-fill[data-progress="100"] { width: 100%; }
+}
+
+/* Fallback pour width: attr() avec data-width - avec les pourcentages EXACTS */
+@supports not (width: attr(data-width)) {
+  /* Grades 1-20 : 3.846153846153846% */
+  .global-progress-separator[data-width="3.846153846153846"] { width: 3.846153846153846%; }
+  .global-progress-separator[data-width="3.8461538461538463"] { width: 3.8461538461538463%; }
+  
+  /* Grade 21 : 2.3076923076923075% */
+  .global-progress-separator[data-width="2.3076923076923075"] { width: 2.3076923076923075%; }
+  
+  /* Grade 22 : 4.615384615384615% */
+  .global-progress-separator[data-width="4.615384615384615"] { width: 4.615384615384615%; }
+  
+  /* Grade 23 : 6.9230769230769225% */
+  .global-progress-separator[data-width="6.9230769230769225"] { width: 6.9230769230769225%; }
+  .global-progress-separator[data-width="6.923076923076923"] { width: 6.923076923076923%; }
+  
+  /* Grade 24 : 9.23076923076923% */
+  .global-progress-separator[data-width="9.23076923076923"] { width: 9.23076923076923%; }
+}

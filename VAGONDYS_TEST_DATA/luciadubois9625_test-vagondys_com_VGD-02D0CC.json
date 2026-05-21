@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-02D0CC",
+  "client_identity": {
+    "nom": "Lucia Dubois",
+    "email": "luciadubois9625@test-vagondys.com",
+    "telephone": "0637141555",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-02D0CC",
+    "created_at": "2026-02-05T20:59:24.211Z",
+    "payload": {
+      "name": "Lucia Dubois",
+      "pseudo": "LuciaDubois9625",
+      "email": "luciadubois9625@test-vagondys.com",
+      "phone": "0628346830",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Dubois | Email: luciadubois9625@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.211Z",
+      "details": {
+        "name": "Lucia Dubois",
+        "email": "luciadubois9625@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciadubois9625@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.211Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.211Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-2B446D",
+  "client_identity": {
+    "nom": "Emma Lefebvre",
+    "email": "emmalefebvre3647@test-vagondys.com",
+    "telephone": "0623279671",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-2B446D",
+    "created_at": "2026-02-05T20:59:23.854Z",
+    "payload": {
+      "name": "Emma Lefebvre",
+      "pseudo": "EmmaLefebvre3647",
+      "email": "emmalefebvre3647@test-vagondys.com",
+      "phone": "0638920813",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Lefebvre | Email: emmalefebvre3647@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.854Z",
+      "details": {
+        "name": "Emma Lefebvre",
+        "email": "emmalefebvre3647@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmalefebvre3647@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.854Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.854Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B30758",
+  "client_identity": {
+    "nom": "Léa Rousseau",
+    "email": "léarousseau6149@test-vagondys.com",
+    "telephone": "0661933042",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B30758",
+    "created_at": "2026-02-05T20:57:37.141Z",
+    "payload": {
+      "name": "Léa Rousseau",
+      "pseudo": "LéaRousseau6149",
+      "email": "léarousseau6149@test-vagondys.com",
+      "phone": "0696817687",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Rousseau | Email: léarousseau6149@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.141Z",
+      "details": {
+        "name": "Léa Rousseau",
+        "email": "léarousseau6149@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léarousseau6149@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.141Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.141Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

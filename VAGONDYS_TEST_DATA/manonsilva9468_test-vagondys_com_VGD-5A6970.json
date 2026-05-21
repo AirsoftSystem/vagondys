@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-5A6970",
+  "client_identity": {
+    "nom": "Manon Silva",
+    "email": "manonsilva9468@test-vagondys.com",
+    "telephone": "0640728673",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-5A6970",
+    "created_at": "2026-02-05T20:57:37.047Z",
+    "payload": {
+      "name": "Manon Silva",
+      "pseudo": "ManonSilva9468",
+      "email": "manonsilva9468@test-vagondys.com",
+      "phone": "0646227071",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Silva | Email: manonsilva9468@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.047Z",
+      "details": {
+        "name": "Manon Silva",
+        "email": "manonsilva9468@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonsilva9468@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.047Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.047Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

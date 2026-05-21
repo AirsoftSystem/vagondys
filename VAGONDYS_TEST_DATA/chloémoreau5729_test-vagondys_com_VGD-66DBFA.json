@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-66DBFA",
+  "client_identity": {
+    "nom": "Chloé Moreau",
+    "email": "chloémoreau5729@test-vagondys.com",
+    "telephone": "0690220143",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-66DBFA",
+    "created_at": "2026-02-05T20:57:37.194Z",
+    "payload": {
+      "name": "Chloé Moreau",
+      "pseudo": "ChloéMoreau5729",
+      "email": "chloémoreau5729@test-vagondys.com",
+      "phone": "0631763865",
+      "city": "Madrid",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Moreau | Email: chloémoreau5729@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.194Z",
+      "details": {
+        "name": "Chloé Moreau",
+        "email": "chloémoreau5729@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloémoreau5729@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.194Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.194Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

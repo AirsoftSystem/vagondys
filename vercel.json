@@ -1,0 +1,115 @@
+
+{
+  "rewrites": [],
+  "redirects": [
+    {
+      "source": "/:path*/package.json",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/package-lock.json",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/.env",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/.env.local",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/.git/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/node_modules/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/app/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/lib/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/scripts/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/.next/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/.vercel/:match*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/tsconfig.json",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/tsconfig.ts",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/next.config.ts",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/next.config.js",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/README.md",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/arborescence.txt",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
+      "source": "/:path*/proxy.ts",
+      "destination": "/404",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    }
+  ]
+}

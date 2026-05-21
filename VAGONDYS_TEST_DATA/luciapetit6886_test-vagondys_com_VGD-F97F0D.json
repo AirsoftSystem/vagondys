@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-F97F0D",
+  "client_identity": {
+    "nom": "Lucia Petit",
+    "email": "luciapetit6886@test-vagondys.com",
+    "telephone": "0628667944",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-F97F0D",
+    "created_at": "2026-02-05T20:59:23.867Z",
+    "payload": {
+      "name": "Lucia Petit",
+      "pseudo": "LuciaPetit6886",
+      "email": "luciapetit6886@test-vagondys.com",
+      "phone": "0644086122",
+      "city": "Lyon",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Petit | Email: luciapetit6886@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.867Z",
+      "details": {
+        "name": "Lucia Petit",
+        "email": "luciapetit6886@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciapetit6886@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.867Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.867Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

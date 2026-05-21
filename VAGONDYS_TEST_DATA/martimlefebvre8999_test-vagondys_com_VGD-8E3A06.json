@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-8E3A06",
+  "client_identity": {
+    "nom": "Martim Lefebvre",
+    "email": "martimlefebvre8999@test-vagondys.com",
+    "telephone": "0617509076",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-8E3A06",
+    "created_at": "2026-02-05T20:59:23.977Z",
+    "payload": {
+      "name": "Martim Lefebvre",
+      "pseudo": "MartimLefebvre8999",
+      "email": "martimlefebvre8999@test-vagondys.com",
+      "phone": "0625469437",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Lefebvre | Email: martimlefebvre8999@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.977Z",
+      "details": {
+        "name": "Martim Lefebvre",
+        "email": "martimlefebvre8999@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimlefebvre8999@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.977Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.977Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

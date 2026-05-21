@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D39485",
+  "client_identity": {
+    "nom": "Chloé Lefebvre",
+    "email": "chloélefebvre7774@test-vagondys.com",
+    "telephone": "0660471074",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D39485",
+    "created_at": "2026-02-05T20:59:23.844Z",
+    "payload": {
+      "name": "Chloé Lefebvre",
+      "pseudo": "ChloéLefebvre7774",
+      "email": "chloélefebvre7774@test-vagondys.com",
+      "phone": "0692019437",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Lefebvre | Email: chloélefebvre7774@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.844Z",
+      "details": {
+        "name": "Chloé Lefebvre",
+        "email": "chloélefebvre7774@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloélefebvre7774@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.844Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.844Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

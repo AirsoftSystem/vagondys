@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-1E3EB8",
+  "client_identity": {
+    "nom": "Enzo Ferreira",
+    "email": "enzoferreira9606@test-vagondys.com",
+    "telephone": "0621866157",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-1E3EB8",
+    "created_at": "2026-02-05T20:57:37.144Z",
+    "payload": {
+      "name": "Enzo Ferreira",
+      "pseudo": "EnzoFerreira9606",
+      "email": "enzoferreira9606@test-vagondys.com",
+      "phone": "0666091355",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Ferreira | Email: enzoferreira9606@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.144Z",
+      "details": {
+        "name": "Enzo Ferreira",
+        "email": "enzoferreira9606@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzoferreira9606@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.144Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.144Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

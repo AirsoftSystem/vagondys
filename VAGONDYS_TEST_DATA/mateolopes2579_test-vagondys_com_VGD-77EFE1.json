@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-77EFE1",
+  "client_identity": {
+    "nom": "Mateo Lopes",
+    "email": "mateolopes2579@test-vagondys.com",
+    "telephone": "0630829445",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-77EFE1",
+    "created_at": "2026-02-05T20:59:24.257Z",
+    "payload": {
+      "name": "Mateo Lopes",
+      "pseudo": "MateoLopes2579",
+      "email": "mateolopes2579@test-vagondys.com",
+      "phone": "0681826636",
+      "city": "Porto",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Lopes | Email: mateolopes2579@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.257Z",
+      "details": {
+        "name": "Mateo Lopes",
+        "email": "mateolopes2579@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateolopes2579@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.257Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.257Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

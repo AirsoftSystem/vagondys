@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-496619",
+  "client_identity": {
+    "nom": "Mateo Moreau",
+    "email": "mateomoreau1826@test-vagondys.com",
+    "telephone": "0619137161",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-496619",
+    "created_at": "2026-02-05T20:57:37.074Z",
+    "payload": {
+      "name": "Mateo Moreau",
+      "pseudo": "MateoMoreau1826",
+      "email": "mateomoreau1826@test-vagondys.com",
+      "phone": "0686860554",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Moreau | Email: mateomoreau1826@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.074Z",
+      "details": {
+        "name": "Mateo Moreau",
+        "email": "mateomoreau1826@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateomoreau1826@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.074Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.074Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

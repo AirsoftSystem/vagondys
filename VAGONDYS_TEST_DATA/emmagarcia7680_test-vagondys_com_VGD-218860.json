@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-218860",
+  "client_identity": {
+    "nom": "Emma Garcia",
+    "email": "emmagarcia7680@test-vagondys.com",
+    "telephone": "0613555782",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-218860",
+    "created_at": "2026-02-05T20:59:23.884Z",
+    "payload": {
+      "name": "Emma Garcia",
+      "pseudo": "EmmaGarcia7680",
+      "email": "emmagarcia7680@test-vagondys.com",
+      "phone": "0694032469",
+      "city": "Lyon",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Garcia | Email: emmagarcia7680@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.884Z",
+      "details": {
+        "name": "Emma Garcia",
+        "email": "emmagarcia7680@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmagarcia7680@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.884Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.884Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

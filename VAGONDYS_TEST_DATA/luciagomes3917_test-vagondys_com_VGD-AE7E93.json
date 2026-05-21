@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-AE7E93",
+  "client_identity": {
+    "nom": "Lucia Gomes",
+    "email": "luciagomes3917@test-vagondys.com",
+    "telephone": "0689673530",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-AE7E93",
+    "created_at": "2026-02-05T20:57:37.254Z",
+    "payload": {
+      "name": "Lucia Gomes",
+      "pseudo": "LuciaGomes3917",
+      "email": "luciagomes3917@test-vagondys.com",
+      "phone": "0696618597",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Gomes | Email: luciagomes3917@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.254Z",
+      "details": {
+        "name": "Lucia Gomes",
+        "email": "luciagomes3917@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciagomes3917@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.254Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.254Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

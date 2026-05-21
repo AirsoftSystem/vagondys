@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-407B53",
+  "client_identity": {
+    "nom": "Manon Rousseau",
+    "email": "manonrousseau3011@test-vagondys.com",
+    "telephone": "0677325093",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-407B53",
+    "created_at": "2026-02-05T20:59:23.569Z",
+    "payload": {
+      "name": "Manon Rousseau",
+      "pseudo": "ManonRousseau3011",
+      "email": "manonrousseau3011@test-vagondys.com",
+      "phone": "0667867257",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Rousseau | Email: manonrousseau3011@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.569Z",
+      "details": {
+        "name": "Manon Rousseau",
+        "email": "manonrousseau3011@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonrousseau3011@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.569Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.569Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

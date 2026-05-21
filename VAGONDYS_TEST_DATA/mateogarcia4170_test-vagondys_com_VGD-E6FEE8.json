@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E6FEE8",
+  "client_identity": {
+    "nom": "Mateo Garcia",
+    "email": "mateogarcia4170@test-vagondys.com",
+    "telephone": "0637711446",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E6FEE8",
+    "created_at": "2026-02-05T20:59:24.186Z",
+    "payload": {
+      "name": "Mateo Garcia",
+      "pseudo": "MateoGarcia4170",
+      "email": "mateogarcia4170@test-vagondys.com",
+      "phone": "0699179199",
+      "city": "Malaga",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Garcia | Email: mateogarcia4170@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.186Z",
+      "details": {
+        "name": "Mateo Garcia",
+        "email": "mateogarcia4170@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateogarcia4170@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.186Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.186Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

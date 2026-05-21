@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D5A43F",
+  "client_identity": {
+    "nom": "Alejandro Moreau",
+    "email": "alejandromoreau9481@test-vagondys.com",
+    "telephone": "0627624794",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D5A43F",
+    "created_at": "2026-02-05T20:59:24.019Z",
+    "payload": {
+      "name": "Alejandro Moreau",
+      "pseudo": "AlejandroMoreau9481",
+      "email": "alejandromoreau9481@test-vagondys.com",
+      "phone": "0683653460",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Moreau | Email: alejandromoreau9481@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.019Z",
+      "details": {
+        "name": "Alejandro Moreau",
+        "email": "alejandromoreau9481@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandromoreau9481@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.019Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.019Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

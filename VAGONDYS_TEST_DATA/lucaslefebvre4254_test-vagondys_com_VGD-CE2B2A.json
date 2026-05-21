@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-CE2B2A",
+  "client_identity": {
+    "nom": "Lucas Lefebvre",
+    "email": "lucaslefebvre4254@test-vagondys.com",
+    "telephone": "0680336704",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-CE2B2A",
+    "created_at": "2026-02-05T20:57:37.302Z",
+    "payload": {
+      "name": "Lucas Lefebvre",
+      "pseudo": "LucasLefebvre4254",
+      "email": "lucaslefebvre4254@test-vagondys.com",
+      "phone": "0610699033",
+      "city": "Malaga",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucas Lefebvre | Email: lucaslefebvre4254@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.302Z",
+      "details": {
+        "name": "Lucas Lefebvre",
+        "email": "lucaslefebvre4254@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucaslefebvre4254@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.302Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.302Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

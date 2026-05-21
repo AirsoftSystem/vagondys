@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E56FC0",
+  "client_identity": {
+    "nom": "Sofia Gomes",
+    "email": "sofiagomes6140@test-vagondys.com",
+    "telephone": "0642032625",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E56FC0",
+    "created_at": "2026-02-05T20:59:23.887Z",
+    "payload": {
+      "name": "Sofia Gomes",
+      "pseudo": "SofiaGomes6140",
+      "email": "sofiagomes6140@test-vagondys.com",
+      "phone": "0621808134",
+      "city": "Lyon",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Gomes | Email: sofiagomes6140@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.887Z",
+      "details": {
+        "name": "Sofia Gomes",
+        "email": "sofiagomes6140@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiagomes6140@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.887Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.887Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

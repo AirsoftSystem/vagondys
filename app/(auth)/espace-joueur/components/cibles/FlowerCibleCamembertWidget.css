@@ -1,0 +1,216 @@
+/* ========================================== */
+/* FLOWER CIBLE CAMEMBERT WIDGET - Styles */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+/* ========================================== */
+/* 1. CONTENEUR PRINCIPAL
+/* ========================================== */
+.flower-cibles-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1.5rem;
+  padding: 1rem;
+}
+
+/* ========================================== */
+/* 2. LIGNES DE CONNEXION SVG
+/* ========================================== */
+.flower-cibles-lignes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.flower-cibles-ligne {
+  stroke: #27272a;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+/* ========================================== */
+/* 3. POSITIONNEMENT DES CIBLES
+/* ========================================== */
+.flower-cibles-position {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  top: attr(data-top);
+  left: attr(data-left);
+}
+
+.cible-camembert-container {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s;
+  width: 80px;
+  height: 80px;
+}
+
+.cible-camembert-container[data-size] {
+  width: attr(data-size px);
+  height: attr(data-size px);
+}
+
+.cible-camembert-container:hover {
+  transform: scale(1.1);
+}
+
+/* ========================================== */
+/* 4. ÉLÉMENTS SVG
+/* ========================================== */
+.cible-camembert-fond {
+  fill: #18181b;
+  stroke: #27272a;
+  stroke-width: 2;
+}
+
+.cible-camembert-centre {
+  fill: #000000;
+  stroke: #27272a;
+  stroke-width: 1;
+}
+
+/* ========================================== */
+/* 5. TOOLTIP
+/* ========================================== */
+.cible-camembert-tooltip {
+  position: absolute;
+  top: -3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+  color: white;
+}
+
+.cible-camembert-container:hover .cible-camembert-tooltip {
+  opacity: 1;
+}
+
+/* ========================================== */
+/* 6. TITRE
+/* ========================================== */
+.flower-cibles-titre {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.flower-cibles-titre-texte {
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #71717a;
+}
+
+/* ========================================== */
+/* 7. LÉGENDE DES COULEURS
+/* ========================================== */
+.flower-cibles-legende {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.375rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #52525b;
+  z-index: 5;
+}
+
+.flower-cibles-legende-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.flower-cibles-legende-couleur {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+/* Classes de couleurs pour la légende - Palette Flutter */
+.flower-cibles-legende-couleur.couleur-250 { background-color: #8E24AA; } /* Violet */
+.flower-cibles-legende-couleur.couleur-200 { background-color: #00BCD4; } /* Cyan */
+.flower-cibles-legende-couleur.couleur-150 { background-color: #E040FB; } /* Magenta */
+.flower-cibles-legende-couleur.couleur-100 { background-color: #00BCD4; } /* Cyan */
+.flower-cibles-legende-couleur.couleur-50 { background-color: #1E88E5; }  /* Bleu */
+.flower-cibles-legende-couleur.couleur-25 { background-color: #90CAF9; }  /* Bleu clair */
+.flower-cibles-legende-couleur.couleur-15 { background-color: #43A047; }  /* Vert */
+.flower-cibles-legende-couleur.couleur-10 { background-color: #FFF176; }  /* Jaune */
+.flower-cibles-legende-couleur.couleur-5 { background-color: #FFA726; }   /* Orange */
+.flower-cibles-legende-couleur.couleur-0 { background-color: #E53935; }   /* Rouge */
+.flower-cibles-legende-couleur.couleur-timeout { background-color: #757575; } /* Gris */
+
+/* ========================================== */
+/* 8. FALLBACK POUR LES NAVIGATEURS
+/* ========================================== */
+@supports not (width: attr(data-size px)) {
+  .cible-camembert-container {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+@supports not (top: attr(data-top)) {
+  .flower-cibles-position {
+    top: 0;
+    left: 0;
+  }
+}
+
+/* ========================================== */
+/* 9. MEDIA QUERIES POUR RESPONSIVE
+/* ========================================== */
+@media (max-width: 640px) {
+  .flower-cibles-legende {
+    gap: 0.5rem;
+    font-size: 0.3rem;
+  }
+  
+  .flower-cibles-titre-texte {
+    font-size: 0.4rem;
+  }
+  
+  .cible-camembert-tooltip {
+    font-size: 0.4rem;
+    padding: 0.2rem 0.4rem;
+    top: -2.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .flower-cibles-legende {
+    gap: 0.3rem;
+  }
+  
+  .flower-cibles-legende-item {
+    gap: 0.15rem;
+  }
+}

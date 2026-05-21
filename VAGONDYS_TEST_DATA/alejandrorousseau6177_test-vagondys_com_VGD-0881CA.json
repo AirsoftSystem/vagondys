@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-0881CA",
+  "client_identity": {
+    "nom": "Alejandro Rousseau",
+    "email": "alejandrorousseau6177@test-vagondys.com",
+    "telephone": "0625047791",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-0881CA",
+    "created_at": "2026-02-05T20:57:37.066Z",
+    "payload": {
+      "name": "Alejandro Rousseau",
+      "pseudo": "AlejandroRousseau6177",
+      "email": "alejandrorousseau6177@test-vagondys.com",
+      "phone": "0613289447",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Rousseau | Email: alejandrorousseau6177@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.066Z",
+      "details": {
+        "name": "Alejandro Rousseau",
+        "email": "alejandrorousseau6177@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandrorousseau6177@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.066Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.066Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

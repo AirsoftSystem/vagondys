@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-FA430E",
+  "client_identity": {
+    "nom": "Enzo Rousseau",
+    "email": "enzorousseau9577@test-vagondys.com",
+    "telephone": "0686787419",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-FA430E",
+    "created_at": "2026-02-05T20:57:37.065Z",
+    "payload": {
+      "name": "Enzo Rousseau",
+      "pseudo": "EnzoRousseau9577",
+      "email": "enzorousseau9577@test-vagondys.com",
+      "phone": "0693323839",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Rousseau | Email: enzorousseau9577@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.065Z",
+      "details": {
+        "name": "Enzo Rousseau",
+        "email": "enzorousseau9577@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzorousseau9577@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.065Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.065Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-7749E2",
+  "client_identity": {
+    "nom": "Tiago Gomes",
+    "email": "tiagogomes9872@test-vagondys.com",
+    "telephone": "0617110986",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-7749E2",
+    "created_at": "2026-02-05T20:57:37.132Z",
+    "payload": {
+      "name": "Tiago Gomes",
+      "pseudo": "TiagoGomes9872",
+      "email": "tiagogomes9872@test-vagondys.com",
+      "phone": "0691706341",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Tiago Gomes | Email: tiagogomes9872@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.132Z",
+      "details": {
+        "name": "Tiago Gomes",
+        "email": "tiagogomes9872@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "tiagogomes9872@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.132Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.132Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

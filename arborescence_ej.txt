@@ -1,0 +1,573 @@
+
+/*
+VAGONDYS / Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
+┃
+VSC > Guithub > Vercel + Cloudlare + Render <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Flutter <-> Esp32 <-> Arduino < Cibles
+┃
+Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , ino , py , dart
+┃
+PROJET_VAGONDYS/
+┣━ flutter
+┃  ┗━ esp32
+┃     ┗━ arduino
+┃        ┗━ cibles
+┃           ┗━ airsoft
+┃
+┣━ vsc
+┃  ┗━ github
+┃     ┗━ vercel + cloudlare + render
+┃        ┗━ supabase
+┃           ┗━ coffre-fort github
+┃
+┣━ github / ville = actuellement 12 Comptes
+┃  ┗━ supabase
+┃
+┗━>
+VAGONDYS_NETWORK/ (Vision Décentralisée)
+┃
+┣━ 1_CENTRALISATION_DES_CLES (Étape 1 : Le Cerveau)
+┃  ┗━ lib/
+┃     ┗━ supabase/
+┃        ┣━ master.ts        <-- NOUVEAU : Le seul qui connaît toutes les URLs/Clés des villes
+┃        ┣━ server.ts        <-- ADAPTÉ : Devient dynamique (reçoit 'city' en paramètre)
+┃        ┗━ client.ts        <-- ADAPTÉ : Idem pour le front-end
+┃
+┣━ 2_ROUTAGE_INTELLIGENT (Étape 2 : L'Aiguillage)
+┃  ┣━ proxy.ts               <-- ADAPTÉ : Détecte la structure via l'email ou le domaine
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┗━ auth/
+┃           ┗━ signup/
+┃              ┗━ route.ts   <-- ADAPTÉ : Envoie l'athlète vers le Supabase de sa ville
+┃
+┣━ 3_FRAGMENTATION_DATA (Étape 3 : Le Stockage)
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┣━ archive-external/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Utilise le Token GitHub spécifique à la ville
+┃        ┣━ confirm-email/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Génère le matricule dans la base locale
+┃        ┗━ send-reply/
+┃           ┗━ route.ts      <-- ADAPTÉ : Archive vers le repo de la ville concernée
+┃
+┣━ 4_INTERFACE_DYNAMIQUE (Étape 4 : L'Affichage)
+┃  ┗━ app/
+┃     ┣━ (auth)/
+┃     ┃  ┗━ espace-joueur/
+┃     ┃     ┗━ page.tsx      <-- ADAPTÉ : Se connecte au Supabase de l'athlète (Nantes, etc.)
+┃     ┗━ staff/
+┃        ┗━ interface/
+┃           ┗━ page.tsx      <-- ADAPTÉ : Permet au staff de switcher entre les bases
+┃
+┗━ CONFIGURATION_STUCTURES (Exemple pour Nantes)
+   ┣━ GITHUB: VAGONDYS_NANTES (via nantes@vagondys.com)
+   ┗━ SUPABASE: VGD-NANTES + STAFF (via nantes@vagondys.com)
+*/
+
+/*
+FORMULAIRE CONTACT
+├── Étape 1: actions.ts
+│   ├── Lit registre MASTER (athletes_registry) → city
+│   ├── Génère VGD-XXXXXX
+│   └── ✅ Insert dans MASTER.pending_signals (confirmed: false)
+│
+├── Étape 2: Email de confirmation
+│   └── Lien → /api/confirm-signal?id=...
+│
+├── Étape 3: confirm-signal/route.ts
+│   ├── ✅ Lit MASTER.pending_signals (trouve le signal)
+│   ├── Détermine city (payload ou registre)
+│   ├── Récupère config station via getStationConfig()
+│   ├── ✅ Met à jour MASTER (confirmed: true)
+│   ├── ✅ Insère dans STAFF.[ville].pending_signals (is_read: false)
+│   ├── ✅ Insère dans PUBLIC.[ville].pending_signals (is_read: true)
+│   ├── Si client retournant → communication_replies
+│   └── ✅ Appelle archive-external (GitHub false → true)
+│
+└── Étape 4: Interface Staff
+    ├── Dashboard (/staff) → badge "1" via realtime
+    └── Interface (/staff/interface) → affiche le message
+*/
+
+/*
+VAGONDYS/
+┃
+┣━ .next/
+┣━ .vercel/
+┣━ .vscode/
+┃  ┗━ settings.json
+┃
+┣━ app/
+┃  ┣━ (auth)/
+┃  ┃  ┣━ carte-id/
+┃  ┃  ┃  ┣━ DocumentVault.tsx      (L'Interface de stockage)          
+┃  ┃  ┃  ┣━ page.tsx               (Le Cerveau Le Chef d'Orchestre)
+┃  ┃  ┃  ┗━ ProfileForm.tsx        (L'Interface de saisie)
+┃  ┃  ┣━ connexion/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ espace-joueur/
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃   ┗━ cibles/  
+┃  ┃  ┃  ┃      ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃      ┣━ GlobalProgressBar.tsx
+┃  ┃  ┃  ┃      ┣━ HistoryTable.tsx
+┃  ┃  ┃  ┃      ┣━ Notification.tsx
+┃  ┃  ┃  ┃      ┣━ PrecisionBar.css
+┃  ┃  ┃  ┃      ┣━ PrecisionBar.tsx
+┃  ┃  ┃  ┃      ┣━ RankCard.tsx
+┃  ┃  ┃  ┃      ┣━ ScoreChart.css
+┃  ┃  ┃  ┃      ┣━ StatsCard.tsx
+┃  ┃  ┃  ┃      ┗━ WebSocketControl.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┃   ┗━ index.ts
+┃  ┃  ┃  ┣━ utils/
+┃  ┃  ┃  ┃   ┗━ formatters.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┗━ inscription/
+┃  ┃     ┗━ page.tsx
+┃  ┃
+┃  ┣━ (public)/
+┃  ┃  ┣━ bareme/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ classements/
+┃  ┃  ┃  ┣━ saison/
+┃  ┃  ┃  ┃  ┗━ [year]/
+┃  ┃  ┃  ┃     ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ communication/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ contact/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┗━ SubmitButton.tsx
+┃  ┃  ┣━ evenementiels/
+┃  ┃  ┃  ┣━ [date]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ joueurs/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ la-ligue/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ leaders/
+┃  ┃  ┃  ┣━ historique/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mentions-legales/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ politique-de-confidentialite/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ sponsors/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ tournois/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ api/
+┃  ┃  ┣━ archive-external/
+┃  ┃  ┃  ┗━ route.ts          (Le Chef d'Orchestre : Réceptionne la requête, appelle l'Engine, renvoie la réponse)
+┃  ┃  ┣━ auth/
+┃  ┃  ┃  ┗━ signup/
+┃  ┃  ┃     ┗━ route.ts
+┃  ┃  ┣━ confirm-email/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ confirm-signal/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ notify-read/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ send-reply/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┗━ staff/
+┃  ┃     ┣━ notify-transfer/
+┃  ┃     ┃  ┗━ route.ts
+┃  ┃     ┗━ register-athlete/
+┃  ┃        ┗━ route.ts
+┃  ┃
+┃  ┣━ staff/
+┃  ┃  ┣━ competitions/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ interface/
+┃  ┃  ┃  ┣━ components/                (Les briques visuelles)
+┃  ┃  ┃  ┃  ┣━ InterfaceHeader.tsx     (Titre, Recherche, Onglets)
+┃  ┃  ┃  ┃  ┣━ MessageList.tsx         (Le conteneur de flux)
+┃  ┃  ┃  ┃  ┣━ MessageCard.tsx         (Le détail d'un message seul)
+┃  ┃  ┃  ┃  ┗━ ReplyModal/             (Dossier dédié car complexe)
+┃  ┃  ┃  ┃     ┣━ index.tsx            (Point d'entrée de la modale)
+┃  ┃  ┃  ┃     ┣━ HistoryTimeline.tsx  (Le fil de discussion)
+┃  ┃  ┃  ┃     ┗━ ReplyForm.tsx        (Le formulaire d'envoi)
+┃  ┃  ┃  ┣━ hooks/                     (Le "Cerveau" - Logique métier)
+┃  ┃  ┃  ┃  ┗━ useStaffInterface.ts    (Tout ton état et tes fonctions Supabase)
+┃  ┃  ┃  ┣━ types/                     (Le "Modèle" - Contrats de données)
+┃  ┃  ┃  ┃  ┗━ interface.ts
+┃  ┃  ┃  ┣━ actions.ts                 (Server Action pour récupérer la ville de l'agent)
+┃  ┃  ┃  ┗━ page.tsx                   (L'Orchestrateur - Très léger)
+┃  ┃  ┣━ licencies/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ login/
+┃  ┃  ┃  ┣━ layout.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mode_jeux/                   <--- NOUVEAU DOSSIER
+┃  ┃  ┃  ┗━ page.tsx                  <--- NOUVELLE PAGE
+┃  ┃  ┣━ settings/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ globals.css
+┃  ┣━ icon.png
+┃  ┣━ layout.tsx
+┃  ┣━ Maison.css
+┃  ┣━ manifest.ts
+┃  ┣━ Ranking.css
+┃  ┗━ sitemap.ts
+┃
+┣━ components/
+┃  ┣━ staff/
+┃  ┃  ┣━ Sidebar.tsx
+┃  ┃  ┗━ StaffShell.tsx
+┃  ┗━ Footer.tsx
+┃
+┣━ lib/
+┃  ┣━ archive-external/    
+┃  ┃  ┣━ types.ts          (Le Contrat : Interfaces strictes pour GitHub, Supabase et le Front)
+┃  ┃  ┣━ validator.ts      (Le Gardien : Validation Zod/TS des données entrantes pour éviter les crashs)
+┃  ┃  ┣━ utils.ts          (Les Outils : Normalisation des noms, nettoyage de chaînes, formatage de dates)
+┃  ┃  ┣━ gh-client.ts      (L'Expert GitHub : Toute la communication brute avec l'API GitHub)
+┃  ┃  ┣━ db-client.ts      (L'Expert Supabase : Requêtes spécifiques à la Master DB et pending_signals)
+┃  ┃  ┗━ engine.ts         (Le Cerveau : Combine GitHub + DB + Mapping pour exécuter les actions métier)
+┃  ┣━ email/
+┃  ┃  ┗━ gmail.ts
+┃  ┣━ supabase/
+┃  ┃   ┣━ client.ts
+┃  ┃   ┣━ master.ts
+┃  ┃   ┗━ server.ts
+┃  ┗━ rate-limit.ts
+┃
+┣━ node_modules/
+┃
+┣━ public/
+┃  ┣━ logo/
+┃  ┃  ┣━ vagondys-mark-icon.png
+┃  ┃  ┣━ vagondys-mark.png
+┃  ┃  ┗━ vagondys-mark.svg
+┃  ┣━ cible.png
+┃  ┣━ favicon.ico
+┃  ┣━ file.svg
+┃  ┣━ globe.svg
+┃  ┣━ next.svg
+┃  ┣━ vagondys-mark.ico
+┃  ┣━ vercel.svg
+┃  ┗━ window.svg
+┃
+┣━ scripts/
+┃  ┗━ obfuscate-build.js
+┃
+┣━ VAGONDYS_TEST_DATA
+┃
+┣━ .env.local
+┣━ .gitignore
+┣━ arborescence.txt
+┣━ eslint.config.mjs
+┣━ generate-test-logs.mjs
+┣━ next-env.d.ts
+┣━ next.config.ts
+┣━ package-lock.json
+┣━ package.json
+┣━ postcss.config.mjs
+┣━ proxy.ts
+┣━ README.md
+┣━ tailwind.config.ts
+┣━ tsconfig.json
+┗━ vercel.json
+*/
+
+/*
+carte-id/page.tsx,"Le Cerveau (Le Chef d'Orchestre). C'est le fichier principal. Il récupère les données de Supabase, gère les états (chargement, erreurs) et contient les fonctions de mise à jour.",Le moteur d'une voiture.
+ProfileForm.tsx,"(L'Interface de saisie). Il ne sert qu'à afficher le formulaire et à capturer ce que l'utilisateur tape (Pseudo, Tel, Password). Il renvoie ces infos au cerveau.",Le tableau de bord et le volant.
+DocumentVault.tsx,(L'Interface de stockage). Il affiche la liste des documents (locaux et archives GitHub) et gère l'aspect visuel de l'envoi de fichiers.,Le coffre-fort ou la boîte à gants.
+*/
+
+/*
+✅ types/interface.ts : Contrat de données unifié.
+✅ hooks/useStaffInterface.ts : Logique métier et états isolés.
+✅ components/InterfaceHeader.tsx : Navigation et recherche isolées.
+✅ components/MessageList.tsx : Gestion du flux de signaux.
+✅ components/MessageCard.tsx : Design atomique des transmissions.
+✅ components/ReplyModal/index.tsx : Structure de communication.
+✅ components/ReplyModal/HistoryTimeline.tsx : Mémoire des dossiers.
+✅ components/ReplyModal/ReplyForm.tsx : Moteur de transmission.
+✅ page.tsx : Assemblage final propre.
+*/
+
+/*
+VAGONDYS/
+┣━ app/
+┃  ┣━ (auth)/
+┃  ┃  ┣━ carte-id/
+┃  ┃  ┃  ┣━ DocumentVault.tsx      (L'Interface de stockage)          
+┃  ┃  ┃  ┣━ page.tsx               (Le Cerveau Le Chef d'Orchestre)
+┃  ┃  ┃  ┗━ ProfileForm.tsx        (L'Interface de saisie)
+┃  ┃  ┣━ connexion/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ espace-joueur/
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃   ┣━ cibles/
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.css
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ CibleSimple.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┗━ types.ts 
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx
+┃  ┃  ┃  ┃   ┣━ HistoryTable.tsx
+┃  ┃  ┃  ┃   ┣━ Notification.tsx
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.css
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx
+┃  ┃  ┃  ┃   ┣━ RankCard.tsx
+┃  ┃  ┃  ┃   ┣━ ScoreChart.css
+┃  ┃  ┃  ┃   ┣━ StatsCard.tsx
+┃  ┃  ┃  ┃   ┗━ WebSocketControl.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┃   ┗━ index.ts
+┃  ┃  ┃  ┣━ utils/
+┃  ┃  ┃  ┃   ┗━ formatters.ts
+┃  ┃  ┃  ┗━ page.tsx
+*/
+
+VAGONDYS/
+│
+├─ 📁 .next/                                   # Build Next.js (généré)
+├─ 📁 .vercel/                                  # Configuration Vercel
+├─ 📁 .vscode/                                   # Configuration VS Code
+│   └─ settings.json
+│
+├─ 📁 app/                                       # 🟢 CŒUR DE L'APPLICATION
+│   │
+│   ├─ 📁 (auth)/                                 # 🔐 PARTIE AUTHENTIFIÉE
+│   │   │
+│   │   ├─ 📁 carte-id/                            # 🆔 Gestion carte d'identité
+│   │   │   ├─ DocumentVault.tsx                     # Coffre-fort numérique (documents uploadés)
+│   │   │   ├─ page.tsx                              # Orchestrateur principal
+│   │   │   └─ ProfileForm.tsx                       # Formulaire de saisie (pseudo, téléphone)
+│   │   │
+│   │   ├─ 📁 connexion/                             # 🔑 Page de connexion
+│   │   │   └─ page.tsx
+│   │   │
+│   │   ├─ 📁 espace-joueur/                         # 🎮 DASHBOARD JOUEUR
+│   │   │   │
+│   │   │   ├─ page.tsx                              # 📄 Page principale (structure Flutter + style VAGONDYS)
+│   │   │   │
+│   │   │   ├─ 📁 types/                             # 📚 Types TypeScript
+│   │   │   │   └─ index.ts                              # MatchRecord, GameStats, GameResult
+│   │   │   │
+│   │   │   ├─ 📁 utils/                             # 🔧 Fonctions utilitaires
+│   │   │   │   └─ formatters.ts                         # formatSeconds, formatDateTime, formatNumber
+│   │   │   │
+│   │   │   ├─ 📁 hooks/                              # 🪝 Hooks personnalisés
+│   │   │   │   └─ useWebSocketStats.ts                   # 🔌 Connexion WebSocket + stats cibles
+│   │   │   │
+│   │   │   └─ 📁 components/                         # 🧩 COMPOSANTS RÉUTILISABLES
+│   │   │       │
+│   │   │       ├─ StatsCard.tsx                          # 📊 Carte de statistiques (KPI)
+│   │   │       │
+│   │   │       ├─ RankCard.tsx                           # 👑 Carte de rang avec étoiles
+│   │   │       │
+│   │   │       ├─ PrecisionBar.tsx                       # 🎯 Barre de précision avec seuils
+│   │   │       ├─ PrecisionBar.css                       # Styles associés
+│   │   │       │
+│   │   │       ├─ GlobalProgressBar.tsx                  # 📈 Barre de progression des grades
+│   │   │       ├─ GlobalProgressBar.css                  # Styles associés
+│   │   │       │
+│   │   │       ├─ WebSocketControl.tsx                   # 🔌 Interface de connexion WebSocket
+│   │   │       │
+│   │   │       ├─ Notification.tsx                       # 🔔 Notification de fin de partie
+│   │   │       │
+│   │   │       ├─ ScoreChart.tsx                         # 📉 Graphique d'évolution des scores
+│   │   │       ├─ ScoreChart.css                         # Styles associés
+│   │   │       │
+│   │   │       ├─ HistoryTable.tsx                       # 📋 Tableau d'historique détaillé
+│   │   │       │
+│   │   │       └─ 📁 cibles/                              # 🎯 COMPOSANTS DE VISUALISATION DES CIBLES
+│   │   │           │
+│   │   │           ├─ types.ts                               # Types partagés pour les cibles
+│   │   │           │
+│   │   │           ├─ FlowerCibleCamembertWidget.tsx        # 🌸 Fleur de cibles en camembert (À CRÉER)
+│   │   │           │   ├─ Reproduit le widget Flutter flower_cible_camembert_widget.dart
+│   │   │           │   ├─ Affiche les 13 cibles avec pourcentages
+│   │   │           │   └─ Style VAGONDYS (noir/rouge)
+│   │   │           │
+│   │   │           ├─ FleurDeCiblesWidget.tsx               # 🎯 Visualisation des zones (À CRÉER)
+│   │   │           │   ├─ Reproduit le widget Flutter fleur_de_cibles_widget.dart
+│   │   │           │   ├─ Affiche les zones actives par cible
+│   │   │           │   └─ Style VAGONDYS
+│   │   │           │
+│   │   │           ├─ CibleSimple.tsx                       # 🎯 Cible individuelle (À CRÉER)
+│   │   │           │   └─ Composant de base pour les cibles
+│   │   │           │
+│   │   │           ├─ CibleDetail.tsx                       # 🔍 Analyse détaillée d'une cible (À CRÉER)
+│   │   │           │   └─ Vue détaillée avec statistiques
+│   │   │           │
+│   │   │           └─ FullscreenCibles.tsx                  # 🖥️ Vue plein écran (À CRÉER)
+│   │   │               └─ Navigation entre les modes de visualisation
+│   │   │
+│   │   └─ 📁 inscription/                             # 📝 Page d'inscription
+│   │       └─ page.tsx
+│   │
+│   ├─ 📁 (public)/                                 # 🌍 PARTIE PUBLIQUE
+│   │   ├─ 📁 bareme/
+│   │   ├─ 📁 classements/
+│   │   ├─ 📁 communication/
+│   │   ├─ 📁 contact/
+│   │   ├─ 📁 joueurs/
+│   │   ├─ 📁 la-ligue/
+│   │   ├─ 📁 maison/
+│   │   ├─ 📁 mentions-legales/
+│   │   ├─ 📁 politique-de-confidentialite/
+│   │   ├─ layout.tsx
+│   │   └─ page.tsx
+│   │
+│   ├─ 📁 api/                                        # 🖧 API ROUTES
+│   │   ├─ 📁 archive-external/
+│   │   ├─ 📁 auth/
+│   │   ├─ 📁 confirm-email/
+│   │   ├─ 📁 confirm-signal/
+│   │   ├─ 📁 notify-read/
+│   │   ├─ 📁 send-reply/
+│   │   └─ 📁 staff/
+│   │
+│   ├─ 📁 staff/                                      # 🛡️ ESPACE STAFF
+│   │   ├─ 📁 competitions/
+│   │   ├─ 📁 interface/
+│   │   ├─ 📁 licencies/
+│   │   ├─ 📁 login/
+│   │   ├─ 📁 settings/
+│   │   ├─ layout.tsx
+│   │   └─ page.tsx
+│   │
+│   ├─ globals.css                                    # Styles globaux
+│   ├─ layout.tsx                                     # Layout racine
+│   └─ ...
+│
+├─ 📁 lib/                                             # 📚 LOGIQUE MÉTIER
+│   ├─ 📁 archive-external/
+│   ├─ 📁 email/
+│   ├─ 📁 supabase/
+│   └─ rate-limit.ts
+│
+├─ 📁 public/                                           # 🖼️ FICHIERS STATIQUES
+│   └─ 📁 grades/                                       # Images des grades (à ajouter)
+│       ├─ recrue.png
+│       ├─ guerrier.png
+│       ├─ veteran.png
+│       ├─ elite.png
+│       ├─ maitre.png
+│       └─ legende.png
+│
+├─ .env.local                                           # Variables d'environnement
+├─ next.config.ts                                       # Configuration Next.js
+├─ package.json                                         # Dépendances
+├─ tailwind.config.ts                                   # Configuration Tailwind
+├─ tsconfig.json                                        # Configuration TypeScript
+└─ ...
+*/
+
+/*
+public/grades/
+  ├── guerrier_1.png
+  ├── guerrier_2.png
+  ├── guerrier_3.png
+  ├── elite_1.png
+  ├── elite_2.png
+  ├── elite_3.png
+  ├── maitre_1.png
+  ├── maitre_2.png
+  ├── maitre_3.png
+  ├── grand_maitre_1.png
+  ├── grand_maitre_2.png
+  ├── grand_maitre_3.png
+  ├── epique_1.png
+  ├── epique_2.png
+  ├── epique_3.png
+  ├── epique_4.png
+  ├── epique_5.png
+  ├── legende_1.png
+  ├── legende_2.png
+  ├── legende_3.png
+  ├── immortel_1000.png
+  ├── immortel_100.png
+  ├── immortel_10.png
+  └── immortel_1.png
+*/
+
+/*
+public/grades/
+  (ici pas de trais = 0%)
+  ├── guerrier_1.png
+  (ici pas de trais = Blanc)
+  ├── guerrier_2.png
+  (ici pas de trais = Blanc)
+  ├── guerrier_3.png
+  (ici pas de trais = Blanc)
+  ├── elite_1.png
+  (ici pas de trais = Blanc)
+  ├── elite_2.png
+  (ici pas de trais = Blanc)
+  ├── elite_3.png
+  (ici pas de trais = Blanc)
+  ├── maitre_1.png
+  (ici pas de trais = Blanc)
+  ├── maitre_2.png
+  (ici pas de trais = Blanc)
+  ├── maitre_3.png
+  (ici pas de trais = Blanc)
+  ├── grand_maitre_1.png
+  (ici pas de trais = Blanc)
+  ├── grand_maitre_2.png
+  (ici pas de trais = Blanc)
+  ├── grand_maitre_3.png
+  (ici pas de trais = Jaune)
+  ├── epique_1.png
+  (ici pas de trais = Jaune)
+  ├── epique_2.png
+  (ici pas de trais = Jaune)
+  ├── epique_3.png
+  (ici pas de trais = Jaune)
+  ├── epique_4.png
+  (ici pas de trais = Orange)
+  ├── epique_5.png
+  (ici pas de trais = Orange)
+  ├── legende_1.png
+  (ici pas de trais = Orange)
+  ├── legende_2.png
+  (ici pas de trais = Orange)
+  ├── legende_3.png
+  (ici pas de trais = Rouge)
+  ├── immortel_1000.png
+  (ici pas de trais = Rouge)
+  ├── immortel_100.png
+  (ici pas de trais = Rouge)
+  ├── immortel_10.png
+  (ici pas de trais = Rouge)
+  └── immortel_1.png
+  (ici pas de trais = 100%)
+*/

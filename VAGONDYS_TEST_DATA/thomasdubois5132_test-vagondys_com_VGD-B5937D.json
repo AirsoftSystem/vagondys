@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B5937D",
+  "client_identity": {
+    "nom": "Thomas Dubois",
+    "email": "thomasdubois5132@test-vagondys.com",
+    "telephone": "0633403885",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B5937D",
+    "created_at": "2026-02-05T20:57:37.096Z",
+    "payload": {
+      "name": "Thomas Dubois",
+      "pseudo": "ThomasDubois5132",
+      "email": "thomasdubois5132@test-vagondys.com",
+      "phone": "0622996299",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Dubois | Email: thomasdubois5132@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.096Z",
+      "details": {
+        "name": "Thomas Dubois",
+        "email": "thomasdubois5132@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasdubois5132@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.096Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.096Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

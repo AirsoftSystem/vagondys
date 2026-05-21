@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-0B2E6E",
+  "client_identity": {
+    "nom": "Sofia Petit",
+    "email": "sofiapetit3818@test-vagondys.com",
+    "telephone": "0695619947",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-0B2E6E",
+    "created_at": "2026-02-05T20:59:23.943Z",
+    "payload": {
+      "name": "Sofia Petit",
+      "pseudo": "SofiaPetit3818",
+      "email": "sofiapetit3818@test-vagondys.com",
+      "phone": "0637580831",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Petit | Email: sofiapetit3818@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.943Z",
+      "details": {
+        "name": "Sofia Petit",
+        "email": "sofiapetit3818@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiapetit3818@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.943Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.943Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

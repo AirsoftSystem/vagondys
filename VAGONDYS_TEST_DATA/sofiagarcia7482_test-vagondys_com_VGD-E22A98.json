@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E22A98",
+  "client_identity": {
+    "nom": "Sofia Garcia",
+    "email": "sofiagarcia7482@test-vagondys.com",
+    "telephone": "0646095064",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E22A98",
+    "created_at": "2026-02-05T20:57:37.153Z",
+    "payload": {
+      "name": "Sofia Garcia",
+      "pseudo": "SofiaGarcia7482",
+      "email": "sofiagarcia7482@test-vagondys.com",
+      "phone": "0644085981",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Garcia | Email: sofiagarcia7482@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.153Z",
+      "details": {
+        "name": "Sofia Garcia",
+        "email": "sofiagarcia7482@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiagarcia7482@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.153Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.153Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

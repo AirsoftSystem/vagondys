@@ -1,0 +1,40 @@
+/*
+PROMPT POUR L'AGENT DE CODAGE
+Contexte : Nous sommes en train de corriger un bug critique sur le projet Next.js "VAGONDYS".
+Le problème est que l'interface Staff (/staff/page.tsx) ne parvient ni à se déconnecter,
+ni à afficher les données (compteurs de messages, nouveaux licenciés).
+L'architecture du projet est une "Gare de triage"
+où l'authentification est centralisée sur un projet Supabase MASTER,
+mais les données Staff sont fragmentées par ville (NANTES_STAFF, LYON_STAFF, etc.).
+Le bug vient du fait que la page Staff utilise un client codé en dur
+pointant vers une base STAFF globale inexistante,
+au lieu d'un client dynamique qui se connecte à la base de la ville de l'agent connecté.
+
+Objectif : Modifier le code pour que l'interface Staff se connecte dynamiquement
+à la bonne base de données STAFF en fonction de l'email de l'agent connecté.
+Pour cela,
+nous allons créer une Server Action qui,
+sur le serveur, détermine la ville de l'agent (via masterAdminClient)
+et renvoie cette information au composant client.
+Le composant client utilisera ensuite cette ville pour créer un client Supabase dynamique
+et effectuer ses requêtes.
+*/
+
+/*
+VAGONDYS/
+┣━ app/
+┃  ┗━ staff/
+┃     ┣━ interface/               (Ce dossier n'est pas modifié pour l'instant)
+┃     ┃  ┗━ page.tsx
+┃     ┣━ ...
+┃     ┗━ page.tsx                  <--- FICHIER À REMPLACER (Dashboard principal)
+┃
+┣━ lib/
+┃  ┗━ supabase/
+┃     ┣━ client.ts                 <--- FICHIER À MODIFIER (Améliorer la robustesse)
+┃     ┣━ master.ts                 <--- (Pas de modification nécessaire, mais à vérifier)
+┃     ┗━ server.ts                 <--- FICHIER À MODIFIER (Adapter pour le Staff)
+┃
+┗━ actions/                         <--- NOUVEAU DOSSIER À CRÉER
+   ┗━ staff-actions.ts              <--- NOUVEAU FICHIER (Contiendra la Server Action)
+*/

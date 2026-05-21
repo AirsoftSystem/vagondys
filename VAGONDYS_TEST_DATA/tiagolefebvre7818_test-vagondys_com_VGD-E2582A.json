@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E2582A",
+  "client_identity": {
+    "nom": "Tiago Lefebvre",
+    "email": "tiagolefebvre7818@test-vagondys.com",
+    "telephone": "0655983321",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E2582A",
+    "created_at": "2026-02-05T20:57:37.295Z",
+    "payload": {
+      "name": "Tiago Lefebvre",
+      "pseudo": "TiagoLefebvre7818",
+      "email": "tiagolefebvre7818@test-vagondys.com",
+      "phone": "0628520540",
+      "city": "Malaga",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Tiago Lefebvre | Email: tiagolefebvre7818@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.295Z",
+      "details": {
+        "name": "Tiago Lefebvre",
+        "email": "tiagolefebvre7818@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "tiagolefebvre7818@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.295Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.295Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

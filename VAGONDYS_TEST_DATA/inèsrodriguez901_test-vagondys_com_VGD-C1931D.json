@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-C1931D",
+  "client_identity": {
+    "nom": "Inès Rodriguez",
+    "email": "inèsrodriguez901@test-vagondys.com",
+    "telephone": "0631919855",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-C1931D",
+    "created_at": "2026-02-05T20:57:37.046Z",
+    "payload": {
+      "name": "Inès Rodriguez",
+      "pseudo": "InèsRodriguez901",
+      "email": "inèsrodriguez901@test-vagondys.com",
+      "phone": "0680206702",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Rodriguez | Email: inèsrodriguez901@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.046Z",
+      "details": {
+        "name": "Inès Rodriguez",
+        "email": "inèsrodriguez901@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèsrodriguez901@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.046Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.046Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

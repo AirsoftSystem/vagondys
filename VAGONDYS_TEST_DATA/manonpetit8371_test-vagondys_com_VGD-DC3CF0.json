@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-DC3CF0",
+  "client_identity": {
+    "nom": "Manon Petit",
+    "email": "manonpetit8371@test-vagondys.com",
+    "telephone": "0645267966",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-DC3CF0",
+    "created_at": "2026-02-05T20:59:24.247Z",
+    "payload": {
+      "name": "Manon Petit",
+      "pseudo": "ManonPetit8371",
+      "email": "manonpetit8371@test-vagondys.com",
+      "phone": "0699483785",
+      "city": "Porto",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Petit | Email: manonpetit8371@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.247Z",
+      "details": {
+        "name": "Manon Petit",
+        "email": "manonpetit8371@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonpetit8371@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.247Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.247Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

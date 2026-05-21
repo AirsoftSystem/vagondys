@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-45418C",
+  "client_identity": {
+    "nom": "Sofia Dubois",
+    "email": "sofiadubois1138@test-vagondys.com",
+    "telephone": "0674715763",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-45418C",
+    "created_at": "2026-02-05T20:57:37.150Z",
+    "payload": {
+      "name": "Sofia Dubois",
+      "pseudo": "SofiaDubois1138",
+      "email": "sofiadubois1138@test-vagondys.com",
+      "phone": "0641669206",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Dubois | Email: sofiadubois1138@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.150Z",
+      "details": {
+        "name": "Sofia Dubois",
+        "email": "sofiadubois1138@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiadubois1138@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.150Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.150Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

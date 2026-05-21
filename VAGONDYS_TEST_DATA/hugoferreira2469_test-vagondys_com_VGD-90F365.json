@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-90F365",
+  "client_identity": {
+    "nom": "Hugo Ferreira",
+    "email": "hugoferreira2469@test-vagondys.com",
+    "telephone": "0619250497",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-90F365",
+    "created_at": "2026-02-05T20:57:37.134Z",
+    "payload": {
+      "name": "Hugo Ferreira",
+      "pseudo": "HugoFerreira2469",
+      "email": "hugoferreira2469@test-vagondys.com",
+      "phone": "0614618829",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Ferreira | Email: hugoferreira2469@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.134Z",
+      "details": {
+        "name": "Hugo Ferreira",
+        "email": "hugoferreira2469@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugoferreira2469@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.134Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.134Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B10897",
+  "client_identity": {
+    "nom": "Chloé Martinez",
+    "email": "chloémartinez9319@test-vagondys.com",
+    "telephone": "0647967420",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B10897",
+    "created_at": "2026-02-05T20:59:23.517Z",
+    "payload": {
+      "name": "Chloé Martinez",
+      "pseudo": "ChloéMartinez9319",
+      "email": "chloémartinez9319@test-vagondys.com",
+      "phone": "0682704540",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Martinez | Email: chloémartinez9319@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.517Z",
+      "details": {
+        "name": "Chloé Martinez",
+        "email": "chloémartinez9319@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloémartinez9319@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.517Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.517Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-1E2C7F",
+  "client_identity": {
+    "nom": "Sofia Lopes",
+    "email": "sofialopes7670@test-vagondys.com",
+    "telephone": "0651178186",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-1E2C7F",
+    "created_at": "2026-02-05T20:59:23.991Z",
+    "payload": {
+      "name": "Sofia Lopes",
+      "pseudo": "SofiaLopes7670",
+      "email": "sofialopes7670@test-vagondys.com",
+      "phone": "0681743485",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Lopes | Email: sofialopes7670@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.991Z",
+      "details": {
+        "name": "Sofia Lopes",
+        "email": "sofialopes7670@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofialopes7670@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.991Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.991Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

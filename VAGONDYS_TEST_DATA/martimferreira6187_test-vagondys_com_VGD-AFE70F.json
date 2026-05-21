@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-AFE70F",
+  "client_identity": {
+    "nom": "Martim Ferreira",
+    "email": "martimferreira6187@test-vagondys.com",
+    "telephone": "0649048352",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-AFE70F",
+    "created_at": "2026-02-05T20:59:24.020Z",
+    "payload": {
+      "name": "Martim Ferreira",
+      "pseudo": "MartimFerreira6187",
+      "email": "martimferreira6187@test-vagondys.com",
+      "phone": "0690700063",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Ferreira | Email: martimferreira6187@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.020Z",
+      "details": {
+        "name": "Martim Ferreira",
+        "email": "martimferreira6187@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimferreira6187@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.020Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.020Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

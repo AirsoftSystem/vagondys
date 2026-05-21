@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D06785",
+  "client_identity": {
+    "nom": "Lucia Rodriguez",
+    "email": "luciarodriguez9702@test-vagondys.com",
+    "telephone": "0611113559",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D06785",
+    "created_at": "2026-02-05T20:57:36.956Z",
+    "payload": {
+      "name": "Lucia Rodriguez",
+      "pseudo": "LuciaRodriguez9702",
+      "email": "luciarodriguez9702@test-vagondys.com",
+      "phone": "0659573310",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Rodriguez | Email: luciarodriguez9702@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.956Z",
+      "details": {
+        "name": "Lucia Rodriguez",
+        "email": "luciarodriguez9702@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciarodriguez9702@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.956Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.956Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

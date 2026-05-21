@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-844700",
+  "client_identity": {
+    "nom": "Chloé Garcia",
+    "email": "chloégarcia3885@test-vagondys.com",
+    "telephone": "0613801123",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-844700",
+    "created_at": "2026-02-05T20:59:24.062Z",
+    "payload": {
+      "name": "Chloé Garcia",
+      "pseudo": "ChloéGarcia3885",
+      "email": "chloégarcia3885@test-vagondys.com",
+      "phone": "0698750257",
+      "city": "Nice",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Garcia | Email: chloégarcia3885@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.062Z",
+      "details": {
+        "name": "Chloé Garcia",
+        "email": "chloégarcia3885@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloégarcia3885@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.062Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.062Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-DE88AD",
+  "client_identity": {
+    "nom": "Thomas Garcia",
+    "email": "thomasgarcia1396@test-vagondys.com",
+    "telephone": "0615050188",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-DE88AD",
+    "created_at": "2026-02-05T20:59:23.656Z",
+    "payload": {
+      "name": "Thomas Garcia",
+      "pseudo": "ThomasGarcia1396",
+      "email": "thomasgarcia1396@test-vagondys.com",
+      "phone": "0659518198",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Garcia | Email: thomasgarcia1396@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.656Z",
+      "details": {
+        "name": "Thomas Garcia",
+        "email": "thomasgarcia1396@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasgarcia1396@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.656Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.656Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

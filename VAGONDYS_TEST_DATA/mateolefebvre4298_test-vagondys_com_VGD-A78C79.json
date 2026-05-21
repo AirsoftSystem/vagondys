@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-A78C79",
+  "client_identity": {
+    "nom": "Mateo Lefebvre",
+    "email": "mateolefebvre4298@test-vagondys.com",
+    "telephone": "0686920248",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-A78C79",
+    "created_at": "2026-02-05T20:59:24.250Z",
+    "payload": {
+      "name": "Mateo Lefebvre",
+      "pseudo": "MateoLefebvre4298",
+      "email": "mateolefebvre4298@test-vagondys.com",
+      "phone": "0643846718",
+      "city": "Porto",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Lefebvre | Email: mateolefebvre4298@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.250Z",
+      "details": {
+        "name": "Mateo Lefebvre",
+        "email": "mateolefebvre4298@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateolefebvre4298@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.250Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.250Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

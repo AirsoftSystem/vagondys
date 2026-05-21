@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-C1F003",
+  "client_identity": {
+    "nom": "Tiago Dubois",
+    "email": "tiagodubois479@test-vagondys.com",
+    "telephone": "0652197408",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-C1F003",
+    "created_at": "2026-02-05T20:57:36.918Z",
+    "payload": {
+      "name": "Tiago Dubois",
+      "pseudo": "TiagoDubois479",
+      "email": "tiagodubois479@test-vagondys.com",
+      "phone": "0683473779",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Tiago Dubois | Email: tiagodubois479@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.918Z",
+      "details": {
+        "name": "Tiago Dubois",
+        "email": "tiagodubois479@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "tiagodubois479@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.918Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.918Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

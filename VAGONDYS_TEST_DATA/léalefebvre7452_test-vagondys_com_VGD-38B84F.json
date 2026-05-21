@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-38B84F",
+  "client_identity": {
+    "nom": "Léa Lefebvre",
+    "email": "léalefebvre7452@test-vagondys.com",
+    "telephone": "0641988051",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-38B84F",
+    "created_at": "2026-02-05T20:59:23.890Z",
+    "payload": {
+      "name": "Léa Lefebvre",
+      "pseudo": "LéaLefebvre7452",
+      "email": "léalefebvre7452@test-vagondys.com",
+      "phone": "0691130181",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Lefebvre | Email: léalefebvre7452@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.890Z",
+      "details": {
+        "name": "Léa Lefebvre",
+        "email": "léalefebvre7452@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léalefebvre7452@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.890Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.890Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

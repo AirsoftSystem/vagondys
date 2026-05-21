@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-3886B2",
+  "client_identity": {
+    "nom": "Léa Petit",
+    "email": "léapetit2027@test-vagondys.com",
+    "telephone": "0630815326",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-3886B2",
+    "created_at": "2026-02-05T20:59:24.219Z",
+    "payload": {
+      "name": "Léa Petit",
+      "pseudo": "LéaPetit2027",
+      "email": "léapetit2027@test-vagondys.com",
+      "phone": "0629873711",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Petit | Email: léapetit2027@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.219Z",
+      "details": {
+        "name": "Léa Petit",
+        "email": "léapetit2027@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léapetit2027@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.219Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.219Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

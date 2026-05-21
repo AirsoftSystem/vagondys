@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-10BD12",
+  "client_identity": {
+    "nom": "Hugo Silva",
+    "email": "hugosilva814@test-vagondys.com",
+    "telephone": "0612292638",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-10BD12",
+    "created_at": "2026-02-05T20:57:37.161Z",
+    "payload": {
+      "name": "Hugo Silva",
+      "pseudo": "HugoSilva814",
+      "email": "hugosilva814@test-vagondys.com",
+      "phone": "0646818666",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Silva | Email: hugosilva814@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.161Z",
+      "details": {
+        "name": "Hugo Silva",
+        "email": "hugosilva814@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugosilva814@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.161Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.161Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-F23F9F",
+  "client_identity": {
+    "nom": "Lucia Moreau",
+    "email": "luciamoreau7200@test-vagondys.com",
+    "telephone": "0671190575",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-F23F9F",
+    "created_at": "2026-02-05T20:59:24.080Z",
+    "payload": {
+      "name": "Lucia Moreau",
+      "pseudo": "LuciaMoreau7200",
+      "email": "luciamoreau7200@test-vagondys.com",
+      "phone": "0618395689",
+      "city": "Nice",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Moreau | Email: luciamoreau7200@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.080Z",
+      "details": {
+        "name": "Lucia Moreau",
+        "email": "luciamoreau7200@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciamoreau7200@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.080Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.080Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

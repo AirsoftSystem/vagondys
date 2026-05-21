@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-87C3FF",
+  "client_identity": {
+    "nom": "Mateo Rousseau",
+    "email": "mateorousseau643@test-vagondys.com",
+    "telephone": "0624365228",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-87C3FF",
+    "created_at": "2026-02-05T20:59:23.754Z",
+    "payload": {
+      "name": "Mateo Rousseau",
+      "pseudo": "MateoRousseau643",
+      "email": "mateorousseau643@test-vagondys.com",
+      "phone": "0622728070",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Rousseau | Email: mateorousseau643@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.754Z",
+      "details": {
+        "name": "Mateo Rousseau",
+        "email": "mateorousseau643@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateorousseau643@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.754Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.754Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E608B6",
+  "client_identity": {
+    "nom": "Thomas Lopes",
+    "email": "thomaslopes8588@test-vagondys.com",
+    "telephone": "0695405017",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E608B6",
+    "created_at": "2026-02-05T20:57:37.095Z",
+    "payload": {
+      "name": "Thomas Lopes",
+      "pseudo": "ThomasLopes8588",
+      "email": "thomaslopes8588@test-vagondys.com",
+      "phone": "0683309331",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Lopes | Email: thomaslopes8588@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.095Z",
+      "details": {
+        "name": "Thomas Lopes",
+        "email": "thomaslopes8588@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomaslopes8588@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.095Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.095Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

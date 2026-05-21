@@ -1,0 +1,1745 @@
+Tu vas analyser tout mon projet ce que je te mets ici 
+mais pour que tout cela ce passe parfaitement tu vas pour commencer me faire un "Prompt" 
+plus condencer afin de voir si tu à tout compris à 100% 
+mais pour pouvoir avancer correctement et proprement 
+je te donnerai toujours le ou les fichiers originaux qui correspondent à ce que l'on fait
+mais ne fais aucun code ici , juste le "Prompt" :
+
+/*
+# VAGONDYS - PROJET ULTIME
+
+## Architecture Web Complète pour Modes Officiels (Loisirs, Tournois, Compétition, Notoriété)
+
+---
+
+## 1. CONTEXTE GLOBAL DU PROJET
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   MAISON VAGONDYS - ÉLITE AIRSOFT                                     │
+│                          "Discipline, compétition et maîtrise du chaos"                               │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              INFRASTRUCTURE TECHNIQUE                                           │  │
+│  │                                                                                                 │  │
+│  │   VSC > GitHub > Vercel + Cloudflare + Render <─> Supabase (MASTER)                             │  │
+│  │                │                                                                                │  │
+│  │                ├─> Supabase (PUBLIC - Nantes, Lyon, Madrid, etc.)                               │  │
+│  │                ├─> Supabase (STAFF - Nantes, Lyon, Madrid, etc.)                                │  │
+│  │                └─> GitHub (VGD-Nantes, VGD-Lyon, VGD-Madrid, etc.)                              │  │
+│  │                                                                                                 │  │
+│  │   Flutter (scores_screen.dart) ← WebSocket → ESP32_HUB ← Serial → Arduino Mega ← Cibles         │  │
+│  │                                                                                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              LOGIQUE MÉTIER DU JEU                                              │  │
+│  │                                                                                                 │  │
+│  │   • 12 cibles (servos) → 13 zones de points : 0, 5, 10, 15, 25, 50, 100, 150, 200, 250, timeout │  │
+│  │   • Système de bonus cumulatif : chaque tir consécutif dans la même zone ajoute un bonus        │  │
+│  │   • 24 grades : Guerrier I → Immortel Mythique1 (24 niveaux)                                    │  │
+│  │   • Cycle de précision : 100 tirs max → progression/dégradation selon seuils (bas: 50-75)       │  │
+│  │   • FMP : Facteur Multiplicateur de Précision (x1.00 à x1.15)                                   │  │
+│  │   • PCH : Points de Notoriété (AS-Elite Grind)                                                  │  │
+│  │                                                                                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              IDENTITÉ VISUELLE                                                  │  │
+│  │                                                                                                 │  │
+│  │   • Fonds animés "Dead Space" : étoiles filantes, halos cyan, particules                        │  │
+│  │   • Typographie : Orbitron (Google Fonts) - style cyberpunk                                     │  │
+│  │   • Palette : Noir (#0A101A), Rouge (#DC2626), Cyan (#18FFFF), Or (#F59E0B)                     │  │
+│  │   • Animations : clignotement (blink), fade, scale, transitions fluides (300-500ms)             │  │
+│  │   • Effets : ombres portées, dégradés, bordures lumineuses, glassmorphism                       │  │
+│  │                                                                                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              MODES DE JEU OFFICIELS                                             │  │
+│  │                                                                                                 │  │
+│  │   MODE NORMAL (existant) :                                                                      │  │
+│  │   • 1 couloir, 1 à 4 joueurs, jeu tour par tour                                                 │  │
+│  │   • Boutons : "Démarrer partie", "Joueur suivant", "Tour suivant"                               │  │
+│  │   • Chaque joueur tire 20 tirs, passage au suivant automatique                                  │  │
+│  │                                                                                                 │  │
+│  │   MODE TOURNOI (à créer) :                                                                      │  │
+│  │   • Plusieurs couloirs synchronisés, 2 joueurs (1 vs 1) par couloir                             │  │
+│  │   • Synchronisation parfaite du départ avec décompte maître                                     │  │
+│  │   • Victoire : 3 manches gagnées = 120 tirs (20 tirs × 2 séries × 3 manches)                    │  │
+│  │                                                                                                 │  │
+│  │   MODE COMPÉTITION (à créer) :                                                                  │  │
+│  │   • Plusieurs couloirs synchronisés, 2 joueurs (1 vs 1)                                         │  │
+│  │   • Format : élimination directe, arbre de tournoi, classements                                 │  │
+│  │   • Victoire : 3 manches gagnées = 120 tirs                                                     │  │
+│  │                                                                                                 │  │
+│  │   MODE NOTORIÉTÉ (à créer) :                                                                    │  │
+│  │   • Plusieurs couloirs synchronisés, 1 champion vs 3 challengers                                │  │
+│  │   • Système unique de réputation (PCH) avec multiplicateurs influenceurs                        │  │
+│  │   • Victoire : 3 manches gagnées = 120 tirs (pour chaque duel)                                  │  │
+│  │                                                                                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                       │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. ARBORESCENCE COMPLÈTE DU PROJET
+
+```
+VAGONDYS/
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 DOSSIERS PRINCIPAUX (EXISTANTS - INCHANGÉS)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ .next/                                                 ✅ EXISTANT - Build Next.js
+┣━ .vercel/                                               ✅ EXISTANT - Déploiement Vercel
+┣━ .vscode/                                               ✅ EXISTANT - Configuration VSCode
+┃  ┗━ settings.json
+┃
+┣━ actions/                                               ✅ EXISTANT - Server Actions
+┃  ┗━ staff-actions.ts
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 app/ (APPLICATION NEXT.JS)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ app/
+┃  ┣━ (auth)/                                             ✅ EXISTANT - Espace authentifié
+┃  ┃  ┣━ activation-reussie/                              ✅ EXISTANT
+┃  ┃  ┣━ carte-id/                                        ✅ EXISTANT
+┃  ┃  ┃  ┣━ DocumentVault.tsx
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┗━ ProfileForm.tsx
+┃  ┃  ┣━ connexion/                                       ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ espace-joueur/                                   ✅ EXISTANT - À enrichir
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃  ┣━ cibles/                                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ CibleDetail.css
+┃  ┃  ┃  ┃  ┃  ┣━ CibleDetail.tsx
+┃  ┃  ┃  ┃  ┃  ┣━ CibleSimple.tsx
+┃  ┃  ┃  ┃  ┃  ┣━ FleurCibles.css
+┃  ┃  ┃  ┃  ┃  ┣━ FleurCibles.tsx
+┃  ┃  ┃  ┃  ┃  ┣━ FleurDeCiblesWidget.css
+┃  ┃  ┃  ┃  ┃  ┣━ FleurDeCiblesWidget.tsx
+┃  ┃  ┃  ┃  ┃  ┣━ FlowerCibleCamembertWidget.css
+┃  ┃  ┃  ┃  ┃  ┣━ FlowerCibleCamembertWidget.tsx
+┃  ┃  ┃  ┃  ┃  ┣━ FullscreenCibles.css
+┃  ┃  ┃  ┃  ┃  ┣━ FullscreenCibles.tsx
+┃  ┃  ┃  ┃  ┃  ┗━ types.tsx
+┃  ┃  ┃  ┃  ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃  ┣━ GlobalProgressBar.tsx
+┃  ┃  ┃  ┃  ┣━ HistoryTable.tsx
+┃  ┃  ┃  ┃  ┣━ Notification.tsx
+┃  ┃  ┃  ┃  ┣━ PrecisionBar.css
+┃  ┃  ┃  ┃  ┣━ PrecisionBar.tsx
+┃  ┃  ┃  ┃  ┣━ RankCard.tsx
+┃  ┃  ┃  ┃  ┣━ ScoreChart.css
+┃  ┃  ┃  ┃  ┣━ ScoreChart.tsx
+┃  ┃  ┃  ┃  ┣━ StatsCard.tsx
+┃  ┃  ┃  ┃  ┗━ WebSocketControl.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃  ┗━ useWebSocketStats.ts
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┃  ┗━ index.ts
+┃  ┃  ┃  ┣━ utils/
+┃  ┃  ┃  ┃  ┗━ formatters.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┗━ inscription/                                     ✅ EXISTANT
+┃  ┃     ┗━ page.tsx
+┃  ┃
+┃  ┣━ (public)/                                           ✅ EXISTANT - Pages publiques
+┃  ┃  ┣━ bareme/                                          ✅ EXISTANT
+┃  ┃  ┣━ classements/                                     ✅ EXISTANT
+┃  ┃  ┣━ communication/                                   ✅ EXISTANT
+┃  ┃  ┣━ contact/                                         ✅ EXISTANT
+┃  ┃  ┣━ evenementiels/                                   ✅ EXISTANT
+┃  ┃  ┣━ joueurs/                                         ✅ EXISTANT
+┃  ┃  ┣━ la-ligue/                                        ✅ EXISTANT
+┃  ┃  ┣━ leaders/                                         ✅ EXISTANT
+┃  ┃  ┣━ maison/                                          ✅ EXISTANT
+┃  ┃  ┣━ mentions-legales/                                ✅ EXISTANT
+┃  ┃  ┣━ politique-de-confidentialite/                    ✅ EXISTANT
+┃  ┃  ┣━ reservations/                                    ✅ EXISTANT
+┃  ┃  ┣━ sponsors/                                        ✅ EXISTANT
+┃  ┃  ┣━ tournois/                                        ✅ EXISTANT
+┃  ┃  ┣━ layout.tsx                                       ✅ EXISTANT
+┃  ┃  ┗━ page.tsx                                         ✅ EXISTANT
+┃  ┃
+┃  ┣━ api/                                                ✅ EXISTANT + 🆕 NOUVEAU
+┃  ┃  ┣━ archive-external/                                ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ auth/                                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ signup/
+┃  ┃  ┃     ┗━ route.ts
+┃  ┃  ┣━ confirm-email/                                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ confirm-signal/                                  ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ force-admin/                                     ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ notify-read/                                     ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ send-reply/                                      ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ staff/                                           ✅ EXISTANT + 🆕 NOUVEAU
+┃  ┃  ┃  ┣━ notify-transfer/                              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┃  ┣━ register-athlete/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃  ┃   🆕 API LANE CONTROL (Contrôle mono-couloir) / OK
+┃  ┃  ┃  ┣━ lane_control/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ [laneId]/
+┃  ┃  ┃  ┃     ┣━ start/route.ts                          ✅ START_GAME
+┃  ┃  ┃  ┃     ┣━ next-player/route.ts                    ✅ NEXT_PLAYER
+┃  ┃  ┃  ┃     ┣━ next-turn/route.ts                      ✅ NEXT_TURN
+┃  ┃  ┃  ┃     ┗━ end-game/route.ts                       ✅ Sauvegarde stats
+┃  ┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃  ┃   🆕 API TOURNAMENT (Tournoi synchronisé)
+┃  ┃  ┃  ┣━ tournament/                                   🆕 À CRÉER
+┃  ┃  ┃  ┃  ┣━ start/route.ts                             🆕 Création + lancement tournoi
+┃  ┃  ┃  ┃  ┣━ [id]/
+┃  ┃  ┃  ┃  ┃  ┣━ status/route.ts                         🆕 Statut du tournoi
+┃  ┃  ┃  ┃  ┃  ┣━ next-round/route.ts                     🆕 Passage manche suivante
+┃  ┃  ┃  ┃  ┃  ┗━ results/route.ts                        🆕 Résultats finaux
+┃  ┃  ┃  ┃  ┗━ sync/route.ts                              🆕 Synchronisation horloges
+┃  ┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃  ┃   🆕 API COMPETITION (Compétition élimination directe)
+┃  ┃  ┃  ┣━ competition/                                  🆕 À CRÉER
+┃  ┃  ┃  ┃  ┣━ create/route.ts                            🆕 Création compétition
+┃  ┃  ┃  ┃  ┣━ [id]/
+┃  ┃  ┃  ┃  ┃  ┣━ start/route.ts                          🆕 Démarrage match
+┃  ┃  ┃  ┃  ┃  ┣━ standings/route.ts                      🆕 Classement en direct
+┃  ┃  ┃  ┃  ┃  ┗━ finalize/route.ts                       🆕 Finalisation podium
+┃  ┃  ┃  ┃  ┗━ types.ts                                   🆕
+┃  ┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃  ┃   🆕 API NOTORIETE (Notoriété avec influenceurs)
+┃  ┃  ┃  ┣━ notoriete/                                    🆕 À CRÉER
+┃  ┃  ┃  ┃  ┣━ create/route.ts                            🆕 Création session
+┃  ┃  ┃  ┃  ┣━ [id]/
+┃  ┃  ┃  ┃  ┃  ┣━ start/route.ts                          🆕 Démarrage session
+┃  ┃  ┃  ┃  ┃  ┣━ influence/route.ts                      🆕 Gestion influenceurs
+┃  ┃  ┃  ┃  ┃  ┗━ reputation/route.ts                     🆕 Calcul réputation (PCH)
+┃  ┃  ┃  ┃  ┗━ types.ts                                   🆕
+┃  ┃  ┃  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┗━ websocket/                                       🆕 À CRÉER
+┃  ┃     ┣━ [laneId]/route.ts                             🆕 Relay WebSocket par couloir
+┃  ┃     ┗━ broadcast/route.ts                            🆕 Broadcast multi-couloirs
+┃  ┃
+┃  ┣━ staff/                                              ✅ EXISTANT + 🆕 NOUVEAU
+┃  ┃  ┣━ competitions/                                    ✅ EXISTANT - À enrichir
+┃  ┃  ┃  ┣━ page.tsx                                      ✅ EXISTANT
+┃  ┃  ┃  ┣━ create/                                       🆕 À CRÉER
+┃  ┃  ┃  ┃  ┗━ page.tsx                                   🆕 Création compétition
+┃  ┃  ┃  ┣━ [competitionId]/                              🆕 À CRÉER
+┃  ┃  ┃  ┃  ┗━ page.tsx                                   🆕 Détails compétition
+┃  ┃  ┃  ┗━ types/                                        🆕 À CRÉER
+┃  ┃  ┃     ┗━ competition.types.ts                       🆕 (hérite de official.types.ts)
+┃  ┃  ┣━ interface/                                       ✅ EXISTANT - Inchangé
+┃  ┃  ┣━ licencies/                                       ✅ EXISTANT - Inchangé
+┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃   🆕 LIVE CONTROLS (Écrans de contrôle des parties)
+┃  ┃  ┣━ live_controls/                                   🆕 À CRÉER
+┃  ┃  ┃  ┣━ [laneId]/                                     ✅ Page mono-couloir
+┃  ┃  ┃  ┃  ┗━ page.tsx                                   ✅ Équivalent web de scores_screen.dart
+┃  ┃  ┃  ┣━ tournament/                                   🆕 Vue multi-couloirs
+┃  ┃  ┃  ┃  ┣━ [tournamentId]/                            🆕
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx                                🆕 Vue maître du tournoi
+┃  ┃  ┃  ┃  ┗━ layout.tsx                                 🆕
+┃  ┃  ┃  ┣━ competition/                                  🆕 Vue compétition
+┃  ┃  ┃  ┃  ┣━ [competitionId]/                           🆕
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx                                🆕 Vue avec arbre de tournoi
+┃  ┃  ┃  ┃  ┗━ layout.tsx                                 🆕
+┃  ┃  ┃  ┣━ notoriete/                                    🆕 Vue notoriété
+┃  ┃  ┃  ┃  ┣━ [sessionId]/                               🆕
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx                                🆕 Vue avec influenceurs
+┃  ┃  ┃  ┃  ┗━ layout.tsx                                 🆕
+┃  ┃  ┃  ┣━ layout.tsx                                    ✅ Layout minimal sans sidebar
+┃  ┃  ┃  ┗━ components/                                   🆕 Composants réutilisables
+┃  ┃  ┃     ┣━ LiveScoreCard.tsx                          ✅ Carte de score (pseudo, score, temps, blink)
+┃  ┃  ┃     ┣━ GameControlPanel.tsx                       ✅ Panneau Start/Next Player/Next Turn
+┃  ┃  ┃     ┣━ CountdownDisplay.tsx                       ✅ Affichage décompte (3,2,1,GO)
+┃  ┃  ┃     ┣━ FinGameOverlay.tsx                         ✅ Overlay FIN GAME (5s)
+┃  ┃  ┃     ┣━ OfficialButton.tsx                         ✅ Bouton officiel avec décompte intégré
+┃  ┃  ┃     ┣━ TournamentLeaderboard.tsx                  🆕 Classement tournoi
+┃  ┃  ┃     ┣━ NotorieteInfluencePanel.tsx                🆕 Panneau influenceurs
+┃  ┃  ┃     ┗━ AnimatedBackground.tsx                     🆕 Fond animé Dead Space
+┃  ┃  ┣━ login/                                           🆕 à créer
+┃  ┃  ┃  ┣━ layout.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/                                          ✅ EXISTANT - Inchangé
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mode_jeux/                                       ✅ EXISTANT - À MODIFIER
+┃  ┃  ┃  ┣━ page.tsx                                      🔧 À MODIFIER (ajout sélection couloirs)
+┃  ┃  ┃  ┣━ components/                                   ✅ EXISTANT - Inchangé
+┃  ┃  ┃  ┃  ┣━ GameHeader.tsx
+┃  ┃  ┃  ┃  ┣━ LaneSelector.tsx
+┃  ┃  ┃  ┃  ┣━ GameModeSection.tsx
+┃  ┃  ┃  ┃  ┣━ GameModeButton.tsx
+┃  ┃  ┃  ┃  ┣━ LaneStatus.tsx
+┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx
+┃  ┃  ┃  ┣━ hooks/                                       🔧 À MODIFIER
+┃  ┃  ┃  ┃  ┣━ useGameModes.ts                           🔧 À MODIFIER (ajout modes officiels)
+┃  ┃  ┃  ┃  ┗━ useWebSocketManager.ts                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ types/                                       ✅ EXISTANT
+┃  ┃  ┃     ┣━ game.types.ts
+┃  ┃  ┃     ┣━ index.ts
+┃  ┃  ┃     ┗━ websocket.types.ts
+┃  ┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃  ┃   🆕 NOTORIETE (Gestion des sessions notoriété)
+┃  ┃  ┣━ notoriete/                                      🆕 À CRÉER
+┃  ┃  ┃  ┣━ page.tsx                                     🆕 Tableau de bord notoriété
+┃  ┃  ┃  ┣━ create/                                      🆕
+┃  ┃  ┃  ┃  ┗━ page.tsx                                  🆕 Création session
+┃  ┃  ┃  ┣━ [sessionId]/                                 🆕
+┃  ┃  ┃  ┃  ┗━ page.tsx                                  🆕 Détails session
+┃  ┃  ┃  ┣━ components/                                  🆕
+┃  ┃  ┃  ┃  ┣━ InfluenceCard.tsx                         🆕 Carte influenceur
+┃  ┃  ┃  ┃  ┣━ ReputationGauge.tsx                       🆕 Jauge réputation
+┃  ┃  ┃  ┃  ┗━ NotorieteRanking.tsx                      🆕 Classement notoriété
+┃  ┃  ┃  ┗━ types/                                       🆕
+┃  ┃  ┃     ┗━ notoriete.types.ts                        🆕 (hérite de official.types.ts)
+┃  ┃  ┣━ reservations/                                   ✅ EXISTANT - Inchangé
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ resultats/                                      🆕 À CRÉER
+┃  ┃  ┃  ┣━ [laneId]/                                    🆕
+┃  ┃  ┃  ┃  ┗━ page.tsx                                  🆕 Classement individuel
+┃  ┃  ┃  ┣━ tournament/[tournamentId]/                   🆕
+┃  ┃  ┃  ┃  ┗━ page.tsx                                  🆕 Classement général tournoi
+┃  ┃  ┃  ┗━ competition/[competitionId]/                 🆕
+┃  ┃  ┃     ┗━ page.tsx                                  🆕 Podium + classement
+┃  ┃  ┣━ settings/                                       ✅ EXISTANT - Inchangé
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ tournois/                                       🆕 À CRÉER
+┃  ┃  ┃  ┣━ page.tsx                                     🆕 Sélection des couloirs
+┃  ┃  ┃  ┣━ components/                                  🆕
+┃  ┃  ┃  ┃  ┣━ LaneSelectorTournament.tsx                🆕 Grille de sélection
+┃  ┃  ┃  ┃  ┣━ TournamentConfig.tsx                      🆕 Configuration
+┃  ┃  ┃  ┃  ┗━ TournamentMonitor.tsx                     🆕 Vue de contrôle
+┃  ┃  ┃  ┣━ hooks/                                       🆕
+┃  ┃  ┃  ┃  ┗━ useTournamentMaster.ts                    🆕 Hook principal
+┃  ┃  ┃  ┗━ types/                                       🆕
+┃  ┃  ┃     ┗━ tournament.types.ts                       🆕 (hérite de official.types.ts)
+┃  ┃  ┣━ layout.tsx                                      ✅ EXISTANT - Inchangé
+┃  ┃  ┗━ page.tsx                                        ✅ EXISTANT - Inchangé
+┃  ┃
+┃  ┣━ globals.css                                        ✅ EXISTANT
+┃  ┣━ icon.png                                           ✅ EXISTANT
+┃  ┣━ layout.tsx                                         ✅ EXISTANT
+┃  ┣━ Maison.css                                         ✅ EXISTANT
+┃  ┣━ manifest.ts                                        ✅ EXISTANT
+┃  ┣━ Ranking.css                                        ✅ EXISTANT
+┃  ┗━ sitemap.ts                                         ✅ EXISTANT
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 components/ (COMPOSANTS RÉUTILISABLES)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ components/                                           ✅ EXISTANT
+┃  ┣━ staff/                                             ✅ EXISTANT
+┃  ┃  ┣━ Sidebar.tsx
+┃  ┃  ┗━ StaffShell.tsx
+┃  ┗━ Footer.tsx
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 lib/ (BIBLIOTHÈQUES ET LOGIQUE MÉTIER)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ lib/                                                  ✅ EXISTANT + 🆕 NOUVEAU
+┃  ┣━ archive-external/                                  ✅ EXISTANT - Inchangé
+┃  ┃  ┣━ db-client.ts
+┃  ┃  ┣━ engine.ts
+┃  ┃  ┣━ gh-client.ts
+┃  ┃  ┣━ types.ts
+┃  ┃  ┣━ utils.ts
+┃  ┃  ┗━ validator.ts
+┃  ┣━ email/                                             ✅ EXISTANT - Inchangé
+┃  ┃  ┗━ gmail.ts
+┃  ┣━ supabase/                                          ✅ EXISTANT - Inchangé
+┃  ┃  ┣━ client.ts
+┃  ┃  ┣━ master.ts
+┃  ┃  ┗━ server.ts
+┃  ┣━ websocket/                                         🆕 À CRÉER
+┃  ┃  ┣━ client.ts                                       ✅ EXISTANT
+┃  ┃  ┣━ laneConnectionManager.ts                        ✅ Gestion WebSocket par couloir
+┃  ┃  ┣━ broadcastManager.ts                             🆕 Envoi parallèle multi-couloirs
+┃  ┃  ┗━ types.ts                                        🆕
+┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃   🆕 TOURNAMENT (Backend Tournoi)
+┃  ┣━ tournament/                                        🆕 À CRÉER
+┃  ┃  ┣━ TournamentMaster.ts                             🆕 Orchestrateur du tournoi
+┃  ┃  ┣━ LaneCoordinator.ts                              🆕 Coordination des couloirs
+┃  ┃  ┣━ SynchronizedCountdown.ts                        🆕 Décompte synchronisé (Promise.all)
+┃  ┃  ┗━ types.ts                                        🆕
+┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃   🆕 COMPETITION (Backend Compétition)
+┃  ┣━ competition/                                       🆕 À CRÉER
+┃  ┃  ┣━ CompetitionManager.ts                           🆕 Gestion des matchs
+┃  ┃  ┣━ RankingEngine.ts                                🆕 Calcul points et classements
+┃  ┃  ┗━ types.ts                                        🆕
+┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃   🆕 NOTORIETE (Backend Notoriété)
+┃  ┣━ notoriete/                                         🆕 À CRÉER
+┃  ┃  ┣━ NotorieteManager.ts                             🆕 Gestion des sessions
+┃  ┃  ┣━ ReputationCalculator.ts                         🆕 Calcul des PCH
+┃  ┃  ┣━ InfluenceEngine.ts                              🆕 Gestion multiplicateurs influenceurs
+┃  ┃  ┗━ types.ts                                        🆕
+┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃   🆕 HOOKS REACT (Logique Frontend)
+┃  ┣━ hooks/                                             🆕 À CRÉER
+┃  ┃  ┣━ useLaneWebSocket.ts                             ✅ Connexion WebSocket par couloir
+┃  ┃  ┣━ useAudioControl.ts                              ✅ Décompte vocal 3-2-1-VIZ
+┃  ┃  ┣━ useOfficialGameControl.ts                       🆕 Abstraction des boutons officiels
+┃  ┃  ┗━ useTournamentWebSocket.ts                       🆕 WebSocket multi-couloirs
+┃  ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃  ┃   🆕 UTILS (Fonctions utilitaires)
+┃  ┣━ utils/                                             🆕 À CRÉER
+┃  ┃  ┣━ gameModeParser.ts                               ✅ getModeName, getNbJoueurs, getPlayerCount
+┃  ┃  ┣━ officialCommands.ts                             🆕 Commandes officielles
+┃  ┃  ┗━ synchronization.ts                              🆕 Synchronisation horloges
+┃  ┗━ rate-limit.ts                                      ✅ EXISTANT
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 public/ (FICHIERS STATIQUES)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ public/                                               ✅ EXISTANT + 🆕 NOUVEAU
+┃  ┣━ logo/                                              ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark-icon.png
+┃  ┃  ┣━ vagondys-mark.png
+┃  ┃  ┗━ vagondys-mark.svg
+┃  ┣━ sounds/                                            🆕 À CRÉER
+┃  ┃  ┣━ 3.wav                                           🆕 Décompte 3
+┃  ┃  ┣━ 2.wav                                           🆕 Décompte 2
+┃  ┃  ┣━ 1.wav                                           🆕 Décompte 1
+┃  ┃  ┗━ VIZ.wav                                         🆕 Décompte VIZ (GO)
+┃  ┣━ grades/                                            ✅ EXISTANT - 24 grades
+┃  ┃  ┣━ guerrier_1.png
+┃  ┃  ┣━ guerrier_2.png
+┃  ┃  ┣━ guerrier_3.png
+┃  ┃  ┣━ elite_1.png
+┃  ┃  ┣━ elite_2.png
+┃  ┃  ┣━ elite_3.png
+┃  ┃  ┣━ maitre_1.png
+┃  ┃  ┣━ maitre_2.png
+┃  ┃  ┣━ maitre_3.png
+┃  ┃  ┣━ grand_maitre_1.png
+┃  ┃  ┣━ grand_maitre_2.png
+┃  ┃  ┣━ grand_maitre_3.png
+┃  ┃  ┣━ epique_1.png
+┃  ┃  ┣━ epique_2.png
+┃  ┃  ┣━ epique_3.png
+┃  ┃  ┣━ epique_4.png
+┃  ┃  ┣━ epique_5.png
+┃  ┃  ┣━ legende_1.png
+┃  ┃  ┣━ legende_2.png
+┃  ┃  ┣━ legende_3.png
+┃  ┃  ┣━ immortel_1000.png
+┃  ┃  ┣━ immortel_100.png
+┃  ┃  ┣━ immortel_10.png
+┃  ┃  ┗━ immortel_1.png
+┃  ┣━ cible.png                                          ✅ EXISTANT
+┃  ┣━ favicon.ico                                        ✅ EXISTANT
+┃  ┣━ file.svg                                           ✅ EXISTANT
+┃  ┣━ globe.svg                                          ✅ EXISTANT
+┃  ┣━ next.svg                                           ✅ EXISTANT
+┃  ┣━ vagondys-mark.ico                                  ✅ EXISTANT
+┃  ┣━ vercel.svg                                         ✅ EXISTANT
+┃  ┗━ window.svg                                         ✅ EXISTANT
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 types/ (CENTRALISATION DES TYPES)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ types/                                                🆕 À CRÉER
+┃  ┗━ official.types.ts                                  🆕 Types centraux (Tournament, Competition, Notoriete)
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 scripts/ (SCRIPTS UTILITAIRES)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ scripts/                                              ✅ EXISTANT
+┃  ┣━ obfuscate-build.js
+┃  ┗━ optimize-images.js
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃   📁 flutter/ (ANCIENNE APPLICATION - À ARCHIVER)
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃
+┣━ flutter/                                              📦 À ARCHIVER
+┃  ┣━ archive/                                           🆕 À CRÉER
+┃  ┃  ┣━ scores_screen.dart                              📦 Référence
+┃  ┃  ┣━ infos_screen.dart                               📦 Référence
+┃  ┃  ┗━ README.md                                       📦
+┃  ┣━ esp32/                                             ✅ EXISTANT (inchangé)
+┃  ┗━ arduino/                                           ✅ EXISTANT (inchangé)
+┃
+┣━ VAGONDYS_TEST_DATA                                    ✅ EXISTANT
+┃
+┣━ .env.local                                            ✅ EXISTANT
+┣━ .gitignore                                            ✅ EXISTANT
+┣━ arborescence.txt                                      ✅ EXISTANT
+┣━ eslint.config.mjs                                     ✅ EXISTANT
+┣━ generate-test-logs.mjs                                ✅ EXISTANT
+┣━ next-env.d.ts                                         ✅ EXISTANT
+┣━ next.config.ts                                        ✅ EXISTANT
+┣━ package-lock.json                                     ✅ EXISTANT
+┣━ package.json                                          ✅ EXISTANT
+┣━ postcss.config.mjs                                    ✅ EXISTANT
+┣━ proxy.ts                                              ✅ EXISTANT
+┣━ README.md                                             ✅ EXISTANT
+┣━ tailwind.config.ts                                    ✅ EXISTANT
+┣━ tsconfig.json                                         ✅ EXISTANT
+┗━ vercel.json                                           ✅ EXISTANT
+```
+
+---
+
+## 3. TYPES CENTRAUX (`types/official.types.ts`)
+
+```typescript
+// ==========================================
+// VAGONDYS - TYPES OFFICIELS
+// Centralisation des types pour tous les modes officiels
+// ==========================================
+
+// ==========================================
+// 1. TYPES DE BASE
+// ==========================================
+
+export type OfficialGameType = 'NORMAL' | 'TOURNAMENT' | 'COMPETITION' | 'NOTORIETE';
+export type GameStatus = 'draft' | 'waiting' | 'countdown' | 'in_progress' | 'finished' | 'cancelled';
+export type CompetitionFormat = 'QUALIFICATION' | 'KNOCKOUT' | 'ROUND_ROBIN';
+export type WebSocketStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+
+// ==========================================
+// 2. MODES DE JEU
+// ==========================================
+
+export type GameCategory = 'Loisirs' | 'Competiteur' | 'Ultimate';
+export type LoisirsDistance = '5m' | '10m' | '15m';
+export type PlayerCount = 1 | 2 | 3 | 4;
+
+export type GameModeCode = 
+  | `L${LoisirsDistance}-${PlayerCount}J`  // Loisirs : L5m-1J, L10m-2J, etc.
+  | `C-${1}J`                               // Compétiteur : toujours 1 joueur
+  | `U-${1}J`;                              // Ultimate : toujours 1 joueur
+
+// ==========================================
+// 3. RÈGLES DE VICTOIRE OFFICIELLES
+// ==========================================
+
+export const OFFICIAL_RULES = {
+  shotsPerSerie: 20,           // 20 tirs par série
+  seriesPerRound: 2,           // 2 séries par manche
+  roundsToWin: 3,              // 3 manches pour gagner
+  totalShotsToWin: 20 * 2 * 3, // = 120 tirs
+};
+
+// ==========================================
+// 4. JOUEURS ET SCORES
+// ==========================================
+
+export interface PlayerPseudo {
+  index: number;
+  pseudo: string;
+  isAuthenticated?: boolean;
+  playerId?: string;
+  avatar?: string;
+  grade?: string;
+}
+
+export interface ShotDistribution {
+  timeout: number;
+  '0': number;
+  '5': number;
+  '10': number;
+  '15': number;
+  '25': number;
+  '50': number;
+  '100': number;
+  '150': number;
+  '200': number;
+  '250': number;
+}
+
+export interface MatchRecord {
+  id?: string;
+  date: Date;
+  duration: number;
+  score: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  shots: number;
+  hitsHead: number;
+  hitsBody: number;
+  hitsLegs: number;
+  win: boolean;
+  group: string;
+  shotDistribution: ShotDistribution;
+  precision?: number;
+}
+
+// ==========================================
+// 5. MODE NORMAL (1 couloir, 1-4 joueurs, tour par tour)
+// ==========================================
+
+export interface NormalGameState {
+  laneId: number;
+  mode: GameModeCode;
+  playerCount: PlayerCount;
+  players: {
+    index: number;
+    pseudo: string;
+    score: number;
+    cumulativeTime: number;
+  }[];
+  currentPlayerIndex: number;
+  currentTurn: number;
+  status: GameStatus;
+  buttonState: {
+    startGame: { enabled: boolean; blinking: boolean };
+    nextPlayer: { enabled: boolean; blinking: boolean };
+    nextTurn: { enabled: boolean; blinking: boolean };
+  };
+}
+
+// ==========================================
+// 6. MODE TOURNOI (multi-couloirs, 1 vs 1)
+// ==========================================
+
+export interface TournamentMatch {
+  laneId: number;
+  playerA: string;
+  playerB: string;
+  scoreA: number;      // manches gagnées (0-3)
+  scoreB: number;      // manches gagnées (0-3)
+  shotsA: number;      // tirs effectués (max 120)
+  shotsB: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  winner: string | null;
+}
+
+export interface TournamentConfig {
+  id: string;
+  name: string;
+  city: string;
+  matches: TournamentMatch[];
+  currentRound: number;
+  totalRounds: number;
+  status: GameStatus;
+  synchronizedStart: true;
+}
+
+// ==========================================
+// 7. MODE COMPÉTITION (élimination directe)
+// ==========================================
+
+export interface CompetitionMatch {
+  id: string;
+  laneId: number;
+  playerA: string;
+  playerB: string;
+  scoreA: number;
+  scoreB: number;
+  winner: string | null;
+  nextMatchId: string | null;
+  round: number;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+export interface CompetitionBracket {
+  matches: CompetitionMatch[];
+  rounds: number;
+  currentRound: number;
+  winners: string[];
+}
+
+export interface CompetitionConfig {
+  id: string;
+  name: string;
+  city: string;
+  participants: string[];
+  bracket: CompetitionBracket;
+  status: 'draft' | 'qualifications' | 'playoffs' | 'finals' | 'completed';
+  synchronizedStart: true;
+}
+
+// ==========================================
+// 8. MODE NOTORIÉTÉ (1 champion vs 3 challengers)
+// ==========================================
+
+export interface NotorieteChallenger {
+  index: number;
+  pseudo: string;
+  laneId: number;
+  score: number;       // manches gagnées contre le champion
+  shots: number;
+}
+
+export interface NotorieteMatch {
+  champion: string;
+  challengers: NotorieteChallenger[];
+  currentRound: number;
+  championWins: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  winner: 'champion' | 'challenger' | null;
+  reputationChange: number;
+}
+
+export interface Influencer {
+  id: string;
+  name: string;
+  avatar: string;
+  multiplier: number;
+  streamingUrl?: string;
+  socialLinks?: {
+    instagram?: string;
+    twitch?: string;
+    youtube?: string;
+  };
+}
+
+export interface NotorieteConfig {
+  id: string;
+  title: string;
+  city: string;
+  champion: string;
+  challengers: string[];
+  matches: NotorieteMatch[];
+  status: 'draft' | 'live' | 'completed';
+  synchronizedStart: true;
+  influenceMultiplier: number;
+  influencers?: Influencer[];
+}
+
+// ==========================================
+// 9. WEBSOCKET MESSAGES
+// ==========================================
+
+export interface WebSocketMessage {
+  type: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+export interface ScoreMessage extends WebSocketMessage {
+  type: 'score';
+  playerIndex: number;
+  points: number;
+  pointsbonus: number;
+  score: number;
+  servoIdx: number;
+  timestamp: number;
+}
+
+export interface GameStatusMessage extends WebSocketMessage {
+  type: 'game_status';
+  message: 'START' | 'NEXT_PLAYER' | 'NEXT_TURN' | 'FIN_GAME' | 'COUNTDOWN' | 'END_MANCHE' | 'BOUTON_E_VIRTUEL';
+  playerIndex?: number;
+  value?: number;
+}
+
+export interface SyncMessage extends WebSocketMessage {
+  type: 'sync';
+  startTimestamp: number;
+  action: 'START_GAME' | 'NEXT_PLAYER' | 'NEXT_TURN';
+  tournamentId?: string;
+}
+
+// ==========================================
+// 10. UI ET ANIMATIONS
+// ==========================================
+
+export interface GameUIState {
+  attenteGroupeEnabled: boolean;
+  attenteGroupeColor: string;
+  attenteGroupeText: string;
+  attenteGroupeBlinking: boolean;
+  attenteGroupeDisabledColor?: string;
+  nextPlayerEnabled: boolean;
+  nextPlayerColor: string;
+  nextPlayerBlinking: boolean;
+  nextTurnEnabled: boolean;
+  nextTurnColor: string;
+  nextTurnBlinking: boolean;
+}
+
+export const COUNTDOWN_SEQUENCE = [
+  { name: '3', path: '/sounds/3.wav', duration: 800 },
+  { name: '2', path: '/sounds/2.wav', duration: 800 },
+  { name: '1', path: '/sounds/1.wav', duration: 800 },
+  { name: 'VIZ', path: '/sounds/VIZ.wav', duration: 600 },
+];
+```
+
+---
+
+## 4. PROMPT DE DÉVELOPPEMENT ULTIME
+
+### Contexte Général
+
+Je développe **VAGONDYS**, un système complet de gestion de parties d'airsoft avec des cibles connectées ESP32. L'infrastructure est multi-villes (Nantes, Lyon, Madrid, etc.) avec des bases Supabase MASTER, PUBLIC et STAFF pour chaque ville.
+
+Actuellement, une **application Flutter** (`scores_screen.dart`) contrôle chaque couloir individuellement. Je souhaite **migrer cette logique vers une application web Next.js** intégrée au portail STAFF, avec **quatre niveaux de jeu** :
+
+| Niveau | Description | Spécificité |
+|--------|-------------|-------------|
+| **Mode Normal** | Contrôle mono-couloir (1 ESP32) | 1-4 joueurs, jeu tour par tour |
+| **Mode Tournoi** | Lancement synchronisé de plusieurs couloirs | 1 vs 1 par couloir, départ simultané |
+| **Mode Compétition** | Gestion de tournois avec classements | Élimination directe, arbre de tournoi |
+| **Mode Notoriété** | Sessions spéciales avec influenceurs | 1 champion vs 3 challengers, calcul de réputation (PCH) |
+
+### Points Clés
+
+1. **Les boutons `START_GAME`, `NEXT_PLAYER`, `NEXT_TURN` sont déclenchés UNIQUEMENT par le STAFF**
+2. **Les modes "Officiels"** (Tournois, Compétitions, Notoriété) nécessitent une synchronisation parfaite
+3. **Le décompte vocal (3-2-1-VIZ) est joué sur l'interface STAFF**, pas sur les ESP32
+4. **L'envoi des commandes aux ESP32 est PARALLÈLE** (`Promise.all`) pour une synchronisation exacte
+5. **Règle de victoire officielle** : 3 manches gagnées = 120 tirs (20 tirs × 2 séries × 3 manches)
+6. **Les scores et statistiques sont sauvegardés** dans les bases STAFF de chaque ville
+
+---
+
+## 5. PLAN D'ACTION PAR PRIORITÉ
+
+### 🔴 PRIORITÉ HAUTE (Fondations + Mode Normal)
+
+| ✅ | Étape | Fichier | Description |
+|---|-------|---------|-------------|
+| ☐ | 1.1 | `types/official.types.ts` | Types centraux (TournamentConfig, CompetitionConfig, NotorieteConfig, OFFICIAL_RULES) |
+| ☐ | 1.2 | `public/sounds/3.wav` | Ajouter fichier audio |
+| ☐ | 1.3 | `public/sounds/2.wav` | Ajouter fichier audio |
+| ☐ | 1.4 | `public/sounds/1.wav` | Ajouter fichier audio |
+| ☐ | 1.5 | `public/sounds/VIZ.wav` | Ajouter fichier audio |
+| ☐ | 1.6 | `lib/utils/gameModeParser.ts` | Fonctions : getModeName, getNbJoueurs, getPlayerCountFromMode |
+| ☐ | 1.7 | `lib/hooks/useAudioControl.ts` | Décompte vocal 3-2-1-VIZ avec Web Audio API |
+| ☐ | 1.8 | `lib/websocket/laneConnectionManager.ts` | Gestion WebSocket par couloir (reconnexion, ping) |
+| ☐ | 1.9 | `lib/hooks/useLaneWebSocket.ts` | Hook React pour connexion WebSocket |
+| ☐ | 2.1 | `app/api/staff/lane_control/[laneId]/start/route.ts` | API START_GAME |
+| ☐ | 2.2 | `app/api/staff/lane_control/[laneId]/next-player/route.ts` | API NEXT_PLAYER |
+| ☐ | 2.3 | `app/api/staff/lane_control/[laneId]/next-turn/route.ts` | API NEXT_TURN |
+| ☐ | 2.4 | `app/api/staff/lane_control/[laneId]/end-game/route.ts` | API sauvegarde stats |
+| ☐ | 2.5 | `app/staff/live_controls/components/LiveScoreCard.tsx` | Carte de score (pseudo, score, temps, clignotement CSS) |
+| ☐ | 2.6 | `app/staff/live_controls/components/GameControlPanel.tsx` | Panneau Start/Next Player/Next Turn |
+| ☐ | 2.7 | `app/staff/live_controls/components/CountdownDisplay.tsx` | Affichage décompte (3,2,1,GO) |
+| ☐ | 2.8 | `app/staff/live_controls/components/FinGameOverlay.tsx` | Overlay FIN GAME (5s puis redirection) |
+| ☐ | 2.9 | `app/staff/live_controls/components/OfficialButton.tsx` | Bouton officiel avec décompte intégré |
+| ☐ | 2.10 | `app/staff/live_controls/[laneId]/page.tsx` | Page équivalente à scores_screen.dart |
+| ☐ | 2.11 | `app/staff/live_controls/layout.tsx` | Layout minimal sans sidebar |
+
+### 🟡 PRIORITÉ MOYENNE (Tournoi synchronisé)
+
+| ✅ | Étape | Fichier | Description |
+|---|-------|---------|-------------|
+| ☐ | 3.1 | `lib/tournament/SynchronizedCountdown.ts` | Décompte synchronisé avec Promise.all |
+| ☐ | 3.2 | `lib/tournament/LaneCoordinator.ts` | Coordination des couloirs |
+| ☐ | 3.3 | `lib/tournament/TournamentMaster.ts` | Orchestrateur du tournoi |
+| ☐ | 3.4 | `app/api/staff/tournament/start/route.ts` | Création tournoi + lancement |
+| ☐ | 3.5 | `app/api/staff/tournament/[id]/status/route.ts` | Statut du tournoi |
+| ☐ | 3.6 | `app/api/staff/tournament/[id]/next-round/route.ts` | Passage manche suivante |
+| ☐ | 3.7 | `app/api/staff/tournament/[id]/results/route.ts` | Agrégation résultats |
+| ☐ | 3.8 | `app/api/staff/tournament/sync/route.ts` | Synchronisation horloges |
+| ☐ | 3.9 | `app/staff/tournois/page.tsx` | Sélection des couloirs |
+| ☐ | 3.10 | `app/staff/tournois/components/LaneSelectorTournament.tsx` | Grille de sélection |
+| ☐ | 3.11 | `app/staff/tournois/components/TournamentConfig.tsx` | Configuration (mode, timer, manches) |
+| ☐ | 3.12 | `app/staff/live_controls/tournament/[tournamentId]/page.tsx` | Vue maître avec grille 4x2 |
+| ☐ | 3.13 | `app/staff/live_controls/components/TournamentLeaderboard.tsx` | Classement tournoi |
+| ☐ | 3.14 | `app/staff/resultats/tournament/[tournamentId]/page.tsx` | Classement final |
+
+### 🟢 PRIORITÉ BASSE (Compétition + Notoriété)
+
+| ✅ | Étape | Fichier | Description |
+|---|-------|---------|-------------|
+| ☐ | 4.1 | `lib/competition/CompetitionManager.ts` | Gestion des matchs, classements |
+| ☐ | 4.2 | `lib/competition/RankingEngine.ts` | Calcul points, classements |
+| ☐ | 4.3 | `app/staff/competitions/create/page.tsx` | Création compétition |
+| ☐ | 4.4 | `app/staff/live_controls/competition/[competitionId]/page.tsx` | Vue compétition avec arbre |
+| ☐ | 4.5 | `app/api/staff/competition/[id]/start/route.ts` | Démarrage compétition |
+| ☐ | 4.6 | `app/staff/resultats/competition/[competitionId]/page.tsx` | Podium + classement |
+| ☐ | 5.1 | `lib/notoriete/NotorieteManager.ts` | Gestion notoriété |
+| ☐ | 5.2 | `lib/notoriete/ReputationCalculator.ts` | Calcul PCH (score × influenceMultiplier) |
+| ☐ | 5.3 | `lib/notoriete/InfluenceEngine.ts` | Multiplicateurs influenceurs (0.5 à 2.0) |
+| ☐ | 5.4 | `app/staff/notoriete/page.tsx` | Tableau de bord notoriété |
+| ☐ | 5.5 | `app/staff/notoriete/create/page.tsx` | Création session notoriété |
+| ☐ | 5.6 | `app/staff/live_controls/notoriete/[sessionId]/page.tsx` | Vue notoriété avec influenceurs |
+| ☐ | 5.7 | `app/staff/notoriete/components/InfluenceCard.tsx` | Carte influenceur |
+| ☐ | 5.8 | `app/staff/notoriete/components/ReputationGauge.tsx` | Jauge réputation |
+| ☐ | 5.9 | `app/api/staff/notoriete/[id]/influence/route.ts` | API influence |
+| ☐ | 5.10 | `app/api/staff/notoriete/[id]/reputation/route.ts` | API réputation |
+
+### 📦 PRIORITÉ ARCHIVAGE
+
+| ✅ | Étape | Fichier | Description |
+|---|-------|---------|-------------|
+| ☐ | 6.1 | `flutter/archive/` | Créer dossier |
+| ☐ | 6.2 | `flutter/archive/scores_screen.dart` | Copier depuis flutter/ |
+| ☐ | 6.3 | `flutter/archive/infos_screen.dart` | Copier depuis flutter/ |
+| ☐ | 6.4 | `flutter/archive/README.md` | Documenter l'archive |
+
+---
+
+## 6. ARCHITECTURE FINALE (Schéma)
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              STAFF.VAGONDYS.COM (WEB)                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  /staff/mode_jeux          → Sélection couloir + mode de jeu                    │  │
+│  │  /staff/live_controls/1    → Contrôle couloir 1 (web)                           │  │
+│  │  /staff/live_controls/2    → Contrôle couloir 2 (web)                           │  │
+│  │  /staff/live_controls/3    → Contrôle couloir 3 (web)                           │  │
+│  │  /staff/live_controls/4    → Contrôle couloir 4 (web)                           │  │
+│  │  /staff/live_controls/5    → Contrôle couloir 5 (web)                           │  │
+│  │  /staff/live_controls/6    → Contrôle couloir 6 (web)                           │  │
+│  │  /staff/live_controls/7    → Contrôle couloir 7 (web)                           │  │
+│  │  /staff/live_controls/8    → Contrôle couloir 8 (web)                           │  │
+│  │  /staff/tournois           → Création tournoi                                   │  │
+│  │  /staff/competitions       → Gestion compétitions                               │  │
+│  │  /staff/notoriete          → Sessions notoriété                                 │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              ▼ (API Routes)
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              API ROUTES (Next.js)                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  /api/staff/lane_control/[id]/start                                             │  │
+│  │  /api/staff/lane_control/[id]/next-player                                       │  │
+│  │  /api/staff/lane_control/[id]/next-turn                                         │  │
+│  │  /api/staff/lane_control/[id]/end-game                                          │  │
+│  │  /api/staff/tournament/start                                                    │  │
+│  │  /api/staff/competition/[id]/start                                              │  │
+│  │  /api/staff/notoriete/[id]/start                                                │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              ▼ (Promise.all - Envoi Parallèle)
+        ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
+        ▼             ▼             ▼             ▼             ▼             ▼             ▼             ▼             ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│   LANE 1     │ │   LANE 2     │ │   LANE 3     │ │   LANE 4     │ │   LANE 5     │ │   LANE 6     │ │   LANE 7     │ │   LANE 8     │
+│   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │
+│   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+        │
+        ▼ (Scores en temps réel via WebSocket)
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│                         SUPABASE (Décentralisé par ville)                            │
+│  ┌────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  MASTER (annuaire) → STAFF.NANTES → scores, game_launches, tournament_results  │  │
+│  │                    → STAFF.LYON   → scores, game_launches, tournament_results  │  │
+│  │                    → STAFF.MADRID → scores, game_launches, tournament_results  │  │
+│  └────────────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                         GITHUB (Archivage par ville)                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐   │
+│  │  VGD-Nantes/VAGONDYS_NANTES_DATA → historique des parties                       │   │
+│  │  VGD-Lyon/VAGONDYS_LYON_DATA     → historique des parties                       │   │
+│  │  VGD-Madrid/VAGONDYS_MADRID_DATA → historique des parties                       │   │
+│  └─────────────────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. RÉSUMÉ DES LIVRABLES
+
+| # | Livrable | Statut |
+|---|----------|--------|
+| 1 | `types/official.types.ts` | ✅ À créer |
+| 2 | `public/sounds/` (4 fichiers WAV) | ✅ À créer |
+| 3 | `lib/utils/gameModeParser.ts` | ✅ À créer |
+| 4 | `lib/hooks/useAudioControl.ts` | ✅ À créer |
+| 5 | `lib/websocket/laneConnectionManager.ts` | ✅ À créer |
+| 6 | `lib/hooks/useLaneWebSocket.ts` | ✅ À créer |
+| 7 | `app/api/staff/lane_control/` (4 routes) | ✅ À créer |
+| 8 | `app/staff/live_controls/[laneId]/page.tsx` | ✅ À créer |
+| 9 | `app/staff/live_controls/components/` (7 composants) | ✅ À créer |
+| 10 | `app/staff/tournois/` (4 fichiers) | ✅ À créer |
+| 11 | `lib/tournament/` (4 fichiers) | ✅ À créer |
+| 12 | `app/api/staff/tournament/` (5 routes) | ✅ À créer |
+| 13 | `app/staff/competitions/create/` | ✅ À créer |
+| 14 | `lib/competition/` (3 fichiers) | ✅ À créer |
+| 15 | `app/staff/notoriete/` (8 fichiers) | ✅ À créer |
+| 16 | `lib/notoriete/` (4 fichiers) | ✅ À créer |
+| 17 | `flutter/archive/` | ✅ À créer |
+
+---
+
+**Le projet est maintenant 100% documenté, structuré et prêt à être développé.** 
+
+Voulez-vous que je commence par la première étape : **création de `lib/hooks/useAudioControl.ts`** ?
+
+---
+
+*** > Correction importante concernant les 9 couloirs :
+
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                         LES 9 COULOIRS DE TIR                                  │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
+│   COULOIRS 1 à 8 (IDENTIQUES)                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  • Mode Normal : 1 à 4 joueurs, jeu tour par tour                       │  │
+│   │  • Mode Tournoi : 1 vs 1 par couloir, départ synchronisé                │  │
+│   │  • Mode Compétition : 1 vs 1 par couloir, élimination directe           │  │
+│   │  • Mode Notoriété : 1 vs 3 (1 champion vs 3 challengers répartis)       │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+│   COULOIR 9 (ULTIMATE - SPÉCIAL)                                               │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │  • Mode Ultimate : 1 joueur                                             │  │
+│   │  • Environnement 4DX : Vent, Pluie, Lumière, Kicker                     │  │
+│   │  • Capteur Sas, Alerte Laser, Gyrophare, Horloges LEDs                  │  │
+│   │  • Ambiance "Corridor" avec déclenchement physique                      │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                │
+└────────────────────────────────────────────────────────────────────────────────┘
+
+3. TYPES CENTRAUX CORRIGÉS (types/official.types.ts)
+Voici la version 100% corrigée avec l'intégration du 9ème couloir Ultimate :
+
+// ==========================================
+// VAGONDYS - TYPES OFFICIELS
+// Centralisation des types pour tous les modes officiels
+// Version corrigée avec les 9 couloirs (1-8 standard + 9 Ultimate)
+// ==========================================
+
+// ==========================================
+// 1. TYPES DE BASE
+// ==========================================
+
+export type OfficialGameType = 'NORMAL' | 'TOURNAMENT' | 'COMPETITION' | 'NOTORIETE' | 'ULTIMATE';
+export type GameStatus = 'draft' | 'waiting' | 'countdown' | 'in_progress' | 'finished' | 'cancelled';
+export type CompetitionFormat = 'QUALIFICATION' | 'KNOCKOUT' | 'ROUND_ROBIN';
+export type WebSocketStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+
+// ==========================================
+// 2. MODES DE JEU
+// ==========================================
+
+export type GameCategory = 'Loisirs' | 'Competiteur' | 'Ultimate';
+export type LoisirsDistance = '5m' | '10m' | '15m';
+export type PlayerCount = 1 | 2 | 3 | 4;
+
+export type GameModeCode = 
+  | `L${LoisirsDistance}-${PlayerCount}J`  // Loisirs : L5m-1J, L10m-2J, etc.
+  | `C-${1}J`                               // Compétiteur : toujours 1 joueur
+  | `U-${1}J`;                              // Ultimate : toujours 1 joueur
+
+// ==========================================
+// 3. LES 9 COULOIRS
+// ==========================================
+
+export type LaneId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+export interface LaneConfig {
+  id: LaneId;
+  name: string;
+  ip: string;
+  type: 'STANDARD' | 'ULTIMATE';
+  enabled: boolean;
+}
+
+export const LANES_CONFIG: LaneConfig[] = [
+  { id: 1, name: 'Couloir 1', ip: '', type: 'STANDARD', enabled: true },
+  { id: 2, name: 'Couloir 2', ip: '', type: 'STANDARD', enabled: true },
+  { id: 3, name: 'Couloir 3', ip: '', type: 'STANDARD', enabled: true },
+  { id: 4, name: 'Couloir 4', ip: '', type: 'STANDARD', enabled: true },
+  { id: 5, name: 'Couloir 5', ip: '', type: 'STANDARD', enabled: true },
+  { id: 6, name: 'Couloir 6', ip: '', type: 'STANDARD', enabled: true },
+  { id: 7, name: 'Couloir 7', ip: '', type: 'STANDARD', enabled: true },
+  { id: 8, name: 'Couloir 8', ip: '', type: 'STANDARD', enabled: true },
+  { id: 9, name: 'Ultimate Corridor', ip: '', type: 'ULTIMATE', enabled: true },
+];
+
+// ==========================================
+// 4. RÈGLES DE VICTOIRE OFFICIELLES
+// ==========================================
+
+export const OFFICIAL_RULES = {
+  shotsPerSerie: 20,           // 20 tirs par série
+  seriesPerRound: 2,           // 2 séries par manche
+  roundsToWin: 3,              // 3 manches pour gagner
+  totalShotsToWin: 20 * 2 * 3, // = 120 tirs
+};
+
+// ==========================================
+// 5. JOUEURS ET SCORES
+// ==========================================
+
+export interface PlayerPseudo {
+  index: number;
+  pseudo: string;
+  isAuthenticated?: boolean;
+  playerId?: string;
+  avatar?: string;
+  grade?: string;
+}
+
+export interface ShotDistribution {
+  timeout: number;
+  '0': number;
+  '5': number;
+  '10': number;
+  '15': number;
+  '25': number;
+  '50': number;
+  '100': number;
+  '150': number;
+  '200': number;
+  '250': number;
+}
+
+export interface MatchRecord {
+  id?: string;
+  date: Date;
+  duration: number;
+  score: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  shots: number;
+  hitsHead: number;
+  hitsBody: number;
+  hitsLegs: number;
+  win: boolean;
+  group: string;
+  shotDistribution: ShotDistribution;
+  precision?: number;
+  laneId?: LaneId;               // Couloir où s'est déroulé le match
+  gameType?: OfficialGameType;   // Type de jeu (Normal, Tournoi, etc.)
+}
+
+// ==========================================
+// 6. MODE NORMAL (1 couloir, 1-4 joueurs, tour par tour)
+// ==========================================
+
+export interface NormalGameState {
+  laneId: LaneId;
+  mode: GameModeCode;
+  playerCount: PlayerCount;
+  players: {
+    index: number;
+    pseudo: string;
+    score: number;
+    cumulativeTime: number;
+  }[];
+  currentPlayerIndex: number;
+  currentTurn: number;
+  status: GameStatus;
+  buttonState: {
+    startGame: { enabled: boolean; blinking: boolean };
+    nextPlayer: { enabled: boolean; blinking: boolean };
+    nextTurn: { enabled: boolean; blinking: boolean };
+  };
+}
+
+// ==========================================
+// 7. MODE TOURNOI (multi-couloirs, 1 vs 1)
+// ==========================================
+
+export interface TournamentMatch {
+  laneId: LaneId;
+  playerA: string;
+  playerB: string;
+  scoreA: number;      // manches gagnées (0-3)
+  scoreB: number;      // manches gagnées (0-3)
+  shotsA: number;      // tirs effectués (max 120)
+  shotsB: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  winner: string | null;
+}
+
+export interface TournamentConfig {
+  id: string;
+  name: string;
+  city: string;
+  matches: TournamentMatch[];
+  currentRound: number;
+  totalRounds: number;
+  status: GameStatus;
+  synchronizedStart: true;
+  selectedLanes: LaneId[];      // Couloirs participants (max 8 standards)
+}
+
+// ==========================================
+// 8. MODE COMPÉTITION (élimination directe)
+// ==========================================
+
+export interface CompetitionMatch {
+  id: string;
+  laneId: LaneId;
+  playerA: string;
+  playerB: string;
+  scoreA: number;
+  scoreB: number;
+  winner: string | null;
+  nextMatchId: string | null;
+  round: number;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+export interface CompetitionBracket {
+  matches: CompetitionMatch[];
+  rounds: number;
+  currentRound: number;
+  winners: string[];
+}
+
+export interface CompetitionConfig {
+  id: string;
+  name: string;
+  city: string;
+  participants: string[];
+  bracket: CompetitionBracket;
+  status: 'draft' | 'qualifications' | 'playoffs' | 'finals' | 'completed';
+  synchronizedStart: true;
+  selectedLanes: LaneId[];      // Couloirs participants (max 8 standards)
+}
+
+// ==========================================
+// 9. MODE NOTORIÉTÉ (1 champion vs 3 challengers)
+// ==========================================
+
+export interface NotorieteChallenger {
+  index: number;
+  pseudo: string;
+  laneId: LaneId;
+  score: number;       // manches gagnées contre le champion
+  shots: number;
+}
+
+export interface NotorieteMatch {
+  champion: string;
+  challengers: NotorieteChallenger[];
+  currentRound: number;
+  championWins: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  winner: 'champion' | 'challenger' | null;
+  reputationChange: number;
+}
+
+export interface Influencer {
+  id: string;
+  name: string;
+  avatar: string;
+  multiplier: number;        // 0.5 à 2.0
+  streamingUrl?: string;
+  socialLinks?: {
+    instagram?: string;
+    twitch?: string;
+    youtube?: string;
+  };
+}
+
+export interface NotorieteConfig {
+  id: string;
+  title: string;
+  city: string;
+  champion: string;
+  challengers: string[];
+  matches: NotorieteMatch[];
+  status: 'draft' | 'live' | 'completed';
+  synchronizedStart: true;
+  influenceMultiplier: number;
+  influencers?: Influencer[];
+  selectedLanes: LaneId[];   // 3 couloirs pour les challengers + 1 pour champion
+}
+
+// ==========================================
+// 10. MODE ULTIMATE (Couloir 9 spécial)
+// ==========================================
+
+export interface UltimateGameState {
+  laneId: 9;                    // Fixé au couloir 9
+  mode: 'U-1J';                 // Toujours 1 joueur
+  player: {
+    pseudo: string;
+    score: number;
+    cumulativeTime: number;
+  };
+  status: GameStatus;
+  
+  // Éléments spécifiques Ultimate Corridor
+  corridorState: {
+    sasTriggered: boolean;       // Capteur Sas déclenché
+    laserAlert: boolean;         // Alerte laser
+    zonesCompleted: number;      // Zones traversées (0-9)
+    timeElapsed: number;         // Temps écoulé (secondes)
+    ambiance: 'INACTIVE' | 'UV_ACTIVE' | 'GYRO_ACTIVE' | 'COMPLETED';
+  };
+  
+  // Effets 4DX
+  fourDX: {
+    wind: {
+      direction: 'EST' | 'OUEST' | 'NORD_EST' | 'NORD_OUEST' | 'SUD_EST' | 'SUD_OUEST' | 'OFF';
+      intensity: number;        // 0-255
+    };
+    rain: number;               // 0-255
+    light: number;              // 0-255
+    kicker: boolean;
+  };
+}
+
+// ==========================================
+// 11. WEBSOCKET MESSAGES
+// ==========================================
+
+export interface WebSocketMessage {
+  type: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+export interface ScoreMessage extends WebSocketMessage {
+  type: 'score';
+  playerIndex: number;
+  points: number;
+  pointsbonus: number;
+  score: number;
+  servoIdx: number;
+  timestamp: number;
+}
+
+export interface GameStatusMessage extends WebSocketMessage {
+  type: 'game_status';
+  message: 'START' | 'NEXT_PLAYER' | 'NEXT_TURN' | 'FIN_GAME' | 'COUNTDOWN' | 'END_MANCHE' | 'BOUTON_E_VIRTUEL';
+  playerIndex?: number;
+  value?: number;
+}
+
+export interface SyncMessage extends WebSocketMessage {
+  type: 'sync';
+  startTimestamp: number;
+  action: 'START_GAME' | 'NEXT_PLAYER' | 'NEXT_TURN';
+  tournamentId?: string;
+}
+
+// Messages spécifiques Ultimate Corridor
+export interface UltimateCorridorMessage extends WebSocketMessage {
+  type: 'ultimate_corridor';
+  event: 'SAS_TRIGGERED' | 'LASER_ALERT' | 'ZONE_COMPLETED' | 'CORRIDOR_COMPLETED';
+  value?: number;
+}
+
+export interface FourDXMessage extends WebSocketMessage {
+  type: '4dx';
+  windDirection?: string;
+  windIntensity?: number;
+  rainIntensity?: number;
+  lightIntensity?: number;
+  kicker?: boolean;
+}
+
+// ==========================================
+// 12. UI ET ANIMATIONS
+// ==========================================
+
+export interface GameUIState {
+  attenteGroupeEnabled: boolean;
+  attenteGroupeColor: string;
+  attenteGroupeText: string;
+  attenteGroupeBlinking: boolean;
+  attenteGroupeDisabledColor?: string;
+  nextPlayerEnabled: boolean;
+  nextPlayerColor: string;
+  nextPlayerBlinking: boolean;
+  nextTurnEnabled: boolean;
+  nextTurnColor: string;
+  nextTurnBlinking: boolean;
+}
+
+export const COUNTDOWN_SEQUENCE = [
+  { name: '3', path: '/sounds/3.wav', duration: 800 },
+  { name: '2', path: '/sounds/2.wav', duration: 800 },
+  { name: '1', path: '/sounds/1.wav', duration: 800 },
+  { name: 'VIZ', path: '/sounds/VIZ.wav', duration: 600 },
+];
+
+4. SCHÉMA MIS À JOUR AVEC LE 9ÈME COULOIR :
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              STAFF.VAGONDYS.COM (WEB)                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  /staff/mode_jeux          → Sélection couloir + mode de jeu                    │  │
+│  │  /staff/live_controls/1    → Contrôle couloir 1 (web) - STANDARD                │  │
+│  │  /staff/live_controls/2    → Contrôle couloir 2 (web) - STANDARD                │  │
+│  │  /staff/live_controls/3    → Contrôle couloir 3 (web) - STANDARD                │  │
+│  │  /staff/live_controls/4    → Contrôle couloir 4 (web) - STANDARD                │  │
+│  │  /staff/live_controls/5    → Contrôle couloir 5 (web) - STANDARD                │  │
+│  │  /staff/live_controls/6    → Contrôle couloir 6 (web) - STANDARD                │  │
+│  │  /staff/live_controls/7    → Contrôle couloir 7 (web) - STANDARD                │  │
+│  │  /staff/live_controls/8    → Contrôle couloir 8 (web) - STANDARD                │  │
+│  │  /staff/live_controls/9    → Contrôle couloir 9 (web) - ULTIMATE CORRIDOR       │  │
+│  │  /staff/tournois           → Création tournoi (couloirs 1-8)                    │  │
+│  │  /staff/competitions       → Gestion compétitions (couloirs 1-8)                │  │
+│  │  /staff/notoriete          → Sessions notoriété (couloirs 1-8)                  │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              ▼ (API Routes)
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                              API ROUTES (Next.js)                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  /api/staff/lane_control/[id]/start      (id: 1-9)                              │  │
+│  │  /api/staff/lane_control/[id]/next-player                                       │  │
+│  │  /api/staff/lane_control/[id]/next-turn                                         │  │
+│  │  /api/staff/lane_control/[id]/end-game                                          │  │
+│  │  /api/staff/tournament/start             (couloirs 1-8)                         │  │
+│  │  /api/staff/competition/[id]/start       (couloirs 1-8)                         │  │
+│  │  /api/staff/notoriete/[id]/start         (couloirs 1-8)                         │  │
+│  │  /api/staff/ultimate/start               (couloir 9 spécial)                    │  │
+│  │  /api/staff/ultimate/4dx                 (Contrôle 4DX)                         │  │
+│  └─────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              ▼ (Promise.all - Envoi Parallèle)
+        ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────┐
+        ▼             ▼             ▼             ▼             ▼             ▼             ▼             ▼             ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────┐
+│   LANE 1     │ │   LANE 2     │ │   LANE 3     │ │   LANE 4     │ │   LANE 5     │ │   LANE 6     │ │   LANE 7     │ │   LANE 8     │ │   LANE 9                 │
+│   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ESP32      │ │   ULTIMATE CORRIDOR      │
+│   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   STANDARD   │ │   ESP32 + Arduino Mega   │
+│   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   ws://ip:81 │ │   + Capteurs + 4DX       │
+│              │ │              │ │              │ │              │ │              │ │              │ │              │ │              │ │   + LEDs + Relais        │
+│ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────┐ │ │ ┌──────────────────────┐ │
+│ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │J1│J2│J3│J4 │ │ │    MODE ULTIMATE     │ │
+│ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ └──────────┘ │ │ │ 1 joueur, 4DX, Sas   │ │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ │ │ Laser, LEDs, Gyro    │ │
+                                                                                                                                        │ │  Ambiance Corridor   │ │
+                                                                                                                                        │ └──────────────────────┘ │
+                                                                                                                                        └──────────────────────────┘
+
+RÉSUMÉ DES CORRECTIONS APPORTÉES
+Élément	Avant	Après
+Nombre de couloirs	8	9 (1-8 standard + 9 Ultimate)
+Type LaneId	number	1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+LANES_CONFIG	Non défini	Tableau complet des 9 couloirs avec type
+Mode Ultimate	Non inclus	UltimateGameState, UltimateCorridorMessage, FourDXMessage
+MatchRecord	Sans laneId	Ajout de laneId et gameType
+API Routes	8 couloirs	Ajout de /ultimate/start et /ultimate/4dx
+Maintenant tout est 100% clair et prêt.
+*/
+
+Réanalyse ton "Prompt" que j'ai corrigé et je t'ai dis que je te fourni dabord mes fichiers 
+car tu ne vas rien faire à l'aveugle ton on fera cela étape par étape 
+et s'est moi qui te guide pas à pas puisque pout tout faire il te faut mes fichiers originaux :
+/*
+Parfait. Voici le **Prompt condensé** pour valider ma compréhension :
+
+---
+
+## PROMPT DE CONFIRMATION
+
+### Contexte
+Projet **VAGONDYS** : système web Next.js de contrôle de parties airsoft avec cibles ESP32. Objectif : remplacer l'application Flutter (`scores_screen.dart`) par une interface STAFF intégrée au portail existant.
+
+### Infrastructure
+- **9 couloirs** : 1-8 (standard) + 9 (Ultimate Corridor avec 4DX)
+- **Architecture** : VSC → GitHub → Vercel + Cloudflare + Render ↔ Supabase (MASTER + PUBLIC + STAFF par ville)
+- **Communication** : WebSocket entre Next.js et ESP32 pour scores + commandes
+
+### Modes de jeu à implémenter
+1. **Mode Normal** (existant > mais à modifier) : mono-couloir, 1-4 joueurs, jeu tour par tour
+2. **Mode Tournoi** (à créer) : multi-couloirs (1-8), 1vs1, départ synchronisé, victoire en 3 manches
+3. **Mode Compétition** (à créer) : multi-couloirs (1-8), 1vs1, départ synchronisé, victoire en 3 manches & élimination directe, arbre de tournoi
+4. **Mode Notoriété** (à créer) : 1 champion vs 3 challengers, influenceurs, réputation (PCH)
+5. **Mode Ultimate** (à créer) : couloir 9 uniquement, 1 joueur, 4DX (vent, pluie, lumière, kicker), capteur SAS, laser, gyrophare
+
+### Règles communes
+- **Victoire officielle** : 3 manches gagnées = 120 tirs (20 tirs × 2 séries × 3 manches)
+- **Commandes** : `START_GAME`, `NEXT_PLAYER`, `NEXT_TURN` → uniquement STAFF
+- **Synchronisation** : `Promise.all` pour envoi parallèle aux ESP32
+- **Décompte vocal** : 3-2-1-VIZ joué sur interface STAFF (Web Audio API)
+
+### Structure technique
+- **Types centraux** : `types/official.types.ts` avec `LaneId = 1|2|3|4|5|6|7|8|9`, `LANES_CONFIG`, `UltimateGameState`
+- **API Routes** : `api/staff/lane_control/[id]/*` + `api/staff/tournament/*` + `api/staff/competition/*` + `api/staff/notoriete/*` + `api/staff/ultimate/*`
+- **Pages** : `staff/live_controls/[laneId]/page.tsx` (1-9) + pages spécifiques pour tournoi/compétition/notoriété
+- **Hooks** : `useLaneWebSocket`, `useAudioControl`, `useOfficialGameControl`
+- **Lib** : `tournament/`, `competition/`, `notoriete/` avec managers dédiés
+
+### Priorisation
+1. **Fondations** : types, sons, hooks, WebSocket, API lane_control (4 routes)
+2. **Mode Normal** : `live_controls/[laneId]/page.tsx` avec composants (LiveScoreCard, GameControlPanel, CountdownDisplay, FinGameOverlay)
+3. **Tournoi** : synchronisation, création, vue maître
+4. **Compétition** : arbre, classements
+5. **Notoriété** : influenceurs, calcul PCH
+6. **Ultimate** : contrôle 4DX, événements SAS/laser
+
+### Archives
+- Flutter → `flutter/archive/` (scores_screen.dart, infos_screen.dart)
+*/
+
+
+
+/*
+## ✅ COMPRÉHENSION FINALE - COMPLÈTE
+
+---
+
+### 1. PROJET
+**VAGONDYS** : Système Next.js de contrôle airsoft avec cibles ESP32. Migration Flutter → Web.
+
+---
+
+### 2. ARCHITECTURE RÉSEAU
+
+```
+PC STAFF (contrôle) ──┬── (HTTP) ──► ÉCRAN TV (affichage scores + décompte vocal)
+                      │
+                      └── (WebSocket) ──► ESP32 (1 à 9 couloirs)
+```
+
+- **PC STAFF** : Interface de contrôle (sélection couloir + mode, validation). Connecté à internet.
+- **ÉCRAN TV** : Affiche `scores_screen.dart` (scores, décompte vocal, overlay FIN GAME). **PAS de WiFi, PAS d'internet**. Connexion réseau local uniquement.
+- **ESP32** : Reçoit commandes, renvoie scores.
+
+---
+
+### 3. LES 9 COULOIRS
+
+| Couloirs | Type | Capacité |
+|----------|------|----------|
+| **1 à 8** | STANDARD | 4 joueurs max par couloir |
+| **9** | ULTIMATE | 1 joueur (réservé uniquement au mode Ultimate) |
+
+---
+
+### 4. INTERFACE VISUELLE (ÉCRAN TV)
+
+- Affichage des scores (comme `scores_screen.dart`)
+- **Case clignotante** = indique le joueur actif
+- Décompte vocal (3-2-1-VIZ)
+- **L'écran TV affiche les informations sur l'état du bouton physique / l'action en cours**
+- Overlay FIN GAME
+
+---
+
+### 5. BOUTON PHYSIQUE (SOUS ÉCRAN TV)
+
+- Bouton poussoir **indépendant de l'écran TV**
+- **LED intégrée** : Allumée = action possible / Éteinte = action impossible
+- Utilisé par les joueurs pour valider leurs actions
+
+---
+
+### 6. MODES DE JEU ET COULOIRS
+
+| Mode | Couloirs | Joueurs par couloir |
+|------|----------|---------------------|
+| **Loisirs** | 1 à 8 | 1 à 4 |
+| **Compétiteur** | 1 à 8 | 1 |
+| **Ultimate** | 9 uniquement | 1 |
+| **Tournoi** | 1 à 8 | 1vs1 (2 joueurs) |
+| **Compétition** | 1 à 8 | 1vs1 (2 joueurs) |
+| **Notoriété** | 1 à 8 | 1 champion vs 3 challengers (4 joueurs) |
+
+---
+
+### 7. FLUX PAR MODE
+
+#### Loisirs / Compétiteur / Ultimate
+```
+1. STAFF (PC) : sélectionne couloir(s) + mode → valide
+2. Écran TV : affiche "Partie en attente" + case clignotante
+3. LED du bouton physique s'ALLUME
+4. JOUEUR : appuie sur bouton physique SOUS l'écran TV → START_GAME
+5. Écran TV : décompte vocal 3-2-1-VIZ
+6. Partie en cours
+7. JOUEUR : appuie sur bouton physique → NEXT_PLAYER ou NEXT_TURN (selon ce que la case clignotante indique)
+```
+
+#### Tournoi / Compétition / Notoriété
+```
+1. STAFF (PC) : sélectionne plusieurs couloirs + mode → valide
+2. STAFF (PC) : clique sur bouton "START GLOBAL" (virtuel sur PC)
+3. Tous les écrans TV : décompte vocal simultané
+4. Envoi START_GAME à tous les ESP32 en parallèle
+5. STAFF (PC) : clique sur "NEXT_PLAYER GLOBAL" ou "NEXT_TURN GLOBAL" selon le besoin
+6. STAFF (PC) : clique sur "NEXT_ROUND GLOBAL" pour passer à la manche suivante
+```
+
+---
+
+### 8. TABLEAU DES ACTIONS PAR MODE
+
+| Mode | START_GAME | NEXT_PLAYER | NEXT_TURN | NEXT_ROUND |
+|------|------------|-------------|-----------|------------|
+| **Loisirs** | JOUEUR (bouton physique) | JOUEUR (bouton physique) | JOUEUR (bouton physique) | - |
+| **Compétiteur** | JOUEUR (bouton physique) | - | - | - |
+| **Ultimate** | JOUEUR (bouton physique) | - | - | - |
+| **Tournoi** | STAFF (PC) | STAFF (PC) | STAFF (PC) | STAFF (PC) |
+| **Compétition** | STAFF (PC) | STAFF (PC) | STAFF (PC) | STAFF (PC) |
+| **Notoriété** | STAFF (PC) | STAFF (PC) | STAFF (PC) | STAFF (PC) |
+
+---
+
+### 9. STRUCTURE À CRÉER
+
+```
+app/staff/
+├── mode_jeux/page.tsx                    ← Sélection couloirs + modes (existant à modifier)
+├── live_controls/
+│   ├── [laneId]/page.tsx                 ← Affichage TV (scores, case clignotante, overlay)
+│   ├── tournament/[id]/page.tsx          ← Interface STAFF (START, NEXT_PLAYER, NEXT_TURN, NEXT_ROUND)
+│   ├── competition/[id]/page.tsx         ← Interface STAFF avec arbre
+│   └── notoriete/[id]/page.tsx           ← Interface STAFF avec influenceurs
+│
+lib/hooks/
+├── useAudioControl.ts                    ← Décompte vocal 3-2-1-VIZ
+├── useLaneWebSocket.ts                   ← Connexion WebSocket par couloir
+├── usePhysicalButton.ts                  ← Écoute bouton physique sous écran (LED + appui)
+└── useStaffMasterControl.ts              ← Contrôle global pour modes officiels
+```
+
+---
+
+## ✅ COMPRÉHENSION FINALE - (Partie Stockage)
+
+### 📊 GESTION DES DONNÉES (SCORES ET STATISTIQUES)
+
+| Mode | Stockage des données | Mise à jour |
+|------|---------------------|-------------|
+| **Loisirs** | **Aucun stockage** | Envoi par email si le joueur le souhaite |
+| **Compétiteur** | **Mise à jour directe** | Dès que les 20 tirs sont réalisés | **Archivage Supabase + GitHub** | Pour classements |
+| **Ultimate** | **Archivage Supabase + GitHub** | Pour classements |
+| **Tournoi** | **Archivage Supabase + GitHub** | Pour classements |
+| **Compétition** | **Archivage Supabase + GitHub** | Pour classements |
+| **Notoriété** | **Archivage Supabase + GitHub** | Pour classements |
+
+---
+
+### 🗄️ ARCHITECTURE DES DONNÉES
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              STOCKAGE DES DONNÉES                         │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      SUPABASE (Base de données)                     │  │
+│  │  • Compétiteur : mise à jour en temps réel après 20 tirs +          │  │
+│  │                  stockage complet                                   │  │
+│  │  • Ultimate / Tournoi / Compétition / Notoriété : stockage complet  │  │
+│  │  • Classements : calculés depuis Supabase                           │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                    │
+│                                      ▼ (Backup)                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      GITHUB (Backup des classements)                │  │
+│  │  • Sauvegarde des résultats de compétition                          │  │
+│  │  • Historique des classements                                       │  │
+│  │  • Chaque ville a son dépôt                                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      EMAIL (Loisirs)                                │  │
+│  │  • Envoi facultatif des scores aux joueurs                          │  │
+│  │  • Aucun stockage permanent                                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🎯 RÉSUMÉ
+
+| Type de donnée | Où est stocké ? |
+|----------------|-----------------|
+| Scores Loisirs | Aucun (email facultatif) |
+| Scores Compétiteur | Supabase (mise à jour directe) | Supabase + GitHub (backup) |
+| Scores Ultimate / Tournoi / Compétition / Notoriété | Supabase + GitHub (backup) |
+| Classements | Calculés depuis Supabase |
+
+---
+
+**✅ Cette compréhension est-elle maintenant 100% comprise ?**
+*/
+
+
+
+/*
+Prompt FINAL >
+
+### Contexte
+Projet **VAGONDYS** : système Next.js de contrôle airsoft avec cibles ESP32. Migration complète de l’application Flutter (`scores_screen.dart`) vers une interface STAFF web intégrée au portail existant.
+
+### Infrastructure technique
+- **9 couloirs** : 1 à 8 (standard) + 9 (Ultimate Corridor avec 4DX)
+- **Architecture** : VSC → GitHub → Vercel + Cloudflare + Render ↔ Supabase (MASTER + PUBLIC + STAFF par ville)
+- **Communication** :
+  - WebSocket entre Next.js et ESP32 pour scores + commandes
+  - HTTP pour l’affichage TV (scores, décompte, overlay)
+
+### Rôle des écrans
+- **PC STAFF** : interface de contrôle (sélection couloirs + modes, validation, commandes globales)
+- **ÉCRAN TV** : affichage des scores (case clignotante = joueur actif), décompte vocal, overlay FIN GAME. Pas d’internet, uniquement réseau local.
+
+### Bouton physique (sous chaque écran TV)
+- LED intégrée : **allumée** = action possible, **éteinte** = action impossible
+- Utilisé par les joueurs pour valider leurs actions (sauf modes officiels où c’est STAFF qui agit)
+
+### Modes de jeu & déclencheurs
+
+| Mode | Couloirs | Joueurs | START | NEXT_PLAYER | NEXT_TURN | NEXT_ROUND |
+|------|----------|--------|-------|-------------|-----------|------------|
+| Loisirs | 1-8 | 1-4 | 🔘 JOUEUR | 🔘 JOUEUR | 🔘 JOUEUR | ❌ |
+| Compétiteur | 1-8 | 1 | 🔘 JOUEUR | ❌ | ❌ | ❌ |
+| Ultimate | 9 | 1 | 🔘 JOUEUR | ❌ | ❌ | ❌ |
+| Tournoi | 1-8 | 1vs1 | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+| Compétition | 1-8 | 1vs1 | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+| Notoriété | 1-8 | 1 champ + 3 chall | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+
+### Règles communes
+- Victoire officielle : 3 manches gagnées = 120 tirs (20 tirs × 2 séries × 3 manches)
+- Commandes : uniquement déclenchées par STAFF ou joueur selon mode
+- Synchronisation : `Promise.all` pour envoi parallèle aux ESP32 (modes officiels)
+- Décompte vocal : 3-2-1-VIZ joué sur ÉCRAN TV (Web Audio API)
+
+### Stockage des données
+
+| Mode | Stockage |
+|------|---------|
+| Loisirs | Aucun (email facultatif) |
+| Compétiteur | Mise à jour Supabase directe + backup GitHub |
+| Ultimate / Tournoi / Compétition / Notoriété | Supabase + GitHub (archivage complet) |
+
+### Structure à créer (principale)
+
+```
+app/staff/
+├── mode_jeux/page.tsx                     (modifier sélection couloirs + modes)
+├── live_controls/
+│   ├── [laneId]/page.tsx                  (écran TV : scores, case clignotante, overlay)
+│   ├── tournament/[id]/page.tsx           (STAFF : START/NEXT_PLAYER/NEXT_TURN/NEXT_ROUND)
+│   ├── competition/[id]/page.tsx          (STAFF + arbre)
+│   └── notoriete/[id]/page.tsx            (STAFF + influenceurs)
+
+lib/hooks/
+├── useAudioControl.ts                     (décompte vocal)
+├── useLaneWebSocket.ts
+├── usePhysicalButton.ts                   (LED + appui)
+└── useStaffMasterControl.ts               (contrôle global officiel)
+
+types/official.types.ts                     (LaneId = 1..9, LANES_CONFIG, UltimateGameState, etc.)
+api/staff/lane_control/[id]/*               (start, next-player, next-turn, end-game)
+api/staff/tournament/*, competition/*, notoriete/*, ultimate/*
+```
+
+---
+
+**✅ Si tu comprend à 100 % et bien maintenant dis juste "Commençons"**  
+*/

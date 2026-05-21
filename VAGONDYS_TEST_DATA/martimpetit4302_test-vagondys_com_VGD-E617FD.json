@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E617FD",
+  "client_identity": {
+    "nom": "Martim Petit",
+    "email": "martimpetit4302@test-vagondys.com",
+    "telephone": "0657125896",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E617FD",
+    "created_at": "2026-02-05T20:57:36.734Z",
+    "payload": {
+      "name": "Martim Petit",
+      "pseudo": "MartimPetit4302",
+      "email": "martimpetit4302@test-vagondys.com",
+      "phone": "0695982502",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Petit | Email: martimpetit4302@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.734Z",
+      "details": {
+        "name": "Martim Petit",
+        "email": "martimpetit4302@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimpetit4302@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.734Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.734Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

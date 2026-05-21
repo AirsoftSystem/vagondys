@@ -1,0 +1,2089 @@
+
+Analyse tout ùon projet afin que tu comprennes mieux tout ce qui le compose 
+mais surtout la partie : "IA_VAGONDYS/" ,
+puisque c'est là que nous travaillons actuellement
+et sur le quelle on poursuit les avancées que je vais te dire pour la suite dans le prochain message :
+/*
+VAGONDYS/
+┃
+┣━ .next/
+┣━ .vscode/
+┃  ┗━ settings.json
+┣━ .vercel/
+┣━ actions/
+┃  ┗━ staff-actions.ts             < (Contiendra la Server Action)
+┃
+┣━ app/
+┃  ┣━ (auth)/
+┃  ┃  ┣━ activation-reussie/
+┃  ┃  ┃  ┗━ page.tsx               (L'Interface de stockage) 
+┃  ┃  ┣━ carte-id/
+┃  ┃  ┃  ┣━ DocumentVault.tsx      (L'Interface de stockage)          
+┃  ┃  ┃  ┣━ page.tsx               (Le Cerveau Le Chef d'Orchestre)
+┃  ┃  ┃  ┗━ ProfileForm.tsx        (L'Interface de saisie)
+┃  ┃  ┣━ connexion/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ espace-joueur/
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃   ┣━ cibles/
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.css
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ CibleSimple.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┗━ types.ts
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx
+┃  ┃  ┃  ┃   ┣━ HistoryTable.tsx
+┃  ┃  ┃  ┃   ┣━ Notification.tsx
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.css
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx
+┃  ┃  ┃  ┃   ┣━ RankCard.tsx
+┃  ┃  ┃  ┃   ┣━ ScoreChart.css
+┃  ┃  ┃  ┃   ┣━ ScoreChart.tsx
+┃  ┃  ┃  ┃   ┣━ StatsCard.tsx
+┃  ┃  ┃  ┃   ┗━ WebSocketControl.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┃   ┗━ index.ts
+┃  ┃  ┃  ┣━ utils/
+┃  ┃  ┃  ┃   ┗━ formatters.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┗━ inscription/
+┃  ┃     ┗━ page.tsx
+┃  ┃
+┃  ┣━ (public)/
+┃  ┃  ┣━ bareme/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ classements/
+┃  ┃  ┃  ┣━ saison/
+┃  ┃  ┃  ┃  ┗━ [year]/
+┃  ┃  ┃  ┃     ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ communication/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ contact/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┗━ SubmitButton.tsx
+┃  ┃  ┣━ evenementiels/
+┃  ┃  ┃  ┣━ [date]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ joueurs/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ la-ligue/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ leaders/
+┃  ┃  ┃  ┣━ historique/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mentions-legales/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ politique-de-confidentialite/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ sponsors/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ tournois/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ api/
+┃  ┃  ┣━ archive-external/
+┃  ┃  ┃  ┗━ route.ts          (Le Chef d'Orchestre : Réceptionne la requête, appelle l'Engine, renvoie la réponse)
+┃  ┃  ┣━ auth/
+┃  ┃  ┃  ┗━ signup/
+┃  ┃  ┃     ┗━ route.ts
+┃  ┃  ┣━ confirm-email/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ confirm-signal/
+┃  ┃  ┃  ┗━ route.
+┃  ┃  ┣━ force-admin/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ notify-read/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ send-reply/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┗━ staff/
+┃  ┃     ┣━ notify-transfer/
+┃  ┃     ┃  ┗━ route.ts
+┃  ┃     ┗━ register-athlete/
+┃  ┃        ┗━ route.ts
+┃  ┃
+┃  ┣━ staff/
+┃  ┃  ┣━ competitions/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ interface/
+┃  ┃  ┃  ┣━ components/                (Les briques visuelles)
+┃  ┃  ┃  ┃  ┣━ InterfaceHeader.tsx     (Titre, Recherche, Onglets)
+┃  ┃  ┃  ┃  ┣━ MessageList.tsx         (Le conteneur de flux)
+┃  ┃  ┃  ┃  ┣━ MessageCard.tsx         (Le détail d'un message seul)
+┃  ┃  ┃  ┃  ┗━ ReplyModal/             (Dossier dédié car complexe)
+┃  ┃  ┃  ┃     ┣━ index.tsx            (Point d'entrée de la modale)
+┃  ┃  ┃  ┃     ┣━ HistoryTimeline.tsx  (Le fil de discussion)
+┃  ┃  ┃  ┃     ┗━ ReplyForm.tsx        (Le formulaire d'envoi)
+┃  ┃  ┃  ┣━ hooks/                     (Le "Cerveau" - Logique métier)
+┃  ┃  ┃  ┃  ┗━ useStaffInterface.ts    (Tout ton état et tes fonctions Supabase)
+┃  ┃  ┃  ┣━ types/                     (Le "Modèle" - Contrats de données)
+┃  ┃  ┃  ┃  ┗━ interface.ts
+┃  ┃  ┃  ┗━ page.tsx                   (L'Orchestrateur - Très léger)
+┃  ┃  ┣━ licencies/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ login/
+┃  ┃  ┃  ┣━ layout.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ settings/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ globals.css
+┃  ┣━ icon.png
+┃  ┣━ layout.tsx
+┃  ┣━ Maison.css
+┃  ┣━ manifest.ts
+┃  ┣━ Ranking.css
+┃  ┗━ sitemap.ts
+┃
+┣━ components/
+┃  ┣━ staff/
+┃  ┃  ┣━ Sidebar.tsx
+┃  ┃  ┗━ StaffShell.tsx
+┃  ┗━ Footer.tsx
+┃
+┣━ lib/
+┃  ┣━ archive-external/
+┃  ┃  ┣━ db-client.ts      (L'Expert Supabase : Requêtes spécifiques à la Master DB et pending_signals) 
+┃  ┃  ┣━ engine.ts         (Le Cerveau : Combine GitHub + DB + Mapping pour exécuter les actions métier)
+┃  ┃  ┣━ gh-client.ts      (L'Expert GitHub : Toute la communication brute avec l'API GitHub)  
+┃  ┃  ┣━ types.ts          (Le Contrat : Interfaces strictes pour GitHub, Supabase et le Front)
+┃  ┃  ┣━ utils.ts          (Les Outils : Normalisation des noms, nettoyage de chaînes, formatage de dates)
+┃  ┃  ┗━ validator.ts      (Le Gardien : Validation Zod/TS des données entrantes pour éviter les crashs)
+┃  ┣━ email/
+┃  ┃  ┗━ gmail.ts
+┃  ┣━ supabase/
+┃  ┃  ┣━ client.ts
+┃  ┃  ┣━ master.ts
+┃  ┃  ┗━ server.ts
+┃  ┣━ websocket/
+┃  ┃  ┗━ clientl.ts
+┃  ┗━ rate-limit.ts
+┃
+┣━ node_modules/
+┃
+┣━ public/
+┃  ┣━ logo/
+┃  ┃  ┣━ vagondys-mark-icon.png
+┃  ┃  ┣━ vagondys-mark.png
+┃  ┃  ┗━ vagondys-mark.svg
+┃  ┣━ cible.png
+┃  ┣━ favicon.ico
+┃  ┣━ file.svg
+┃  ┣━ globe.svg
+┃  ┣━ next.svg
+┃  ┣━ vagondys-mark.ico
+┃  ┣━ vercel.svg
+┃  ┗━ window.svg
+┃
+┣━ scripts/
+┃  ┣━ obfuscate-build.js
+┃  ┗━ optimize-images.js
+┃
+┣━ VAGONDYS_TEST_DATA
+┃
+┣━ .env.local
+┣━ .gitignore
+┣━ arborescence.txt
+┣━ eslint.config.mjs
+┣━ generate-test-logs.mjs
+┣━ next-env.d.ts
+┣━ next.config.ts
+┣━ package-lock.json
+┣━ package.json
+┣━ postcss.config.mjs
+┣━ proxy.ts
+┣━ README.md
+┣━ tailwind.config.ts
+┣━ tsconfig.
+┗━ vercel.json
+*/
+
+/*
+carte-id/page.tsx,"Le Cerveau (Le Chef d'Orchestre). C'est le fichier principal. Il récupère les données de Supabase, gère les états (chargement, erreurs) et contient les fonctions de mise à jour.",Le moteur d'une voiture.
+ProfileForm.tsx,"(L'Interface de saisie). Il ne sert qu'à afficher le formulaire et à capturer ce que l'utilisateur tape (Pseudo, Tel, Password). Il renvoie ces infos au cerveau.",Le tableau de bord et le volant.
+DocumentVault.tsx,(L'Interface de stockage). Il affiche la liste des documents (locaux et archives GitHub) et gère l'aspect visuel de l'envoi de fichiers.,Le coffre-fort ou la boîte à gants.
+*/
+
+/*
+✅ types/interface.ts : Contrat de données unifié.
+✅ hooks/useStaffInterface.ts : Logique métier et états isolés.
+✅ components/InterfaceHeader.tsx : Navigation et recherche isolées.
+✅ components/MessageList.tsx : Gestion du flux de signaux.
+✅ components/MessageCard.tsx : Design atomique des transmissions.
+✅ components/ReplyModal/index.tsx : Structure de communication.
+✅ components/ReplyModal/HistoryTimeline.tsx : Mémoire des dossiers.
+✅ components/ReplyModal/ReplyForm.tsx : Moteur de transmission.
+✅ page.tsx : Assemblage final propre.
+*/
+
+/*
+VAGONDYS_NETWORK/ (Vision Décentralisée)
+┃
+┣━ 1_CENTRALISATION_DES_CLES (Étape 1 : Le Cerveau)
+┃  ┗━ lib/
+┃     ┗━ supabase/
+┃        ┣━ master.ts        <-- NOUVEAU : Le seul qui connaît toutes les URLs/Clés des villes
+┃        ┣━ server.ts        <-- ADAPTÉ : Devient dynamique (reçoit 'city' en paramètre)
+┃        ┗━ client.ts        <-- ADAPTÉ : Idem pour le front-end
+┃
+┣━ 2_ROUTAGE_INTELLIGENT (Étape 2 : L'Aiguillage)
+┃  ┣━ proxy.ts               <-- ADAPTÉ : Détecte la structure via l'email ou le domaine
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┗━ auth/
+┃           ┗━ signup/
+┃              ┗━ route.ts   <-- ADAPTÉ : Envoie l'athlète vers le Supabase de sa ville
+┃
+┣━ 3_FRAGMENTATION_DATA (Étape 3 : Le Stockage)
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┣━ archive-external/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Utilise le Token GitHub spécifique à la ville
+┃        ┣━ confirm-email/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Génère le matricule dans la base locale
+┃        ┗━ send-reply/
+┃           ┗━ route.ts      <-- ADAPTÉ : Archive vers le repo de la ville concernée
+┃
+┣━ 4_INTERFACE_DYNAMIQUE (Étape 4 : L'Affichage)
+┃  ┗━ app/
+┃     ┣━ (auth)/
+┃     ┃  ┗━ espace-joueur/
+┃     ┃     ┗━ page.tsx      <-- ADAPTÉ : Se connecte au Supabase de l'athlète (Nantes, etc.)
+┃     ┗━ staff/
+┃        ┗━ interface/
+┃           ┗━ page.tsx      <-- ADAPTÉ : Permet au staff de switcher entre les bases
+┃
+┗━ CONFIGURATION_STUCTURES (Exemple pour Nantes)
+   ┣━ GITHUB: VAGONDYS_NANTES (via nantes@vagondys.com)
+   ┗━ SUPABASE: VGD-NANTES + STAFF (via nantes@vagondys.com)
+*/
+
+/*
+VAGONDYS / Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
+┃
+VSC > Guithub > Vercel + Cloudlare + Render <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Flutter <-> Esp32 <-> Arduino < Cibles
+┃
+Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , ino , py , dart
+┃
+PROJET_VAGONDYS/
+┣━ flutter
+┃  ┗━ esp32
+┃     ┗━ arduino
+┃        ┗━ cibles
+┃           ┗━ airsoft
+┃
+┣━ vsc
+┃  ┗━ github
+┃     ┗━ vercel + cloudlare + render
+┃        ┗━ supabase
+┃           ┗━ coffre-fort github
+┃
+┣━ github / ville = actuellement 12 Comptes
+┃  ┗━ supabase
+┃
+┗━>
+IA_VAGONDYS/
+┣━ VAGONDYS/                                  <-- Projet VAGONDYS (documentations)
+┣━ vagondys/                                  <-- Projet VAGONDYS (site web)
+┣━ flutter/                                   <-- Projet Flutter
+┣━ esp32/                                     <-- Projet esp32
+┣━ arduino/                                   <-- Projet Arduino
+┣━ rasberry/                                  <-- Projet Rasberry    
+┣━ .vercel                                    <-- Projet Vercel
+┣━ api/
+┃  ┣━ cortex/
+┃  ┃  ┗━ sync.js                              <-- NOUVEAU : Le pont serveur (Vercel Function)
+┃  ┗━ vault/
+┃     ┣━ fetch-vault.js
+┃     ┗━ get-supabase-config.js        
+┣━ chats/                                     <-- Mémoire des conversations passées
+┃  ┗━ 2026-02-21.js                           <-- Historique d'analyse
+┣━ cortex_data/                               <-- LOGIQUE & RÈGLES MÉTIER (Le Cerveau)
+┃  ┣━ vgd_cloud.json                          <-- Architecture Supabase/Vercel
+┃  ┣━ vgd_hardware.json                       <-- Spécifications cibles (Arduino/ESP32)
+┃  ┣━ vgd_main.json                           <-- Identité et vision VAGONDYS
+┃  ┣━ vgd_network.json                        <-- Structure des 12 villes/réseaux
+┃  ┣━ vgd_roadmap.json                        <-- Boussole du projet
+┃  ┗━ vgd_strategy.json                       <-- Règles de compétition et ligue
+┣━ docs/                                      <-- ARCHIVES DE RÉFÉRENCE (Le Coffre-fort)
+┃  ┣━ DOCUMENTATION_COMPLETE_VAGONDYS.md      <-- La carte VAGONDYS
+┃  ┣━ super_fusion_vagondys.py                <-- Le script se lance ICI
+┃  ┣━ INDEX                                   <-- ?
+┃  ┃  ┗━ 2026-03-05_analyse-xxx.md
+┃  ┣━ 01_NETWORK_CLOUD/                       <-- DOSSIER RACINE (Thème)
+┃  ┣━ 02_COMMANDEMENT_STAFF/                  <-- DOSSIER RACINE (Thème)
+┃  ┣━ 03_INFRASTRUCTURE_DATA/                 <-- DOSSIER RACINE (Thème)
+┃  ┣━ 04_SOUVERAINETE_ATHLETE/                <-- DOSSIER RACINE (Thème)
+┃  ┗━ 05_HARDWARE_IMMERSION/                  <-- DOSSIER RACINE (Thème)
+┃     ┣━ arduino/                             <-- SOUS-DOSSIER (Module)
+┃     ┃  ┣━ arduino.ino                       <-- Fichier détecté !
+┃     ┃  ┣━ code_arduino.md                   <-- Fichier détecté !
+┃     ┃  ┗━ analyse_arduino.md                <-- Fichier détecté !
+┃     ┗━ esp32/                               <-- SOUS-DOSSIER (Module)
+┃        ┣━ esp32.ino                         <-- Fichier détecté !
+┃        ┣━ code_esp32.md                     <-- Fichier détecté !
+┃        ┗━ analyse_esp32.md                  <-- Fichier détecté !
+┣━ js/                                        <-- Voice
+┃  ┗━ vocal-module.js
+┣━ vault/                                     <-- ARCHIVES DE RÉFÉRENCE (Le Coffre-fort)
+┃  ┣━ style_guide.md                          <-- Standards de programmation pour VAGONDYS OS
+┃  ┣━ code/                                   <-- Modèles de code segmentés par langage
+┃  ┃  ┣━ dart/                                <-- Code Flutter/Dart
+┃  ┃  ┣━ ino/                                 <-- Code Arduino/C++
+┃  ┃  ┣━ py/                                  <-- Scripts Python
+┃  ┃  ┣━ sql/                                 <-- Schémas de base de données
+┃  ┃  ┗━ ts_tsx/                              <-- Code TypeScript/React
+┃  ┗━ docs/                  
+┃     ┗━ INDEX.md                             <-- Documentation brute & Index projet
+┣━ .env.local                                 <-- Projet Vercel
+┣━ .gitignore                                 <-- Projet Vercel
+┣━ cortex-manager.js                          <-- Moteur de synchronisation (Logique Souveraine)
+┣━ cortex-updater.js                          <-- ?
+┣━ index.html                                 <-- Interface de l'Assistant
+┣━ package-lock.json                          <-- Projet Vercel
+┣━ package.json                               <-- Projet Vercel
+┣━ script.js                                  <-- Logique applicative (UI & Interactions)
+┣━ style.css                                  <-- Interface visuelle (Charte VAGONDYS)
+┗━ vercel.json                                <-- Configuration du déploiement & Routage API
+*/
+
+/*
+Ok donc maintenant tu refais sérieusement ce fichier "vocal-module.js" 
+et à chaque fois je te redonne toujours mon fichier original "script.js"
+comme repère afin que tu n'oublis rien 
+et aussi l'arborescence afin que tu te souvienne de tout :
+*/
+/*
+/ ton-projet
+├── index.html
+├── js/ (Découpage du fichier "script.js")
+│   ├── main.js             (✅)
+│   ├── core-engine.js      (✅)
+│   ├── ui-manager.js       (✅)
+│   ├── api-vault.js        (✅)
+│   ├── hardware-cortex.js  (✅)
+│   └── vocal-module.js     (✅)
+*/
+
+
+
+Analyse tout ùon projet afin que tu comprennes mieux tout ce qui le compose 
+mais surtout la partie : "VAGONDYS/" ,
+puisque c'est là que nous travaillons actuellement
+et sur le quelle on poursuit les avancées que je vais te dire pour la suite dans le prochain message :
+/*
+VAGONDYS / Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
+┃
+VSC > Guithub > Vercel + Cloudlare + Render <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Flutter <-> Esp32 <-> Arduino < Cibles
+┃
+Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , ino , py , dart
+┃
+PROJET_VAGONDYS/
+┣━ flutter
+┃  ┗━ esp32
+┃     ┗━ arduino
+┃        ┗━ cibles
+┃           ┗━ airsoft
+┗━>
+┣━ vsc
+┃  ┗━ github
+┃     ┗━ vercel + cloudlare + render
+┃        ┗━ supabase
+┃           ┗━ coffre-fort github
+┗━>
+┣━ github / ville = actuellement 12 Comptes
+┃  ┗━ supabase
+┃
+┗━>
+VAGONDYS/
+┃
+┣━ .next/
+┣━ .vercel/
+┣━ .vscode/
+┃  ┗━ settings.json
+┣━ actions/
+┃  ┗━ staff-actions.ts             <--- (Contient la Server Action)
+┃
+┣━ app/
+┃  ┣━ (auth)/
+┃  ┃  ┣━ activation-reussie/
+┃  ┃  ┃  ┗━ page.tsx               (L'Interface de stockage) 
+┃  ┃  ┣━ carte-id/
+┃  ┃  ┃  ┣━ DocumentVault.tsx      (L'Interface de stockage)          
+┃  ┃  ┃  ┣━ page.tsx               (Le Cerveau Le Chef d'Orchestre)
+┃  ┃  ┃  ┗━ ProfileForm.tsx        (L'Interface de saisie)
+┃  ┃  ┣━ connexion/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ espace-joueur/
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃   ┣━ cibles/
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.css
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ CibleSimple.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.css
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx
+┃  ┃  ┃  ┃   ┃  ┗━ types.ts
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx
+┃  ┃  ┃  ┃   ┣━ HistoryTable.tsx
+┃  ┃  ┃  ┃   ┣━ Notification.tsx
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.css
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx
+┃  ┃  ┃  ┃   ┣━ RankCard.tsx
+┃  ┃  ┃  ┃   ┣━ ScoreChart.css
+┃  ┃  ┃  ┃   ┣━ ScoreChart.tsx
+┃  ┃  ┃  ┃   ┣━ StatsCard.tsx
+┃  ┃  ┃  ┃   ┗━ WebSocketControl.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┃   ┗━ index.ts
+┃  ┃  ┃  ┣━ utils/
+┃  ┃  ┃  ┃   ┗━ formatters.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┗━ inscription/
+┃  ┃     ┗━ page.tsx
+┃  ┃
+┃  ┣━ (public)/
+┃  ┃  ┣━ bareme/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ classements/
+┃  ┃  ┃  ┣━ saison/
+┃  ┃  ┃  ┃  ┗━ [year]/
+┃  ┃  ┃  ┃     ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ communication/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ contact/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┗━ SubmitButton.tsx
+┃  ┃  ┣━ evenementiels/
+┃  ┃  ┃  ┣━ [date]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ joueurs/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ la-ligue/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ leaders/
+┃  ┃  ┃  ┣━ historique/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mentions-legales/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ politique-de-confidentialite/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ sponsors/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ tournois/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ api/
+┃  ┃  ┣━ archive-external/
+┃  ┃  ┃  ┗━ route.ts          (Le Chef d'Orchestre : Réceptionne la requête, appelle l'Engine, renvoie la réponse)
+┃  ┃  ┣━ auth/
+┃  ┃  ┃  ┗━ signup/
+┃  ┃  ┃     ┗━ route.ts
+┃  ┃  ┣━ confirm-email/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ confirm-signal/
+┃  ┃  ┃  ┗━ route.
+┃  ┃  ┣━ force-admin/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ notify-read/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ send-reply/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┗━ staff/
+┃  ┃     ┣━ notify-transfer/
+┃  ┃     ┃  ┗━ route.ts
+┃  ┃     ┗━ register-athlete/
+┃  ┃        ┗━ route.ts
+┃  ┃
+┃  ┣━ staff/
+┃  ┃  ┣━ competitions/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ interface/
+┃  ┃  ┃  ┣━ components/                (Les briques visuelles)
+┃  ┃  ┃  ┃  ┣━ InterfaceHeader.tsx     (Titre, Recherche, Onglets)
+┃  ┃  ┃  ┃  ┣━ MessageList.tsx         (Le conteneur de flux)
+┃  ┃  ┃  ┃  ┣━ MessageCard.tsx         (Le détail d'un message seul)
+┃  ┃  ┃  ┃  ┗━ ReplyModal/             (Dossier dédié car complexe)
+┃  ┃  ┃  ┃     ┣━ index.tsx            (Point d'entrée de la modale)
+┃  ┃  ┃  ┃     ┣━ HistoryTimeline.tsx  (Le fil de discussion)
+┃  ┃  ┃  ┃     ┗━ ReplyForm.tsx        (Le formulaire d'envoi)
+┃  ┃  ┃  ┣━ hooks/                     (Le "Cerveau" - Logique métier)
+┃  ┃  ┃  ┃  ┗━ useStaffInterface.ts    (Tout ton état et tes fonctions Supabase)
+┃  ┃  ┃  ┣━ types/                     (Le "Modèle" - Contrats de données)
+┃  ┃  ┃  ┃  ┗━ interface.ts
+┃  ┃  ┃  ┗━ page.tsx                   (L'Orchestrateur - Très léger)
+┃  ┃  ┣━ licencies/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ login/
+┃  ┃  ┃  ┣━ layout.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mode-jeux/
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃  ┣━ GameHeader.tsx
+┃  ┃  ┃  ┃  ┣━ GameModeCard.tsx
+┃  ┃  ┃  ┃  ┣━ GameSection.tsx
+┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃  ┗━ useGameModes.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ reservations/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ settings/
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ globals.css
+┃  ┣━ icon.png
+┃  ┣━ layout.tsx
+┃  ┣━ Maison.css
+┃  ┣━ manifest.ts
+┃  ┣━ Ranking.css
+┃  ┗━ sitemap.ts
+┃
+┣━ components/
+┃  ┣━ staff/
+┃  ┃  ┣━ Sidebar.tsx
+┃  ┃  ┗━ StaffShell.tsx
+┃  ┗━ Footer.tsx
+┃
+┣━ lib/
+┃  ┣━ archive-external/
+┃  ┃  ┣━ db-client.ts      (L'Expert Supabase : Requêtes spécifiques à la Master DB et pending_signals) 
+┃  ┃  ┣━ engine.ts         (Le Cerveau : Combine GitHub + DB + Mapping pour exécuter les actions métier)
+┃  ┃  ┣━ gh-client.ts      (L'Expert GitHub : Toute la communication brute avec l'API GitHub)  
+┃  ┃  ┣━ types.ts          (Le Contrat : Interfaces strictes pour GitHub, Supabase et le Front)
+┃  ┃  ┣━ utils.ts          (Les Outils : Normalisation des noms, nettoyage de chaînes, formatage de dates)
+┃  ┃  ┗━ validator.ts      (Le Gardien : Validation Zod/TS des données entrantes pour éviter les crashs)
+┃  ┣━ email/
+┃  ┃  ┗━ gmail.ts
+┃  ┣━ supabase/
+┃  ┃  ┣━ client.ts
+┃  ┃  ┣━ master.ts
+┃  ┃  ┗━ server.ts
+┃  ┣━ websocket/
+┃  ┃  ┗━ clientl.ts
+┃  ┗━ rate-limit.ts
+┃
+┣━ node_modules/
+┃
+┣━ public/
+┃  ┣━ logo/
+┃  ┃  ┣━ vagondys-mark-icon.png
+┃  ┃  ┣━ vagondys-mark.png
+┃  ┃  ┗━ vagondys-mark.svg
+┃  ┣━ cible.png
+┃  ┣━ favicon.ico
+┃  ┣━ file.svg
+┃  ┣━ globe.svg
+┃  ┣━ next.svg
+┃  ┣━ vagondys-mark.ico
+┃  ┣━ vercel.svg
+┃  ┗━ window.svg
+┃
+┣━ scripts/
+┃  ┣━ obfuscate-build.js
+┃  ┗━ optimize-images.js
+┃
+┣━ VAGONDYS_TEST_DATA
+┃
+┣━ .env.local
+┣━ .gitignore
+┣━ arborescence.txt
+┣━ eslint.config.mjs
+┣━ generate-test-logs.mjs
+┣━ next-env.d.ts
+┣━ next.config.ts
+┣━ package-lock.json
+┣━ package.json
+┣━ postcss.config.mjs
+┣━ proxy.ts
+┣━ README.md
+┣━ tailwind.config.ts
+┣━ tsconfig.
+┗━ vercel.json
+*/
+
+/*
+VAGONDYS_NETWORK/ (Vision Décentralisée)
+┃
+┣━ 1_CENTRALISATION_DES_CLES (Étape 1 : Le Cerveau)
+┃  ┗━ lib/
+┃     ┗━ supabase/
+┃        ┣━ master.ts        <-- NOUVEAU : Le seul qui connaît toutes les URLs/Clés des villes
+┃        ┣━ server.ts        <-- ADAPTÉ : Devient dynamique (reçoit 'city' en paramètre)
+┃        ┗━ client.ts        <-- ADAPTÉ : Idem pour le front-end
+┃
+┣━ 2_ROUTAGE_INTELLIGENT (Étape 2 : L'Aiguillage)
+┃  ┣━ proxy.ts               <-- ADAPTÉ : Détecte la structure via l'email ou le domaine
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┗━ auth/
+┃           ┗━ signup/
+┃              ┗━ route.ts   <-- ADAPTÉ : Envoie l'athlète vers le Supabase de sa ville
+┃
+┣━ 3_FRAGMENTATION_DATA (Étape 3 : Le Stockage)
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┣━ archive-external/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Utilise le Token GitHub spécifique à la ville
+┃        ┣━ confirm-email/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Génère le matricule dans la base locale
+┃        ┗━ send-reply/
+┃           ┗━ route.ts      <-- ADAPTÉ : Archive vers le repo de la ville concernée
+┃
+┣━ 4_INTERFACE_DYNAMIQUE (Étape 4 : L'Affichage)
+┃  ┗━ app/
+┃     ┣━ (auth)/
+┃     ┃  ┗━ espace-joueur/
+┃     ┃     ┗━ page.tsx      <-- ADAPTÉ : Se connecte au Supabase de l'athlète (Nantes, etc.)
+┃     ┗━ staff/
+┃        ┗━ interface/
+┃           ┗━ page.tsx      <-- ADAPTÉ : Permet au staff de switcher entre les bases
+┃
+┗━ CONFIGURATION_STUCTURES (Exemple pour Nantes)
+   ┣━ GITHUB: VAGONDYS_NANTES (via nantes@vagondys.com)
+   ┗━ SUPABASE: VGD-NANTES + STAFF (via nantes@vagondys.com)
+*/
+
+/*
+FORMULAIRE CONTACT
+├─ Étape 1: actions.ts
+│   ├─ Lit registre MASTER (athletes_registry) → city
+│   ├─ Génère VGD-XXXXXX
+│   └─ ✅ Insert dans MASTER.pending_signals (confirmed: false)
+│
+├─ Étape 2: Email de confirmation
+│   └─ Lien → /api/confirm-signal?id=...
+│
+├─ Étape 3: confirm-signal/route.ts
+│   ├─ ✅ Lit MASTER.pending_signals (trouve le signal)
+│   ├─ Détermine city (payload ou registre)
+│   ├─ Récupère config station via getStationConfig()
+│   ├─ ✅ Met à jour MASTER (confirmed: true)
+│   ├─ ✅ Insère dans STAFF.[ville].pending_signals (is_read: false)
+│   ├─ ✅ Insère dans PUBLIC.[ville].pending_signals (is_read: true)
+│   ├─ Si client retournant → communication_replies
+│   └─ ✅ Appelle archive-external (GitHub false → true)
+│
+└─ Étape 4: Interface Staff
+    ├─ Dashboard (/staff) → badge "1" via realtime
+    └─ Interface (/staff/interface) → affiche le message
+*/
+
+/*
+# ==========================================================
+# VAGONDYS NETWORK - CONFIGURATION MAÎTRE (Le Cerveau)
+# Ce projet pilote la redirection vers toutes les autres villes
+# ==========================================================
+
+# GITHUB MAÎTRE (Archive globale si besoin)
+REPO_VAGONDYS=vagondys/VAGONDYS_VAGONDYS_DATA
+GITHUB_ARCHIVE_TOKEN=ghp_***
+# Supabase MAÎTRE = master
+NEXT_PUBLIC_SUPABASE_URL_MASTER=https://***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_MASTER=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+
+# ==========================================================
+# SERVICES MUTUALISÉS (Emailing & Sécurité)
+# ==========================================================
+
+# Sécurité Turnstile
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=***
+TURNSTILE_SECRET_KEY=***
+
+# Sécurité Google reCAPTCHA
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=***
+RECAPTCHA_SECRET_KEY=***
+
+# Sécurité Resend
+RESEND_API_KEY=re_8cYJ7hEd_***
+CONTACT_FROM=contact@vagondys.com
+
+# Configuration URLs
+FRONTEND_URL=https://vagondys.com
+NEXT_PUBLIC_FRONTEND_URL=https://vagondys.com
+
+GMAIL_SMTP_USER=vagondys@gmail.com
+GMAIL_SMTP_APP_PASSWORD=jlwgqmwzchchkwuu
+GMAIL_FROM_NAME="Staff VAGONDYS"
+GMAIL_ALIAS_EMAIL=admin@vagondys.com
+GMAIL_NOREPLY=no-reply@vagondys.com
+
+# Liste des alias pour le routage système
+EMAIL_DIRECTION=admin@vagondys.com
+EMAIL_CONTACT=contact@vagondys.com
+EMAIL_NANTES=nantes@vagondys.com
+EMAIL_LYON=lyon@vagondys.com
+EMAIL_MADRID=madrid@vagondys.com
+
+# ========================================
+# UNITÉS LOCALES (VILLES) - TABLE STATIONS
+# ========================================
+
+# --- NANTES ---
+REPO_VGD_FR_NANTES=VGD-Nantes/VAGONDYS_NANTES_DATA
+TOKEN_VGD_FR_NANTES=ghp_***
+# Supabase Nantes PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_FR_NANTES=https://xasyhe***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_NANTES=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Nantes STAFF
+NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF=https://bifzyl***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_NANTES_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Couloir de 1 à 9 (exemple pour la redirection IP, à adapter selon les besoins)
+NEXT_PUBLIC_LANE_1_IP=192.168.1.32
+# NEXT_PUBLIC_LANE_2_IP=192.168.1.51
+# ...
+# NEXT_PUBLIC_LANE_9_IP=192.168.1.58
+
+# --- LYON ---
+REPO_VGD_FR_LYON=VGD-Lyon/VAGONDYS_LYON_DATA
+TOKEN_VGD_FR_LYON=ghp_***
+# Supabase Lyon PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_FR_LYON=https://bgnlvj***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_LYON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_LYON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Lyon STAFF
+NEXT_PUBLIC_SUPABASE_URL_FR_LYON_STAFF=https://mbdgjk***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_LYON_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_LYON_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+
+# --- MADRID ---
+REPO_VGD_ES_MADRID=VGD-Madrid/VAGONDYS_MADRID_DATA
+TOKEN_VGD_ES_MADRID=ghp_***
+# Supabase Madrid PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_ES_MADRID=https://iykvhb***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_ES_MADRID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_ES_MADRID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Madrid STAFF
+NEXT_PUBLIC_SUPABASE_URL_ES_MADRID_STAFF=https://foirrs***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_ES_MADRID_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_ES_MADRID_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+*/
+
+
+
+
+
+
+
+/*
+app/staff/
+┣━ page.tsx                      (à modifier)
+┃
+┣━ components/
+┃  ┣━ dashboard/
+┃  ┃  ┣━ CityInfoCard.tsx         (Infos station + stats ville)
+┃  ┃  ┣━ StatsGrid.tsx            (KPI : licenciés, matchs, messages)
+┃  ┃  ┣━ RecentActivity.tsx       (Derniers messages + lancements)
+┃  ┃  ┣━ TopPlayers.tsx           (Classement des meilleurs joueurs)
+┃  ┃  ┗━ QuickActions.tsx         (Actions rapides)
+┃  ┃
+┃  ┗━ ui/                          (Composants réutilisables)
+┃     ┣━ Card.tsx
+┃     ┣━ Badge.tsx
+┃     ┗━ LoadingSpinner.tsx
+┃
+┣━ hooks/
+┃  ┗━ useDashboardData.ts         (Hook pour toutes les données)
+┃
+┗━ types/
+   ┗━ dashboard.ts                 (Interfaces TypeScript)
+*/
+
+
+
+/*
+app/staff/
+┣━ mode_jeux/
+┃  ┣━ page.tsx                           (À MODIFIER COMPLÈTEMENT)
+┃  ┃
+┃  ┣━ components/
+┃  ┃  ┣━ GameHeader.tsx                 (NOUVEAU - Sélection des 8 couloirs)/
+┃  ┃  ┣━ LaneSelector.tsx                 (NOUVEAU - Sélection des 8 couloirs)/
+┃  ┃  ┣━ GameModeSection.tsx               (NOUVEAU - Loisirs/Compétiteur/Ultimate)/
+┃  ┃  ┣━ GameModeButton.tsx                 (NOUVEAU - Bouton de mode)/
+┃  ┃  ┣━ LaneStatus.tsx                     (NOUVEAU - Statut de chaque couloir)/
+┃  ┃  ┗━ PlayerPseudoModal.tsx              (À CONSERVER - déjà existant)
+┃  ┃
+┃  ┣━ hooks/
+┃  ┃  ┣━ useGameModes.ts                    (À MODIFIER COMPLÈTEMENT)/
+┃  ┃  ┗━ useWebSocketManager.ts              (NOUVEAU - Gestion des 8 WebSockets)/
+┃  ┃
+┃  ┗━ types/
+┃     ┣━ game.types.ts                       (NOUVEAU - Types pour les modes)/
+┃     ┗━ websocket.types.ts                   (NOUVEAU - Types pour WebSocket)/
+┃
+┗━ websocket/
+   ┗━ client.ts                              (À ADAPTER pour 8 connexions)/
+*/
+
+
+
+/*
+VAGONDYS/
+┃
+┣━ .next/
+┣━ .vercel/
+┣━ .vscode/
+┃  ┗━ settings.json
+┃
+┣━ actions/
+┃  ┗━ staff-actions.ts
+┃
+┣━ app/
+┃  ┣━ (auth)/                                 (existant - inchangé)
+┃  ┃  ┣━ activation-reussie/
+┃  ┃  ┣━ carte-id/
+┃  ┃  ┣━ connexion/
+┃  ┃  ┣━ espace-joueur/                       (existant - inchangé)
+┃  ┃  ┗━ inscription/
+┃  ┃
+┃  ┣━ (public)/                               (existant - inchangé)
+┃  ┃  ┣━ bareme/
+┃  ┃  ┣━ classements/
+┃  ┃  ┣━ communication/
+┃  ┃  ┣━ contact/
+┃  ┃  ┣━ evenementiels/
+┃  ┃  ┣━ joueurs/
+┃  ┃  ┣━ la-ligue/
+┃  ┃  ┣━ leaders/
+┃  ┃  ┣━ maison/
+┃  ┃  ┣━ mentions-legales/
+┃  ┃  ┣━ politique-de-confidentialite/
+┃  ┃  ┣━ reservations/
+┃  ┃  ┣━ sponsors/
+┃  ┃  ┣━ tournois/
+┃  ┃  ┣━ layout.tsx
+┃  ┃  ┗━ page.tsx
+┃  ┃
+┃  ┣━ api/                                    (existant + NOUVEAU)
+┃  ┃  ┣━ archive-external/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ auth/
+┃  ┃  ┃  ┗━ signup/
+┃  ┃  ┃     ┗━ route.ts
+┃  ┃  ┣━ confirm-email/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ confirm-signal/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ force-admin/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ notify-read/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ send-reply/
+┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┣━ staff/                               (existant + NOUVEAU)
+┃  ┃  ┃  ┣━ notify-transfer/
+┃  ┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┃  ┣━ register-athlete/
+┃  ┃  ┃  ┃  ┗━ route.ts
+┃  ┃  ┃  ┣━ lane_control/                     (NOUVEAU - API mono-couloir)
+┃  ┃  ┃  ┃  ┗━ [laneId]/
+┃  ┃  ┃  ┃     ┣━ start/route.ts
+┃  ┃  ┃  ┃     ┣━ next-player/route.ts
+┃  ┃  ┃  ┃     ┣━ next-turn/route.ts
+┃  ┃  ┃  ┃     ┗━ end-game/route.ts
+┃  ┃  ┃  ┣━ tournament/                       (NOUVEAU - API Tournoi)
+┃  ┃  ┃  ┃  ┣━ start/route.ts
+┃  ┃  ┃  ┃  ┣━ [id]/
+┃  ┃  ┃  ┃  ┃  ┣━ status/route.ts
+┃  ┃  ┃  ┃  ┃  ┣━ next-round/route.ts
+┃  ┃  ┃  ┃  ┃  ┗━ results/route.ts
+┃  ┃  ┃  ┃  ┗━ sync/route.ts
+┃  ┃  ┃  ┣━ competition/                      (NOUVEAU - API Compétition)
+┃  ┃  ┃  ┃  ┣━ create/route.ts
+┃  ┃  ┃  ┃  ┣━ [id]/
+┃  ┃  ┃  ┃  ┃  ┣━ start/route.ts
+┃  ┃  ┃  ┃  ┃  ┣━ standings/route.ts
+┃  ┃  ┃  ┃  ┃  ┗━ finalize/route.ts
+┃  ┃  ┃  ┃  ┗━ types.ts
+┃  ┃  ┃  ┗━ notoriete/                        (NOUVEAU - API Notoriété)
+┃  ┃  ┃     ┣━ create/route.ts
+┃  ┃  ┃     ┣━ [id]/
+┃  ┃  ┃     ┃  ┣━ start/route.ts
+┃  ┃  ┃     ┃  ┣━ influence/route.ts
+┃  ┃  ┃     ┃  ┗━ reputation/route.ts
+┃  ┃  ┃     ┗━ types.ts
+┃  ┃  ┗━ websocket/                           (NOUVEAU - Relay WebSocket)
+┃  ┃     ┣━ [laneId]/route.ts
+┃  ┃     ┗━ broadcast/route.ts
+┃  ┃
+┃  ┣━ staff/                                  (existant + NOUVEAU)
+┃  ┃  ┣━ competitions/                        (existant - À enrichir)
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┣━ create/
+┃  ┃  ┃  ┃  ┗━ page.tsx                       (NOUVEAU)
+┃  ┃  ┃  ┣━ [competitionId]/
+┃  ┃  ┃  ┃  ┗━ page.tsx                       (NOUVEAU)
+┃  ┃  ┃  ┗━ types/
+┃  ┃  ┃     ┗━ competition.types.ts           (NOUVEAU)
+┃  ┃  ┣━ interface/                           (existant - inchangé)
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┣━ types/
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ licencies/                           (existant - inchangé)
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ live_controls/                       (NOUVEAU - Contrôle des parties)
+┃  ┃  ┃  ┣━ [laneId]/                         (Page mono-couloir)
+┃  ┃  ┃  ┃  ┗━ page.tsx                       (Équivalent web de scores_screen.dart)
+┃  ┃  ┃  ┣━ tournament/                       (Vue multi-couloirs)
+┃  ┃  ┃  ┃  ┣━ [tournamentId]/
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┃  ┗━ layout.tsx
+┃  ┃  ┃  ┣━ competition/                      (Compétitions officielles)
+┃  ┃  ┃  ┃  ┣━ [competitionId]/
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┃  ┗━ layout.tsx
+┃  ┃  ┃  ┣━ notoriete/                        (Notoriété)
+┃  ┃  ┃  ┃  ┣━ [sessionId]/
+┃  ┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┃  ┗━ layout.tsx
+┃  ┃  ┃  ┣━ layout.tsx                        (Layout minimal sans sidebar)
+┃  ┃  ┃  ┗━ components/                       (Composants réutilisables)
+┃  ┃  ┃     ┣━ LiveScoreCard.tsx
+┃  ┃  ┃     ┣━ GameControlPanel.tsx
+┃  ┃  ┃     ┣━ CountdownDisplay.tsx
+┃  ┃  ┃     ┣━ FinGameOverlay.tsx
+┃  ┃  ┃     ┣━ OfficialButton.tsx
+┃  ┃  ┃     ┣━ TournamentLeaderboard.tsx
+┃  ┃  ┃     ┗━ NotorieteInfluencePanel.tsx
+┃  ┃  ┣━ login/                               (existant - inchangé)
+┃  ┃  ┃  ┣━ layout.tsx
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ maison/                              (existant - inchangé)
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ mode_jeux/                           (existant - MODIFIÉ)
+┃  ┃  ┃  ┣━ page.tsx                          (MODIFIÉ - Ajout sélection couloirs)
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃  ┣━ GameHeader.tsx                 (MODIFIÉ)
+┃  ┃  ┃  ┃  ┣━ LaneSelector.tsx               (NOUVEAU - Sélection des 8 couloirs)
+┃  ┃  ┃  ┃  ┣━ GameModeSection.tsx
+┃  ┃  ┃  ┃  ┣━ GameModeButton.tsx
+┃  ┃  ┃  ┃  ┣━ LaneStatus.tsx                 (NOUVEAU)
+┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃  ┣━ useGameModes.ts                (MODIFIÉ)
+┃  ┃  ┃  ┃  ┗━ useWebSocketManager.ts         (NOUVEAU)
+┃  ┃  ┃  ┗━ types/
+┃  ┃  ┃     ┣━ game.types.ts
+┃  ┃  ┃     ┗━ websocket.types.ts
+┃  ┃  ┣━ notoriete/                           (NOUVEAU)
+┃  ┃  ┃  ┣━ page.tsx                          (Tableau de bord)
+┃  ┃  ┃  ┣━ create/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┣━ [sessionId]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃  ┣━ InfluenceCard.tsx
+┃  ┃  ┃  ┃  ┣━ ReputationGauge.tsx
+┃  ┃  ┃  ┃  ┗━ NotorieteRanking.tsx
+┃  ┃  ┃  ┗━ types/
+┃  ┃  ┃     ┗━ notoriete.types.ts
+┃  ┃  ┣━ reservations/                        (existant - inchangé)
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ resultats/                           (NOUVEAU)
+┃  ┃  ┃  ┣━ [laneId]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┣━ tournament/[tournamentId]/
+┃  ┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┃  ┗━ competition/[competitionId]/
+┃  ┃  ┃     ┗━ page.tsx
+┃  ┃  ┣━ settings/                            (existant - inchangé)
+┃  ┃  ┃  ┣━ actions.ts
+┃  ┃  ┃  ┗━ page.tsx
+┃  ┃  ┣━ tournois/                            (NOUVEAU)
+┃  ┃  ┃  ┣━ page.tsx
+┃  ┃  ┃  ┣━ components/
+┃  ┃  ┃  ┃  ┣━ LaneSelectorTournament.tsx
+┃  ┃  ┃  ┃  ┣━ TournamentConfig.tsx
+┃  ┃  ┃  ┃  ┗━ TournamentMonitor.tsx
+┃  ┃  ┃  ┣━ hooks/
+┃  ┃  ┃  ┃  ┗━ useTournamentMaster.ts
+┃  ┃  ┃  ┗━ types/
+┃  ┃  ┃     ┗━ tournament.types.ts
+┃  ┃  ┣━ layout.tsx                           (existant - inchangé)
+┃  ┃  ┗━ page.tsx                             (existant - inchangé)
+┃  ┃
+┃  ┣━ globals.css
+┃  ┣━ icon.png
+┃  ┣━ layout.tsx
+┃  ┣━ Maison.css
+┃  ┣━ manifest.ts
+┃  ┣━ Ranking.css
+┃  ┗━ sitemap.ts
+┃
+┣━ components/                                (existant)
+┃  ┣━ staff/
+┃  ┃  ┣━ Sidebar.tsx
+┃  ┃  ┗━ StaffShell.tsx
+┃  ┗━ Footer.tsx
+┃
+┣━ lib/                                       (existant + NOUVEAU)
+┃  ┣━ archive-external/                       (existant - inchangé)
+┃  ┃  ┣━ db-client.ts
+┃  ┃  ┣━ engine.ts
+┃  ┃  ┣━ gh-client.ts
+┃  ┃  ┣━ types.ts
+┃  ┃  ┣━ utils.ts
+┃  ┃  ┗━ validator.ts
+┃  ┣━ email/                                  (existant - inchangé)
+┃  ┃  ┗━ gmail.ts
+┃  ┣━ supabase/                               (existant - inchangé)
+┃  ┃  ┣━ client.ts
+┃  ┃  ┣━ master.ts
+┃  ┃  ┗━ server.ts
+┃  ┣━ websocket/                              (existant + NOUVEAU)
+┃  ┃  ┣━ client.ts                            (existant)
+┃  ┃  ┣━ laneConnectionManager.ts             (NOUVEAU)
+┃  ┃  ┣━ broadcastManager.ts                  (NOUVEAU)
+┃  ┃  ┗━ types.ts                             (NOUVEAU)
+┃  ┣━ tournament/                             (NOUVEAU)
+┃  ┃  ┣━ TournamentMaster.ts
+┃  ┃  ┣━ LaneCoordinator.ts
+┃  ┃  ┣━ SynchronizedCountdown.ts
+┃  ┃  ┗━ types.ts
+┃  ┣━ competition/                            (NOUVEAU)
+┃  ┃  ┣━ CompetitionManager.ts
+┃  ┃  ┣━ RankingEngine.ts
+┃  ┃  ┗━ types.ts
+┃  ┣━ notoriete/                              (NOUVEAU)
+┃  ┃  ┣━ NotorieteManager.ts
+┃  ┃  ┣━ ReputationCalculator.ts
+┃  ┃  ┣━ InfluenceEngine.ts
+┃  ┃  ┗━ types.ts
+┃  ┣━ hooks/                                  (NOUVEAU)
+┃  ┃  ┣━ useLaneWebSocket.ts
+┃  ┃  ┣━ useAudioControl.ts
+┃  ┃  ┣━ useOfficialGameControl.ts
+┃  ┃  ┗━ useTournamentWebSocket.ts
+┃  ┣━ utils/                                  (NOUVEAU)
+┃  ┃  ┣━ gameModeParser.ts
+┃  ┃  ┣━ officialCommands.ts
+┃  ┃  ┗━ synchronization.ts
+┃  ┗━ rate-limit.ts                           (existant)
+┃
+┣━ node_modules/
+┃
+┣━ public/                                    (existant + NOUVEAU)
+┃  ┣━ logo/
+┃  ┃  ┣━ vagondys-mark-icon.png
+┃  ┃  ┣━ vagondys-mark.png
+┃  ┃  ┗━ vagondys-mark.svg
+┃  ┣━ sounds/                                 (NOUVEAU)
+┃  ┃  ┣━ 3.wav
+┃  ┃  ┣━ 2.wav
+┃  ┃  ┣━ 1.wav
+┃  ┃  ┗━ VIZ.wav
+┃  ┣━ cible.png
+┃  ┣━ favicon.ico
+┃  ┣━ file.svg
+┃  ┣━ globe.svg
+┃  ┣━ next.svg
+┃  ┣━ vagondys-mark.ico
+┃  ┣━ vercel.svg
+┃  ┗━ window.svg
+┃
+┣━ scripts/                                   (existant)
+┃  ┣━ obfuscate-build.js
+┃  ┗━ optimize-images.js
+┃
+┣━ flutter/                                   (À ARCHIVER)
+┃  ┣━ archive/                                (NOUVEAU dossier)
+┃  ┃  ┗━ scores_screen.dart                   (Référence - plus utilisé)
+┃  ┣━ esp32/
+┃  ┃  ┗━ arduino/
+┃  ┃     ┗━ cibles/
+┃  ┃        ┗━ airsoft/                       (Code ESP32 - inchangé)
+┃  ┗━ README.md                               (Documentation archive)
+┃
+┣━ VAGONDYS_TEST_DATA
+┃
+┣━ .env.local
+┣━ .gitignore
+┣━ arborescence.txt
+┣━ eslint.config.mjs
+┣━ generate-test-logs.mjs
+┣━ next-env.d.ts
+┣━ next.config.ts
+┣━ package-lock.json
+┣━ package.json
+┣━ postcss.config.mjs
+┣━ proxy.ts
+┣━ README.md
+┣━ tailwind.config.ts
+┣━ tsconfig.json
+┗━ vercel.json
+*/
+
+
+
+
+
+
+
+
+/*
+VAGONDYS / Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
+┃
+VSC > Guithub > Vercel + Cloudlare + Render <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Flutter <-> Esp32 <-> Arduino < Cibles
+┃
+Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , ino , py , dart
+┃
+PROJET_VAGONDYS/
+┣━ flutter
+┃  ┗━ esp32
+┃     ┗━ arduino
+┃        ┗━ cibles
+┃           ┗━ airsoft
+┗━>
+┣━ vsc
+┃  ┗━ github
+┃     ┗━ vercel + cloudlare + render
+┃        ┗━ supabase
+┃           ┗━ coffre-fort github
+┗━>
+┣━ github / ville = actuellement 12 Comptes
+┃  ┗━ supabase
+┃
+┗━>
+VAGONDYS_NETWORK/ (Vision Décentralisée)
+┃
+┣━ 1_CENTRALISATION_DES_CLES (Étape 1 : Le Cerveau)
+┃  ┗━ lib/
+┃     ┗━ supabase/
+┃        ┣━ master.ts        <-- NOUVEAU : Le seul qui connaît toutes les URLs/Clés des villes
+┃        ┣━ server.ts        <-- ADAPTÉ : Devient dynamique (reçoit 'city' en paramètre)
+┃        ┗━ client.ts        <-- ADAPTÉ : Idem pour le front-end
+┃
+┣━ 2_ROUTAGE_INTELLIGENT (Étape 2 : L'Aiguillage)
+┃  ┣━ proxy.ts               <-- ADAPTÉ : Détecte la structure via l'email ou le domaine
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┗━ auth/
+┃           ┗━ signup/
+┃              ┗━ route.ts   <-- ADAPTÉ : Envoie l'athlète vers le Supabase de sa ville
+┃
+┣━ 3_FRAGMENTATION_DATA (Étape 3 : Le Stockage)
+┃  ┗━ app/
+┃     ┗━ api/
+┃        ┣━ archive-external/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Utilise le Token GitHub spécifique à la ville
+┃        ┣━ confirm-email/
+┃        ┃  ┗━ route.ts      <-- ADAPTÉ : Génère le matricule dans la base locale
+┃        ┗━ send-reply/
+┃           ┗━ route.ts      <-- ADAPTÉ : Archive vers le repo de la ville concernée
+┃
+┣━ 4_INTERFACE_DYNAMIQUE (Étape 4 : L'Affichage)
+┃  ┗━ app/
+┃     ┣━ (auth)/
+┃     ┃  ┗━ espace-joueur/
+┃     ┃     ┗━ page.tsx      <-- ADAPTÉ : Se connecte au Supabase de l'athlète (Nantes, etc.)
+┃     ┗━ staff/
+┃        ┗━ interface/
+┃           ┗━ page.tsx      <-- ADAPTÉ : Permet au staff de switcher entre les bases
+┃
+┗━ CONFIGURATION_STUCTURES (Exemple pour Nantes)
+   ┣━ GITHUB: VAGONDYS_NANTES (via nantes@vagondys.com)
+   ┗━ SUPABASE: VGD-NANTES + STAFF (via nantes@vagondys.com)
+*/
+
+/*
+FORMULAIRE CONTACT
+├─ Étape 1: actions.ts
+│   ├─ Lit registre MASTER (athletes_registry) → city
+│   ├─ Génère VGD-XXXXXX
+│   └─ ✅ Insert dans MASTER.pending_signals (confirmed: false)
+│
+├─ Étape 2: Email de confirmation
+│   └─ Lien → /api/confirm-signal?id=...
+│
+├─ Étape 3: confirm-signal/route.ts
+│   ├─ ✅ Lit MASTER.pending_signals (trouve le signal)
+│   ├─ Détermine city (payload ou registre)
+│   ├─ Récupère config station via getStationConfig()
+│   ├─ ✅ Met à jour MASTER (confirmed: true)
+│   ├─ ✅ Insère dans STAFF.[ville].pending_signals (is_read: false)
+│   ├─ ✅ Insère dans PUBLIC.[ville].pending_signals (is_read: true)
+│   ├─ Si client retournant → communication_replies
+│   └─ ✅ Appelle archive-external (GitHub false → true)
+│
+└─ Étape 4: Interface Staff
+    ├─ Dashboard (/staff) → badge "1" via realtime
+    └─ Interface (/staff/interface) → affiche le message
+*/
+
+/*
+# ==========================================================
+# VAGONDYS NETWORK - CONFIGURATION MAÎTRE (Le Cerveau)
+# Ce projet pilote la redirection vers toutes les autres villes
+# ==========================================================
+
+# GITHUB MAÎTRE (Archive globale si besoin)
+REPO_VAGONDYS=vagondys/VAGONDYS_VAGONDYS_DATA
+GITHUB_ARCHIVE_TOKEN=ghp_***
+# Supabase MAÎTRE = master
+NEXT_PUBLIC_SUPABASE_URL_MASTER=https://***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_MASTER=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+
+# ==========================================================
+# SERVICES MUTUALISÉS (Emailing & Sécurité)
+# ==========================================================
+
+# Sécurité Turnstile
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=***
+TURNSTILE_SECRET_KEY=***
+
+# Sécurité Google reCAPTCHA
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=***
+RECAPTCHA_SECRET_KEY=***
+
+# Sécurité Resend
+RESEND_API_KEY=re_8cYJ7hEd_***
+CONTACT_FROM=contact@vagondys.com
+
+# Configuration URLs
+FRONTEND_URL=https://vagondys.com
+NEXT_PUBLIC_FRONTEND_URL=https://vagondys.com
+
+GMAIL_SMTP_USER=vagondys@gmail.com
+GMAIL_SMTP_APP_PASSWORD=jlwgqmwzchchkwuu
+GMAIL_FROM_NAME="Staff VAGONDYS"
+GMAIL_ALIAS_EMAIL=admin@vagondys.com
+GMAIL_NOREPLY=no-reply@vagondys.com
+
+# Liste des alias pour le routage système
+EMAIL_DIRECTION=admin@vagondys.com
+EMAIL_CONTACT=contact@vagondys.com
+EMAIL_NANTES=nantes@vagondys.com
+EMAIL_LYON=lyon@vagondys.com
+EMAIL_MADRID=madrid@vagondys.com
+
+# ========================================
+# UNITÉS LOCALES (VILLES) - TABLE STATIONS
+# ========================================
+
+# --- NANTES ---
+REPO_VGD_FR_NANTES=VGD-Nantes/VAGONDYS_NANTES_DATA
+TOKEN_VGD_FR_NANTES=ghp_***
+# Supabase Nantes PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_FR_NANTES=https://xasyhe***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_NANTES=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Nantes STAFF
+NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF=https://bifzyl***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_NANTES_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+
+# --- LYON ---
+REPO_VGD_FR_LYON=VGD-Lyon/VAGONDYS_LYON_DATA
+TOKEN_VGD_FR_LYON=ghp_***
+# Supabase Lyon PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_FR_LYON=https://bgnlvj***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_LYON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_LYON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Lyon STAFF
+NEXT_PUBLIC_SUPABASE_URL_FR_LYON_STAFF=https://mbdgjk***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_LYON_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_FR_LYON_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+
+# --- MADRID ---
+REPO_VGD_ES_MADRID=VGD-Madrid/VAGONDYS_MADRID_DATA
+TOKEN_VGD_ES_MADRID=ghp_***
+# Supabase Madrid PUBLIC
+NEXT_PUBLIC_SUPABASE_URL_ES_MADRID=https://iykvhb***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_ES_MADRID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_ES_MADRID=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+# Supabase Madrid STAFF
+NEXT_PUBLIC_SUPABASE_URL_ES_MADRID_STAFF=https://foirrs***.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY_ES_MADRID_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+SUPABASE_SERVICE_ROLE_KEY_ES_MADRID_STAFF=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.***
+*/
+
+Analyse toute mon arborescence qui est 100% complète 
+car il me manque dans ma page "https://staff.vagondys.com/staff/mode_jeux" ,
+toutes les cases liés aux "Tournois , Compétition , Notoriété" ,
+puisque c'est aussi et surtout le nouveau projet donc réanalyse tout ce que je te mets ici :
+
+/*
+VAGONDYS/
+┃
+┣━ .next/                                          ✅ EXISTANT
+┣━ .vscode                                         ✅ EXISTANT   
+┃  ┣━ .vercel/                                     ✅ EXISTANT
+┃  ┃  ┣━ project.json                              ✅ EXISTANT
+┃  ┃  ┗━ README.txt                                ✅ EXISTANT
+┃  ┗━ settings.json                                ✅ EXISTANT
+┣━ actions/
+┃  ┗━ staff-actions.ts                             ✅ EXISTANT (Contient le Server Action)
+┃
+┣━ app/                                            ✅ EXISTANT
+┃  ┣━ (auth)/                                      ✅ EXISTANT
+┃  ┃  ┣━ activation-reussie/                       ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ carte-id/                                 ✅ EXISTANT
+┃  ┃  ┃  ┣━ DocumentVault.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┣━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┃  ┗━ ProfileForm.tsx                        ✅ EXISTANT
+┃  ┃  ┣━ connexion/                                ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ espace-joueur/                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ cibles/                            ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.css                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.tsx                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ CibleSimple.tsx                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.css                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.tsx                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.css         ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.tsx         ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.css  ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx  ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css            ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx            ✅ EXISTANT
+┃  ┃  ┃  ┃   ┃  ┗━ types.tsx                       ✅ EXISTANT                  
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx              ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ HistoryTable.tsx                   ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ Notification.tsx                   ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.css                   ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx                   ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ RankCard.tsx                       ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ ScoreChart.css                     ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ ScoreChart.tsx                     ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ StatsCard.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┃   ┗━ WebSocketControl.tsx               ✅ EXISTANT
+┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts               ✅ EXISTANT
+┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┗━ index.ts                           ✅ EXISTANT
+┃  ┃  ┃  ┣━ utils/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃   ┗━ formatters.ts                      ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┗━ inscription/                              ✅ EXISTANT
+┃  ┃     ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃
+┃  ┣━ (public)/                                    ✅ EXISTANT
+┃  ┃  ┣━ bareme/                                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ classements/                              ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CORRIGER
+┃  ┃  ┣━ communication/                            ✅ EXISTANT 
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ contact/                                  ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ evenementiels/                            🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ joueurs/                                  ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ la-ligue/                                 ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ leaders/                                  🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ maison/                                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ mentions-legales/                         ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ politique-de-confidentialite/             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ reservations/                             🆕 À CRÉER 
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ sponsors/                                 🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ tournois/                                 🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ tv.html                                   ✅ EXISTANT (point d'entrée principal)
+┃  ┃  ┣━ tv/                                       ✅ EXISTANT ← DOSSIER OPTIONNEL pour les couloirs multiples
+┃  ┃  ┃  ┣━ 0.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=0
+┃  ┃  ┃  ┣━ 1.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=1
+┃  ┃  ┃  ┣━ 2.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=2
+┃  ┃  ┃  ┣━ 3.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=3
+┃  ┃  ┃  ┣━ 4.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=4
+┃  ┃  ┃  ┣━ 5.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=5
+┃  ┃  ┃  ┣━ 6.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=6
+┃  ┃  ┃  ┣━ 7.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=7
+┃  ┃  ┃  ┗━ 8.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=8
+┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
+┃  ┃  ┣━ page.tsx                                  ✅ EXISTANT
+┃  ┃  ┗━ tv.html                                   ✅ EXISTANT (point d'entrée principal)
+┃  ┃
+┃  ┣━ api/                                         ✅ EXISTANT
+┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ auth/                                     ✅ EXISTANT
+┃  ┃  ┃  ┗━ signup/                                ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ confirm-email/                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ confirm-signal/                           ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ force-admin/                              ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ notify-read/                              ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┗━ staff/                                    ✅ EXISTANT
+┃  ┃     ┣━ notify-transfer/                       ✅ EXISTANT
+┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃     ┗━ register-athlete/                      ✅ EXISTANT
+┃  ┃        ┗━ route.ts                            ✅ EXISTANT
+┃  ┃
+┃  ┣━ staff/                                       ✅ EXISTANT
+┃  ┃  ┣━ competitions/                             🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ components/                               ✅ EXISTANT
+┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ CityInfoCard.tsx                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ NavigationGrid.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ RecentActivity.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ StatsGrid.tsx                       ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ TopPlayers.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┣━ ui/                                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ Badge.tsx                           ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ Card.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ LoadingSpinner.ts                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ GameHistory.tsx                        ✅ EXISTANT
+┃  ┃  ┣━ historique/                               ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
+┃  ┃  ┣━ interface/                                ✅ EXISTANT
+┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT (Les briques visuelles)
+┃  ┃  ┃  ┃  ┣━ InterfaceHeader.tsx                 ✅ EXISTANT (Titre, Recherche, Onglets)
+┃  ┃  ┃  ┃  ┣━ MessageList.tsx                     ✅ EXISTANT (Le conteneur de flux)
+┃  ┃  ┃  ┃  ┣━ MessageCard.tsx                     ✅ EXISTANT (Le détail d'un message seul)
+┃  ┃  ┃  ┃  ┗━ ReplyModal/                         ✅ EXISTANT (Dossier dédié car complexe)
+┃  ┃  ┃  ┃     ┣━ index.tsx                        ✅ EXISTANT (Point d'entrée de la modale)
+┃  ┃  ┃  ┃     ┣━ HistoryTimeline.tsx              ✅ EXISTANT (Le fil de discussion)
+┃  ┃  ┃  ┃     ┗━ ReplyForm.tsx                    ✅ EXISTANT (Le formulaire d'envoi)
+┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT (Le "Cerveau" - Logique métier)
+┃  ┃  ┃  ┃  ┗━ useStaffInterface.ts                ✅ EXISTANT (Tout ton état et tes fonctions Supabase)
+┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT (Le "Modèle" - Contrats de données)
+┃  ┃  ┃  ┃  ┗━ interface.ts                        ✅ EXISTANT
+┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT (Server Action pour récupérer la ville de l'agent)
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (L'Orchestrateur - Très léger)
+┃  ┃  ┣━ licencies/                                ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ live_controls/                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ [laneld]/                              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ AnimatedBackground.tsx              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ CountdownDisplay.tsx                ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ FinGameOverlay.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GameControlPanel.tsx                ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ LiveScoreCard.tsx                   ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ OfficialButton.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┗━ layout.tsx                             ✅ EXISTANT
+┃  ┃  ┣━ login/                                    ✅ EXISTANT
+┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ maison/                                   🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ mode_jeux/                                ✅ EXISTANT
+┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GameHeader.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GameModeButton.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GameModeSection.tsx                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ LaneSelector.tsx                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ LaneStatus.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx               ✅ EXISTANT
+┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ useGameModes.ts                     ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ useWebSocketManager.ts              ✅ EXISTANT
+┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ game.types.ts                       ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ index.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ websocket.types.ts                  ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (Ajout sélection couloirs)
+┃  ┃  ┣━ reservations/                             🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ settings/                                 ✅ EXISTANT
+┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ types/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ dashboard.ts                           ✅ EXISTANT
+┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
+┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
+┃  ┃
+┃  ┣━ globals.css                                  ✅ EXISTANT
+┃  ┣━ layout.tsx                                   ✅ EXISTANT
+┃  ┣━ Maison.css                                   ✅ EXISTANT
+┃  ┣━ manifest.ts                                  ✅ EXISTANT
+┃  ┣━ Ranking.css                                  ✅ EXISTANT
+┃  ┗━ sitemap.ts                                   ✅ EXISTANT
+┃
+┣━ components/                                     ✅ EXISTANT
+┃  ┣━ staff/                                       ✅ EXISTANT
+┃  ┃  ┣━ Sidebar.tsx                               ✅ EXISTANT
+┃  ┃  ┗━ StaffShell.tsx                            ✅ EXISTANT
+┃  ┗━ Footer.tsx                                   ✅ EXISTANT
+┃
+┣━ lib/                                            ✅ EXISTANT
+┃  ┣━ archive-external/                            ✅ EXISTANT
+┃  ┃  ┣━ db-client.ts                              ✅ EXISTANT
+┃  ┃  ┣━ engine.ts                                 ✅ EXISTANT
+┃  ┃  ┣━ gh-client.ts                              ✅ EXISTANT
+┃  ┃  ┣━ types.t s                                 ✅ EXISTANT
+┃  ┃  ┣━ utils.ts                                  ✅ EXISTANT
+┃  ┃  ┗━ validator.ts                              ✅ EXISTANT
+┃  ┣━ email/                                       ✅ EXISTANT
+┃  ┃  ┗━ gmail.ts                                  ✅ EXISTANT
+┃  ┣━ hooks/                                       ✅ EXISTANT
+┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT
+┃  ┃  ┗━ usePhysicalButton.ts                      ✅ EXISTANT
+┃  ┣━ supabase/                                    ✅ EXISTANT
+┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
+┃  ┃  ┣━ master.ts                                 ✅ EXISTANT
+┃  ┃  ┗━ server.ts                                 ✅ EXISTANT 
+┃  ┣━ websocket/                                   ✅ EXISTANT
+┃  ┃  ┗━ client.ts                                 ✅ EXISTANT   
+┃  ┗━ rate-limit.ts                                ✅ EXISTANT
+┃
+┣━ public/                                         ✅ EXISTANT
+┃  ┣━ grades/                                      ✅ EXISTANT
+┃  ┃  ┣━ guerrier_1.png                            ✅ EXISTANT
+┃  ┃  ┣━ guerrier_2.png                            ✅ EXISTANT
+┃  ┃  ┣━ guerrier_3.png                            ✅ EXISTANT
+┃  ┃  ┣━ elite_1.png                               ✅ EXISTANT
+┃  ┃  ┣━ elite_2.png                               ✅ EXISTANT
+┃  ┃  ┣━ elite_3.png                               ✅ EXISTANT
+┃  ┃  ┣━ maitre_1.png                              ✅ EXISTANT
+┃  ┃  ┣━ maitre_2.png                              ✅ EXISTANT
+┃  ┃  ┣━ maitre_3.png                              ✅ EXISTANT
+┃  ┃  ┣━ grand_maitre_1.png                        ✅ EXISTANT
+┃  ┃  ┣━ grand_maitre_2.png                        ✅ EXISTANT
+┃  ┃  ┣━ grand_maitre_3.png                        ✅ EXISTANT
+┃  ┃  ┣━ epique_1.png                              ✅ EXISTANT
+┃  ┃  ┣━ epique_2.png)                             ✅ EXISTANT
+┃  ┃  ┣━ epique_3.png                              ✅ EXISTANT
+┃  ┃  ┣━ epique_4.png                              ✅ EXISTANT
+┃  ┃  ┣━ epique_5.png                              ✅ EXISTANT
+┃  ┃  ┣━ legende_1.png                             ✅ EXISTANT
+┃  ┃  ┣━ legende_2.png                             ✅ EXISTANT
+┃  ┃  ┣━ legende_3.png                             ✅ EXISTANT
+┃  ┃  ┣━ immortel_1000.png                         ✅ EXISTANT
+┃  ┃  ┣━ immortel_100.png                          ✅ EXISTANT
+┃  ┃  ┣━ immortel_10.png                           ✅ EXISTANT
+┃  ┃  ┗━ immortel_1.png                            ✅ EXISTANT
+┃  ┣━ logo/                                        ✅ EXISTANT
+┃  ┃  ┣━ icon.png                                  ✅ EXISTANT
+┃  ┃  ┣━ icon.webp                                 ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark-icon.png                    ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark-icon.webp                   ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark.png                         ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark.svg                         ✅ EXISTANT
+┃  ┃  ┣━ vagondys-mark.webp                        ✅ EXISTANT
+┃  ┃  ┣━ vagondys.png                              ✅ EXISTANT
+┃  ┃  ┗━ vagondys.webp                             ✅ EXISTANT
+┃  ┣━ sounds/                                      ✅ EXISTANT
+┃  ┃  ┣━ 3.wav                                     ✅ EXISTANT
+┃  ┃  ┣━ 2.wav                                     ✅ EXISTANT
+┃  ┃  ┣━ 1.wav                                     ✅ EXISTANT
+┃  ┃  ┗━ VIZ.wav                                   ✅ EXISTANT
+┃  ┣━ tv/                                          ✅ EXISTANT
+┃  ┃  ┣━ 0.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 1.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 2.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 3.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 4.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 5.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 6.html                                    ✅ EXISTANT
+┃  ┃  ┣━ 7.html                                    ✅ EXISTANT
+┃  ┃  ┗━ 8.html                                    ✅ EXISTANT
+┃  ┣━ cible.png                                    ✅ EXISTANT
+┃  ┣━ cible.webp                                   ✅ EXISTANT
+┃  ┣━ favicon.ico                                  ✅ EXISTANT
+┃  ┣━ file.svg                                     ✅ EXISTANT
+┃  ┣━ globe.svg                                    ✅ EXISTANT
+┃  ┣━ next.svg                                     ✅ EXISTANT
+┃  ┣━ tv.html                                      ✅ EXISTANT
+┃  ┣━ vagondys-mark.ico                            ✅ EXISTANT
+┃  ┣━ vercel.svg                                   ✅ EXISTANT
+┃  ┗━ window.svg                                   ✅ EXISTANT
+┃
+┣━ scripts/                                        ✅ EXISTANT
+┃  ┣━ obfuscate-build.js                           ✅ EXISTANT
+┃  ┗━ optimize-images.js                           ✅ EXISTANT
+┃
+┣━ types/                                          🆕 À CRÉER
+┃  ┗━ official.types.ts                            🆕 (Centralisation types officiels)
+┃
+┣━ VAGONDYS_TEST_DATA                              ✅ EXISTANT
+┃
+┣━ .env.local                                      ✅ EXISTANT
+┣━ .gitignore                                      ✅ EXISTANT
+┣━ arborescence.txt                                ✅ EXISTANT
+┣━ eslint.config.mjs                               ✅ EXISTANT
+┣━ generate-test-logs.mjs                          ✅ EXISTANT
+┣━ next-env.d.ts                                   ✅ EXISTANT
+┣━ next.config.ts                                  ✅ EXISTANT
+┣━ package-lock.json                               ✅ EXISTANT
+┣━ package.json                                    ✅ EXISTANT
+┣━ postcss.config.mjs                              ✅ EXISTANT
+┣━ proxy.ts                                        ✅ EXISTANT
+┣━ README.md                                       ✅ EXISTANT
+┣━ tailwind.config.ts                              ✅ EXISTANT
+┣━ tsconfig.json                                   ✅ EXISTANT
+┗━ vercel.json                                     ✅ EXISTANT
+*/
+
+/*
+### Contexte
+Projet **VAGONDYS** : système Next.js de contrôle airsoft avec cibles ESP32. Migration complète de l’application Flutter (`scores_screen.dart`) vers une interface STAFF web intégrée au portail existant.
+
+### Infrastructure technique
+- **9 couloirs** : 1 à 8 (standard) + 9 (Ultimate Corridor avec 4DX)
+- **Architecture** : VSC → GitHub → Vercel + Cloudflare + Render ↔ Supabase (MASTER + PUBLIC + STAFF par ville)
+- **Communication** :
+  - WebSocket entre Next.js et ESP32 pour scores + commandes
+  - HTTP pour l’affichage TV (scores, décompte, overlay)
+
+### Rôle des écrans
+- **PC STAFF** : interface de contrôle (sélection couloirs + modes, validation, commandes globales)
+- **ÉCRAN TV** : affichage des scores (case clignotante = joueur actif), décompte vocal, overlay FIN GAME. Pas d’internet, uniquement réseau local.
+
+### Bouton physique (sous chaque écran TV)
+- LED intégrée : **allumée** = action possible, **éteinte** = action impossible
+- Utilisé par les joueurs pour valider leurs actions (sauf modes officiels où c’est STAFF qui agit)
+
+### Modes de jeu & déclencheurs
+
+| Mode | Couloirs | Joueurs | START | NEXT_PLAYER | NEXT_TURN | NEXT_ROUND |
+|------|----------|--------|-------|-------------|-----------|------------|
+| Loisirs | 1-8 | 1-4 | 🔘 JOUEUR | 🔘 JOUEUR | 🔘 JOUEUR | ❌ |
+| Compétiteur | 1-8 | 1 | 🔘 JOUEUR | ❌ | ❌ | ❌ |
+| Ultimate | 9 | 1 | 🔘 JOUEUR | ❌ | ❌ | ❌ |
+| Tournoi | 1-8 | 1vs1 | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+| Compétition | 1-8 | 1vs1 | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+| Notoriété | 1-8 | 1 champ + 3 chall | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF | 🖱️ STAFF |
+
+### Règles communes
+- Victoire officielle : 3 manches gagnées = 120 tirs (20 tirs × 2 séries × 3 manches)
+- Commandes : uniquement déclenchées par STAFF ou joueur selon mode
+- Synchronisation : `Promise.all` pour envoi parallèle aux ESP32 (modes officiels)
+- Décompte vocal : 3-2-1-VIZ joué sur ÉCRAN TV (Web Audio API)
+
+### Stockage des données
+
+| Mode | Stockage |
+|------|---------|
+| Loisirs | Aucun (email facultatif) |
+| Compétiteur | Mise à jour Supabase directe + backup GitHub |
+| Ultimate / Tournoi / Compétition / Notoriété | Supabase + GitHub (archivage complet) |
+
+## ✅ COMPRÉHENSION FINALE - (Partie Stockage)
+
+### 📊 GESTION DES DONNÉES (SCORES ET STATISTIQUES)
+
+| Mode | Stockage des données | Mise à jour |
+|------|---------------------|-------------|
+| **Loisirs** | **Aucun stockage** | Envoi par email si le joueur le souhaite |
+| **Compétiteur** | **Mise à jour directe** | Dès que les 20 tirs sont réalisés | **Archivage Supabase + GitHub** | Pour classements |
+| **Ultimate** | **Archivage Supabase + GitHub** | Pour classements |
+| **Tournoi** | **Archivage Supabase + GitHub** | Pour classements |
+| **Compétition** | **Archivage Supabase + GitHub** | Pour classements |
+| **Notoriété** | **Archivage Supabase + GitHub** | Pour classements |
+
+---
+
+### 🗄️ ARCHITECTURE DES DONNÉES
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              STOCKAGE DES DONNÉES                         │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      SUPABASE (Base de données)                     │  │
+│  │  • Compétiteur : mise à jour en temps réel après 20 tirs +          │  │
+│  │                  stockage complet                                   │  │
+│  │  • Ultimate / Tournoi / Compétition / Notoriété : stockage complet  │  │
+│  │  • Classements : calculés depuis Supabase                           │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                    │
+│                                      ▼ (Backup)                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      GITHUB (Backup des classements)                │  │
+│  │  • Sauvegarde des résultats de compétition                          │  │
+│  │  • Historique des classements                                       │  │
+│  │  • Chaque ville a son dépôt                                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                      EMAIL (Loisirs)                                │  │
+│  │  • Envoi facultatif des scores aux joueurs                          │  │
+│  │  • Aucun stockage permanent                                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+🔌 Connexion physique
+┌───────────────────────────────────────────────────────────────────────┐
+│                                                                       │
+│   ARDUINO UNO                                                         │
+│  ┌─────────────────────┐                                              │
+│  │  USB Port (type B)  │◄────── Câble USB ──────► PC STAFF            │
+│  └─────────────────────┘                        (port USB standard)   │
+│                                                                       │
+│   Pins pour les 9 boutons :                                           │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Pin 2 → Bouton Couloir 1                                        │  │
+│  │ Pin 3 → Bouton Couloir 2                                        │  │
+│  │ Pin 4 → Bouton Couloir 3                                        │  │
+│  │ Pin 5 → Bouton Couloir 4                                        │  │
+│  │ Pin 6 → Bouton Couloir 5                                        │  │
+│  │ Pin 7 → Bouton Couloir 6                                        │  │
+│  │ Pin 8 → Bouton Couloir 7                                        │  │
+│  │ Pin 9 → Bouton Couloir 8                                        │  │
+│  │ Pin 10 → Bouton Couloir 9 (Ultimate)                            │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
+*/
+
+
+/*
+📌 Prochaines étapes (si tu le souhaites)
+Adapter useGameModes.ts pour qu’il redirige vers /staff/live_controls/[laneId] après confirmation du lancement
+
+Créer app/staff/resultats/[laneId]/page.tsx pour l’affichage du classement final
+
+Ajouter les fichiers audio 3.wav, 2.wav, 1.wav, VIZ.wav dans public/sounds/ s’ils ne sont pas déjà présents
+/*
+
+
+Que penses-tu de cela pour les configurations "Sud & Nord" la quelle vraiment choisir 
+et ens sachant que les dimensions du cadre sera donc je pense de "1.40m x 1.40m" :
+/*      
+      ┌──────────────┐                             
+   V3 │              │ V6 > 2X : très légèrement incliné vers le Bas & vers le centre (+/-5%)                          
+      │              │        
+   V2 │              │ V5 > 2x : Droit à 100% et très légèrement incliné vers le centre (+/-5%)         
+      │              │      
+   V1 │              │ V4 > 2X : très légèrement incliné vers le Haut & vers le centre (+/-5%)        
+      └──────────────┘      
+*/
+/*
+      ┌──────────────┐                             
+   V2 │              │ V4 > 2X : très légèrement incliné vers le Bas & vers le centre (+/-10%)                            
+      │              │        
+      │              │            
+      │              │      
+   V1 │              │ V3 > 2X : très légèrement incliné vers le Haut & vers le centre (+/-10%)
+      └──────────────┘
+*/
+Et ensuite réanalise mon code car pour les vitesses en est bien de "O à 15 Km/h" 
+et gradué par plage de "1 Km/h" donc "16 Plages" que le système peut choisir au hazard
+
+et ensuite fais toujours à la fin du message un 
+"Prompt (très précis & clair & voir pour des éventuels améliorations) 
+ Arborescence (des étapes) & Schéma(s) & Plan(s)" :
+
+Ok parfait mais pour cela une fois les ventivateurs posé dis moi réellement pour la vitesse
+car il iront réellement à "255 // 15 km/h (maxi)" et cela vraiment de "0 à 1.40m" 
+ou comment réelement de "où à où" et ou serait vraiment sinon le point central où l'on 
+la trouverai cette valeur "(x) km/h" demandé par le système lors du tirage au sort :
+/*
+// === CONVERSION VITESSE (km/h → PWM) ===
+// Formule : pwm = (vitesse / 15) * 255
+const int vitesseToPWM[] = {
+  0,    // 0 km/h
+  17,   // 1 km/h
+  34,   // 2 km/h
+  51,   // 3 km/h
+  68,   // 4 km/h
+  85,   // 5 km/h
+  102,  // 6 km/h
+  119,  // 7 km/h
+  136,  // 8 km/h
+  153,  // 9 km/h
+  170,  // 10 km/h
+  187,  // 11 km/h
+  204,  // 12 km/h
+  221,  // 13 km/h
+  238,  // 14 km/h
+  255   // 15 km/h
+};
+#define NB_VITESSES 16
+*/
+Et sinon comment faire se réglage pour avoir toutes ses bonnes valeurs 
+avec ou pas un appareil donc dis moi tout et guide moi pour ça 
+
+
+/*
+VAS_NRC1/
+┣━ vas_RC
+┣━ communications
+┣━ PresystemStart
+┣━ Modes
+┣━ Regles
+┣━ Scores
+┣━ Classic
+┣━ Competition
+┣━ Tournoi
+┣━ Competition_OFF
+┗━ Notoriete
+*/
+
+/*
+Arduino méga > RX/TX > esp32 > WIFI > WebSocket (application Flutter => Page web local)
+*/
+
+
+
+/*
+STAFF (PC) < (1 par structure = site physique)
+    ↓
+Control_RC.html (ou future page Next.js)
+    ↓ (WebSocket)
+Raspberry Pi 5 (vasR1) → FrNantes1.py < (1 par couloir)
+    ↓ (Wifi ou Ethernet)
+9 boutons physiques (1 par couloir)
+    ↓
+LED + BP (validation joueur) < (1 par couloir)
+
+JOUEURS → Écran TV (/staff/live_controls/0) < (1 par couloir)
+    ↓ (WebSocket)
+Raspberry Pi 5
+    ↓
+Affichage scores + décompte + overlay < (1 par couloir)
+*/
+
+
+
+
+
+/*
+VAGONDYS/
+┃
+┣━ .cache/                                         ✅ EXISTANT
+┣━ .config/                                        ✅ EXISTANT
+┣━ .copilot/                                       ✅ EXISTANT
+┣━ .vscode-server/                                 ✅ EXISTANT
+┃
+┣━ .bash_hidtory                                   ✅ EXISTANT
+┣━ .bash_logout                                    ✅ EXISTANT
+┣━ .bashrc                                         ✅ EXISTANT
+┣━ .lgd-nfyO                                ?      ✅ EXISTANT
+┣━ .profile                                        ✅ EXISTANT
+┣━ .sudo_as_admin_successful                       ✅ EXISTANT
+┣━ .wget-hsts                                      ✅ EXISTANT
+┃
+┣━ activer_tous_gpio.py                            ✅ EXISTANT
+┣━ Arborescence.md                                 ✅ EXISTANT
+┣━ FrNantes1.py                                    ✅ EXISTANT
+┣━ Installation complete Raspberry Pi.md           ✅ EXISTANT
+┣━ test_buttons.py                                 ✅ EXISTANT
+┣━ test_led.py                                     ✅ EXISTANT
+┗━ test_pca.py                                     ✅ EXISTANT
+*/
+
+
+
+
+
+
+/*
+PS C:\Users\mathy\vagondys> npm list typescript
+vagondys@0.1.0 C:\Users\mathy\vagondys
+├─┬ eslint-config-next@16.1.1
+│ ├─┬ typescript-eslint@8.59.4
+│ │ ├─┬ @typescript-eslint/eslint-plugin@8.59.4
+│ │ │ ├─┬ @typescript-eslint/type-utils@8.59.4
+│ │ │ │ └── typescript@5.9.3 deduped
+│ │ │ ├─┬ ts-api-utils@2.5.0
+│ │ │ │ └── typescript@5.9.3 deduped
+│ │ │ └── typescript@5.9.3 deduped
+│ │ ├─┬ @typescript-eslint/parser@8.59.4
+│ │ │ └── typescript@5.9.3 deduped
+│ │ ├─┬ @typescript-eslint/typescript-estree@8.59.4
+│ │ │ ├─┬ @typescript-eslint/project-service@8.59.4
+│ │ │ │ └── typescript@5.9.3 deduped
+│ │ │ ├─┬ @typescript-eslint/tsconfig-utils@8.59.4
+│ │ │ │ └── typescript@5.9.3 deduped
+│ │ │ └── typescript@5.9.3 deduped
+│ │ ├─┬ @typescript-eslint/utils@8.59.4
+│ │ │ └── typescript@5.9.3 deduped
+│ │ └── typescript@5.9.3 deduped
+│ └── typescript@5.9.3 deduped
+└── typescript@5.9.3
+
+PS C:\Users\mathy\vagondys> npm run build
+
+> vagondys@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 22.4s
+✓ Finished TypeScript in 11.3s    
+✓ Collecting page data using 3 workers in 1792.2ms    
+✓ Generating static pages using 3 workers (44/44) in 1496.4ms
+✓ Finalizing page optimization in 3.2s    
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /activation-reussie
+├ ƒ /api/archive-external
+├ ƒ /api/auth/signup
+├ ƒ /api/check-athlete
+├ ƒ /api/confirm-email
+├ ƒ /api/confirm-signal
+├ ƒ /api/debug-env
+├ ƒ /api/force-admin
+├ ƒ /api/notify-read
+├ ƒ /api/player/token
+├ ƒ /api/record-match
+├ ƒ /api/send-reply
+├ ƒ /api/staff/notify-transfer
+├ ○ /bareme
+├ ○ /carte-id
+├ ○ /classements
+├ ƒ /classements/saison/[year]
+├ ○ /communication
+├ ○ /competitions
+├ ○ /connexion
+├ ○ /contact
+├ ○ /espace-joueur
+├ ○ /evenementiels
+├ ƒ /evenementiels/[date]
+├ ○ /inscription
+├ ○ /joueurs
+├ ○ /la-ligue
+├ ○ /leaders
+├ ○ /leaders/historique
+├ ○ /maison
+├ ƒ /manifest.webmanifest
+├ ○ /mentions-legales
+├ ○ /politique-de-confidentialite
+├ ○ /reservations
+├ ○ /robots.txt
+├ ○ /sitemap.xml
+├ ○ /sponsors
+├ ○ /staff
+├ ○ /staff/interface
+├ ○ /staff/licencies
+├ ○ /staff/login
+├ ○ /staff/mode_jeux
+├ ○ /staff/settings
+└ ○ /tournois
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+> vagondys@0.1.0 postbuild
+> node scripts/obfuscate-build.js
+
+🔒 Début de la protection du code...
+📦 41 fichiers statiques à protéger...
+→ Protection de .next\static\chunks\turbopack-324964d58ce4b32c.js
+→ Protection de .next\static\chunks\ff1a16fafef87110.js
+→ Protection de .next\static\chunks\fc4a404883bcb68b.js
+→ Protection de .next\static\chunks\f2023b46450fc80d.js
+→ Protection de .next\static\chunks\f1b4d49aa9e249c5.js
+→ Protection de .next\static\chunks\ef08a4de8f7a22e7.js
+→ Protection de .next\static\chunks\ee4f7f7d2d6c3794.js
+→ Protection de .next\static\chunks\e509b1398294d4d1.js
+→ Protection de .next\static\chunks\e4eb60f433afb902.js
+→ Protection de .next\static\chunks\e2fd72e774cd7140.js
+→ Protection de .next\static\chunks\e2eaef8b94f755e0.js
+→ Protection de .next\static\chunks\dbb7aaa18be9a95e.js
+→ Protection de .next\static\chunks\d9d9a743254c28ff.js
+→ Protection de .next\static\chunks\d2be314c3ece3fbe.js
+→ Protection de .next\static\chunks\ca7c591949bdc575.js
+→ Protection de .next\static\chunks\b2a706d83d11a9ca.js
+→ Protection de .next\static\chunks\b1e589fadf2dc6f0.js
+→ Protection de .next\static\chunks\aee6c7720838f8a2.js
+→ Protection de .next\static\chunks\a6dad97d9634a72d.js
+→ Protection de .next\static\chunks\9d06030b5dc78990.js
+→ Protection de .next\static\chunks\7ee8bb3b5e31c02b.js
+→ Protection de .next\static\chunks\7cdca5a2d32d9015.js
+→ Protection de .next\static\chunks\754288a467313585.js
+→ Protection de .next\static\chunks\70b50ee011097fa0.js
+→ Protection de .next\static\chunks\6e02cf75ad2d7f73.js
+→ Protection de .next\static\chunks\5cb6ef67a1473961.js
+→ Protection de .next\static\chunks\58528e0b483121f5.js
+→ Protection de .next\static\chunks\574a82539c4b22e5.js
+→ Protection de .next\static\chunks\451d04107e20ea92.js
+→ Protection de .next\static\chunks\3fc3025f38517f5b.js
+→ Protection de .next\static\chunks\3815192a1ee9790a.js
+→ Protection de .next\static\chunks\24b9495ab5791505.js
+→ Protection de .next\static\chunks\1dbc0ef4487b0040.js
+→ Protection de .next\static\chunks\18f38dbeee9f54d3.js
+→ Protection de .next\static\chunks\11757fe52ea838cf.js
+→ Protection de .next\static\chunks\10cfcfcc4e7c378d.js
+→ Protection de .next\static\chunks\0f4df012532163d9.js
+→ Protection de .next\static\chunks\0ae58f25ba0283de.js
+→ Protection de .next\static\chunks\050bd80eae3b5b28.js
+→ Protection de .next\static\9ld9GKKDpG0aKoZ2UlXWb\_ssgManifest.js
+→ Protection de .next\static\9ld9GKKDpG0aKoZ2UlXWb\_buildManifest.js
+✅ 41/41 fichiers statiques protégés avec succès !
+🔐 Votre code est maintenant ILLISIBLE dans F12
+PS C:\Users\mathy\vagondys> 
+*/

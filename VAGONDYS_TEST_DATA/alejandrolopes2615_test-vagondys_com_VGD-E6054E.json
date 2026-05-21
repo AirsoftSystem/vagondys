@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E6054E",
+  "client_identity": {
+    "nom": "Alejandro Lopes",
+    "email": "alejandrolopes2615@test-vagondys.com",
+    "telephone": "0651547971",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E6054E",
+    "created_at": "2026-02-05T20:59:23.756Z",
+    "payload": {
+      "name": "Alejandro Lopes",
+      "pseudo": "AlejandroLopes2615",
+      "email": "alejandrolopes2615@test-vagondys.com",
+      "phone": "0669316576",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Lopes | Email: alejandrolopes2615@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.756Z",
+      "details": {
+        "name": "Alejandro Lopes",
+        "email": "alejandrolopes2615@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandrolopes2615@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.756Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.756Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

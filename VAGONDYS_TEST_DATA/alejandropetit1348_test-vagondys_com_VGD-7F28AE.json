@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-7F28AE",
+  "client_identity": {
+    "nom": "Alejandro Petit",
+    "email": "alejandropetit1348@test-vagondys.com",
+    "telephone": "0669304462",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-7F28AE",
+    "created_at": "2026-02-05T20:59:24.032Z",
+    "payload": {
+      "name": "Alejandro Petit",
+      "pseudo": "AlejandroPetit1348",
+      "email": "alejandropetit1348@test-vagondys.com",
+      "phone": "0673005135",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Petit | Email: alejandropetit1348@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.032Z",
+      "details": {
+        "name": "Alejandro Petit",
+        "email": "alejandropetit1348@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandropetit1348@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.032Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.032Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

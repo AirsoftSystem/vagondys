@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D6F0AE",
+  "client_identity": {
+    "nom": "Alejandro Dubois",
+    "email": "alejandrodubois6191@test-vagondys.com",
+    "telephone": "0698081035",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D6F0AE",
+    "created_at": "2026-02-05T20:57:36.680Z",
+    "payload": {
+      "name": "Alejandro Dubois",
+      "pseudo": "AlejandroDubois6191",
+      "email": "alejandrodubois6191@test-vagondys.com",
+      "phone": "0683298728",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Dubois | Email: alejandrodubois6191@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.680Z",
+      "details": {
+        "name": "Alejandro Dubois",
+        "email": "alejandrodubois6191@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandrodubois6191@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.680Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.680Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

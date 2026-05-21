@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-92B12F",
+  "client_identity": {
+    "nom": "Thomas Gomes",
+    "email": "thomasgomes8632@test-vagondys.com",
+    "telephone": "0665875226",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-92B12F",
+    "created_at": "2026-02-05T20:59:24.193Z",
+    "payload": {
+      "name": "Thomas Gomes",
+      "pseudo": "ThomasGomes8632",
+      "email": "thomasgomes8632@test-vagondys.com",
+      "phone": "0699803047",
+      "city": "Malaga",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Gomes | Email: thomasgomes8632@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.193Z",
+      "details": {
+        "name": "Thomas Gomes",
+        "email": "thomasgomes8632@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasgomes8632@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.193Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.193Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

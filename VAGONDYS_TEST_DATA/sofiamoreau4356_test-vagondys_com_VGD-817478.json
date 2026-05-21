@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-817478",
+  "client_identity": {
+    "nom": "Sofia Moreau",
+    "email": "sofiamoreau4356@test-vagondys.com",
+    "telephone": "0634009882",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-817478",
+    "created_at": "2026-02-05T20:57:37.130Z",
+    "payload": {
+      "name": "Sofia Moreau",
+      "pseudo": "SofiaMoreau4356",
+      "email": "sofiamoreau4356@test-vagondys.com",
+      "phone": "0643572528",
+      "city": "Lille",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Moreau | Email: sofiamoreau4356@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.130Z",
+      "details": {
+        "name": "Sofia Moreau",
+        "email": "sofiamoreau4356@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiamoreau4356@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.130Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.130Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

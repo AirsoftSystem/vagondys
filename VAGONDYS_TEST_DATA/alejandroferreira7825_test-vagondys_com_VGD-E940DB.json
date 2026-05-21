@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E940DB",
+  "client_identity": {
+    "nom": "Alejandro Ferreira",
+    "email": "alejandroferreira7825@test-vagondys.com",
+    "telephone": "0675347770",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E940DB",
+    "created_at": "2026-02-05T20:59:23.961Z",
+    "payload": {
+      "name": "Alejandro Ferreira",
+      "pseudo": "AlejandroFerreira7825",
+      "email": "alejandroferreira7825@test-vagondys.com",
+      "phone": "0688766077",
+      "city": "Toulouse",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Ferreira | Email: alejandroferreira7825@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.961Z",
+      "details": {
+        "name": "Alejandro Ferreira",
+        "email": "alejandroferreira7825@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandroferreira7825@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.961Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.961Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-074130",
+  "client_identity": {
+    "nom": "Enzo Petit",
+    "email": "enzopetit6488@test-vagondys.com",
+    "telephone": "0694619288",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-074130",
+    "created_at": "2026-02-05T20:59:24.100Z",
+    "payload": {
+      "name": "Enzo Petit",
+      "pseudo": "EnzoPetit6488",
+      "email": "enzopetit6488@test-vagondys.com",
+      "phone": "0669710360",
+      "city": "Madrid",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Petit | Email: enzopetit6488@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.100Z",
+      "details": {
+        "name": "Enzo Petit",
+        "email": "enzopetit6488@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzopetit6488@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.100Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.100Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

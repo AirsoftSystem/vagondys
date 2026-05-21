@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-452622",
+  "client_identity": {
+    "nom": "Chloé Petit",
+    "email": "chloépetit1901@test-vagondys.com",
+    "telephone": "0696521043",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-452622",
+    "created_at": "2026-02-05T20:59:23.953Z",
+    "payload": {
+      "name": "Chloé Petit",
+      "pseudo": "ChloéPetit1901",
+      "email": "chloépetit1901@test-vagondys.com",
+      "phone": "0648714454",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Petit | Email: chloépetit1901@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.953Z",
+      "details": {
+        "name": "Chloé Petit",
+        "email": "chloépetit1901@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloépetit1901@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.953Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.953Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

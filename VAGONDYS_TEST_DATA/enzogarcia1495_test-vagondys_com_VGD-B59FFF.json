@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-B59FFF",
+  "client_identity": {
+    "nom": "Enzo Garcia",
+    "email": "enzogarcia1495@test-vagondys.com",
+    "telephone": "0644104270",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-B59FFF",
+    "created_at": "2026-02-05T20:57:37.179Z",
+    "payload": {
+      "name": "Enzo Garcia",
+      "pseudo": "EnzoGarcia1495",
+      "email": "enzogarcia1495@test-vagondys.com",
+      "phone": "0665303650",
+      "city": "Nice",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Garcia | Email: enzogarcia1495@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.179Z",
+      "details": {
+        "name": "Enzo Garcia",
+        "email": "enzogarcia1495@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzogarcia1495@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.179Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.179Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

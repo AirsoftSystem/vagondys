@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-8B14F3",
+  "client_identity": {
+    "nom": "Hugo Rousseau",
+    "email": "hugorousseau7818@test-vagondys.com",
+    "telephone": "0629758015",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-8B14F3",
+    "created_at": "2026-02-05T20:57:36.965Z",
+    "payload": {
+      "name": "Hugo Rousseau",
+      "pseudo": "HugoRousseau7818",
+      "email": "hugorousseau7818@test-vagondys.com",
+      "phone": "0629449027",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Rousseau | Email: hugorousseau7818@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.965Z",
+      "details": {
+        "name": "Hugo Rousseau",
+        "email": "hugorousseau7818@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugorousseau7818@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.965Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.965Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-428C5C",
+  "client_identity": {
+    "nom": "Hugo Martinez",
+    "email": "hugomartinez8959@test-vagondys.com",
+    "telephone": "0619904200",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-428C5C",
+    "created_at": "2026-02-05T20:57:37.068Z",
+    "payload": {
+      "name": "Hugo Martinez",
+      "pseudo": "HugoMartinez8959",
+      "email": "hugomartinez8959@test-vagondys.com",
+      "phone": "0676610335",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Martinez | Email: hugomartinez8959@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.068Z",
+      "details": {
+        "name": "Hugo Martinez",
+        "email": "hugomartinez8959@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugomartinez8959@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.068Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.068Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

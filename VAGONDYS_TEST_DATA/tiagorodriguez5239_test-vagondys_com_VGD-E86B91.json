@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E86B91",
+  "client_identity": {
+    "nom": "Tiago Rodriguez",
+    "email": "tiagorodriguez5239@test-vagondys.com",
+    "telephone": "0639357490",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E86B91",
+    "created_at": "2026-02-05T20:59:23.649Z",
+    "payload": {
+      "name": "Tiago Rodriguez",
+      "pseudo": "TiagoRodriguez5239",
+      "email": "tiagorodriguez5239@test-vagondys.com",
+      "phone": "0690239808",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Tiago Rodriguez | Email: tiagorodriguez5239@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.649Z",
+      "details": {
+        "name": "Tiago Rodriguez",
+        "email": "tiagorodriguez5239@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "tiagorodriguez5239@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.649Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.649Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

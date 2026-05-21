@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-BD44A3",
+  "client_identity": {
+    "nom": "Inès Ferreira",
+    "email": "inèsferreira961@test-vagondys.com",
+    "telephone": "0616761428",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-BD44A3",
+    "created_at": "2026-02-05T20:57:37.317Z",
+    "payload": {
+      "name": "Inès Ferreira",
+      "pseudo": "InèsFerreira961",
+      "email": "inèsferreira961@test-vagondys.com",
+      "phone": "0695450050",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Ferreira | Email: inèsferreira961@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.317Z",
+      "details": {
+        "name": "Inès Ferreira",
+        "email": "inèsferreira961@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèsferreira961@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.317Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.317Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

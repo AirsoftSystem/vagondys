@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-DF0386",
+  "client_identity": {
+    "nom": "Emma Martinez",
+    "email": "emmamartinez8452@test-vagondys.com",
+    "telephone": "0610497769",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-DF0386",
+    "created_at": "2026-02-05T20:59:24.070Z",
+    "payload": {
+      "name": "Emma Martinez",
+      "pseudo": "EmmaMartinez8452",
+      "email": "emmamartinez8452@test-vagondys.com",
+      "phone": "0624537958",
+      "city": "Nice",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Martinez | Email: emmamartinez8452@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.070Z",
+      "details": {
+        "name": "Emma Martinez",
+        "email": "emmamartinez8452@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmamartinez8452@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.070Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.070Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

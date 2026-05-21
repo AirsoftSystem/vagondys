@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-5FD915",
+  "client_identity": {
+    "nom": "Chloé Silva",
+    "email": "chloésilva1956@test-vagondys.com",
+    "telephone": "0643189730",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-5FD915",
+    "created_at": "2026-02-05T20:59:24.167Z",
+    "payload": {
+      "name": "Chloé Silva",
+      "pseudo": "ChloéSilva1956",
+      "email": "chloésilva1956@test-vagondys.com",
+      "phone": "0615917762",
+      "city": "Séville",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Silva | Email: chloésilva1956@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.167Z",
+      "details": {
+        "name": "Chloé Silva",
+        "email": "chloésilva1956@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloésilva1956@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.167Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.167Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

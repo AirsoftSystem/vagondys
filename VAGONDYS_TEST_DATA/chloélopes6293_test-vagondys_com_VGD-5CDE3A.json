@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-5CDE3A",
+  "client_identity": {
+    "nom": "Chloé Lopes",
+    "email": "chloélopes6293@test-vagondys.com",
+    "telephone": "0642636834",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-5CDE3A",
+    "created_at": "2026-02-05T20:59:24.153Z",
+    "payload": {
+      "name": "Chloé Lopes",
+      "pseudo": "ChloéLopes6293",
+      "email": "chloélopes6293@test-vagondys.com",
+      "phone": "0654330461",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Lopes | Email: chloélopes6293@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.153Z",
+      "details": {
+        "name": "Chloé Lopes",
+        "email": "chloélopes6293@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloélopes6293@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.153Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.153Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

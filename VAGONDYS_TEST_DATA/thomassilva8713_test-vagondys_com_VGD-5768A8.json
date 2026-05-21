@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-5768A8",
+  "client_identity": {
+    "nom": "Thomas Silva",
+    "email": "thomassilva8713@test-vagondys.com",
+    "telephone": "0690391141",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-5768A8",
+    "created_at": "2026-02-05T20:59:24.097Z",
+    "payload": {
+      "name": "Thomas Silva",
+      "pseudo": "ThomasSilva8713",
+      "email": "thomassilva8713@test-vagondys.com",
+      "phone": "0690511255",
+      "city": "Madrid",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Silva | Email: thomassilva8713@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.097Z",
+      "details": {
+        "name": "Thomas Silva",
+        "email": "thomassilva8713@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomassilva8713@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.097Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.097Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

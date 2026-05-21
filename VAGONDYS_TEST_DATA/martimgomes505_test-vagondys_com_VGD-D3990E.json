@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-D3990E",
+  "client_identity": {
+    "nom": "Martim Gomes",
+    "email": "martimgomes505@test-vagondys.com",
+    "telephone": "0641582748",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-D3990E",
+    "created_at": "2026-02-05T20:59:23.857Z",
+    "payload": {
+      "name": "Martim Gomes",
+      "pseudo": "MartimGomes505",
+      "email": "martimgomes505@test-vagondys.com",
+      "phone": "0698480332",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Gomes | Email: martimgomes505@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.857Z",
+      "details": {
+        "name": "Martim Gomes",
+        "email": "martimgomes505@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimgomes505@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.857Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.857Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

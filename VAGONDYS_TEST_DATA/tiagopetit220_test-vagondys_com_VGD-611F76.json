@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-611F76",
+  "client_identity": {
+    "nom": "Tiago Petit",
+    "email": "tiagopetit220@test-vagondys.com",
+    "telephone": "0679796312",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-611F76",
+    "created_at": "2026-02-05T20:57:36.733Z",
+    "payload": {
+      "name": "Tiago Petit",
+      "pseudo": "TiagoPetit220",
+      "email": "tiagopetit220@test-vagondys.com",
+      "phone": "0650161817",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Tiago Petit | Email: tiagopetit220@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.733Z",
+      "details": {
+        "name": "Tiago Petit",
+        "email": "tiagopetit220@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "tiagopetit220@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.733Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.733Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

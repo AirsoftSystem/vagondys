@@ -1,0 +1,275 @@
+/* ========================================== */
+/* SCORE CHART - Styles spécifiques */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+.score-chart-container {
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.score-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.score-chart-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.score-chart-title-text {
+  font-size: 0.625rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #71717a;
+}
+
+.score-chart-subtitle {
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #3f3f46;
+}
+
+.score-chart-empty {
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1rem;
+  padding: 2rem;
+}
+
+.score-chart-empty-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.score-chart-empty-message {
+  height: 12rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #27272a;
+  border-radius: 0.75rem;
+}
+
+.score-chart-empty-text {
+  font-size: 0.5625rem;
+  color: #3f3f46;
+  font-style: italic;
+}
+
+.score-chart-wrapper {
+  position: relative;
+  height: 12rem;
+  width: 100%;
+}
+
+.score-chart-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.score-chart-grid-line {
+  border-top: 1px solid #18181b;
+  height: 0;
+}
+
+.score-chart-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 0.25rem;
+}
+
+.score-chart-bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.score-chart-bar {
+  width: 100%;
+  background-color: rgba(220, 38, 38, 0.8);
+  transition: all 0.2s;
+  border-radius: 0.125rem 0.125rem 0 0;
+  cursor: pointer;
+}
+
+.score-chart-bar:hover {
+  background-color: #dc2626;
+}
+
+.score-chart-bar[data-height] {
+  height: attr(data-height);
+}
+
+.score-chart-tooltip {
+  position: absolute;
+  top: -2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.score-chart-bar-wrapper:hover .score-chart-tooltip {
+  opacity: 1;
+}
+
+.score-chart-date {
+  font-size: 0.375rem;
+  font-weight: 900;
+  color: #3f3f46;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+  transform: rotate(45deg);
+  transform-origin: left;
+}
+
+.score-chart-legend {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #3f3f46;
+}
+
+.score-chart-bar-minheight {
+  min-height: 4px;
+}
+
+/* Fallback pour les navigateurs */
+@supports not (height: attr(data-height)) {
+  .score-chart-bar[data-height="0%"] { height: 0%; }
+  .score-chart-bar[data-height="1%"] { height: 1%; }
+  .score-chart-bar[data-height="2%"] { height: 2%; }
+  .score-chart-bar[data-height="3%"] { height: 3%; }
+  .score-chart-bar[data-height="4%"] { height: 4%; }
+  .score-chart-bar[data-height="5%"] { height: 5%; }
+  .score-chart-bar[data-height="6%"] { height: 6%; }
+  .score-chart-bar[data-height="7%"] { height: 7%; }
+  .score-chart-bar[data-height="8%"] { height: 8%; }
+  .score-chart-bar[data-height="9%"] { height: 9%; }
+  .score-chart-bar[data-height="10%"] { height: 10%; }
+  .score-chart-bar[data-height="11%"] { height: 11%; }
+  .score-chart-bar[data-height="12%"] { height: 12%; }
+  .score-chart-bar[data-height="13%"] { height: 13%; }
+  .score-chart-bar[data-height="14%"] { height: 14%; }
+  .score-chart-bar[data-height="15%"] { height: 15%; }
+  .score-chart-bar[data-height="16%"] { height: 16%; }
+  .score-chart-bar[data-height="17%"] { height: 17%; }
+  .score-chart-bar[data-height="18%"] { height: 18%; }
+  .score-chart-bar[data-height="19%"] { height: 19%; }
+  .score-chart-bar[data-height="20%"] { height: 20%; }
+  .score-chart-bar[data-height="21%"] { height: 21%; }
+  .score-chart-bar[data-height="22%"] { height: 22%; }
+  .score-chart-bar[data-height="23%"] { height: 23%; }
+  .score-chart-bar[data-height="24%"] { height: 24%; }
+  .score-chart-bar[data-height="25%"] { height: 25%; }
+  .score-chart-bar[data-height="26%"] { height: 26%; }
+  .score-chart-bar[data-height="27%"] { height: 27%; }
+  .score-chart-bar[data-height="28%"] { height: 28%; }
+  .score-chart-bar[data-height="29%"] { height: 29%; }
+  .score-chart-bar[data-height="30%"] { height: 30%; }
+  .score-chart-bar[data-height="31%"] { height: 31%; }
+  .score-chart-bar[data-height="32%"] { height: 32%; }
+  .score-chart-bar[data-height="33%"] { height: 33%; }
+  .score-chart-bar[data-height="34%"] { height: 34%; }
+  .score-chart-bar[data-height="35%"] { height: 35%; }
+  .score-chart-bar[data-height="36%"] { height: 36%; }
+  .score-chart-bar[data-height="37%"] { height: 37%; }
+  .score-chart-bar[data-height="38%"] { height: 38%; }
+  .score-chart-bar[data-height="39%"] { height: 39%; }
+  .score-chart-bar[data-height="40%"] { height: 40%; }
+  .score-chart-bar[data-height="41%"] { height: 41%; }
+  .score-chart-bar[data-height="42%"] { height: 42%; }
+  .score-chart-bar[data-height="43%"] { height: 43%; }
+  .score-chart-bar[data-height="44%"] { height: 44%; }
+  .score-chart-bar[data-height="45%"] { height: 45%; }
+  .score-chart-bar[data-height="46%"] { height: 46%; }
+  .score-chart-bar[data-height="47%"] { height: 47%; }
+  .score-chart-bar[data-height="48%"] { height: 48%; }
+  .score-chart-bar[data-height="49%"] { height: 49%; }
+  .score-chart-bar[data-height="50%"] { height: 50%; }
+  .score-chart-bar[data-height="51%"] { height: 51%; }
+  .score-chart-bar[data-height="52%"] { height: 52%; }
+  .score-chart-bar[data-height="53%"] { height: 53%; }
+  .score-chart-bar[data-height="54%"] { height: 54%; }
+  .score-chart-bar[data-height="55%"] { height: 55%; }
+  .score-chart-bar[data-height="56%"] { height: 56%; }
+  .score-chart-bar[data-height="57%"] { height: 57%; }
+  .score-chart-bar[data-height="58%"] { height: 58%; }
+  .score-chart-bar[data-height="59%"] { height: 59%; }
+  .score-chart-bar[data-height="60%"] { height: 60%; }
+  .score-chart-bar[data-height="61%"] { height: 61%; }
+  .score-chart-bar[data-height="62%"] { height: 62%; }
+  .score-chart-bar[data-height="63%"] { height: 63%; }
+  .score-chart-bar[data-height="64%"] { height: 64%; }
+  .score-chart-bar[data-height="65%"] { height: 65%; }
+  .score-chart-bar[data-height="66%"] { height: 66%; }
+  .score-chart-bar[data-height="67%"] { height: 67%; }
+  .score-chart-bar[data-height="68%"] { height: 68%; }
+  .score-chart-bar[data-height="69%"] { height: 69%; }
+  .score-chart-bar[data-height="70%"] { height: 70%; }
+  .score-chart-bar[data-height="71%"] { height: 71%; }
+  .score-chart-bar[data-height="72%"] { height: 72%; }
+  .score-chart-bar[data-height="73%"] { height: 73%; }
+  .score-chart-bar[data-height="74%"] { height: 74%; }
+  .score-chart-bar[data-height="75%"] { height: 75%; }
+  .score-chart-bar[data-height="76%"] { height: 76%; }
+  .score-chart-bar[data-height="77%"] { height: 77%; }
+  .score-chart-bar[data-height="78%"] { height: 78%; }
+  .score-chart-bar[data-height="79%"] { height: 79%; }
+  .score-chart-bar[data-height="80%"] { height: 80%; }
+  .score-chart-bar[data-height="81%"] { height: 81%; }
+  .score-chart-bar[data-height="82%"] { height: 82%; }
+  .score-chart-bar[data-height="83%"] { height: 83%; }
+  .score-chart-bar[data-height="84%"] { height: 84%; }
+  .score-chart-bar[data-height="85%"] { height: 85%; }
+  .score-chart-bar[data-height="86%"] { height: 86%; }
+  .score-chart-bar[data-height="87%"] { height: 87%; }
+  .score-chart-bar[data-height="88%"] { height: 88%; }
+  .score-chart-bar[data-height="89%"] { height: 89%; }
+  .score-chart-bar[data-height="90%"] { height: 90%; }
+  .score-chart-bar[data-height="91%"] { height: 91%; }
+  .score-chart-bar[data-height="92%"] { height: 92%; }
+  .score-chart-bar[data-height="93%"] { height: 93%; }
+  .score-chart-bar[data-height="94%"] { height: 94%; }
+  .score-chart-bar[data-height="95%"] { height: 95%; }
+  .score-chart-bar[data-height="96%"] { height: 96%; }
+  .score-chart-bar[data-height="97%"] { height: 97%; }
+  .score-chart-bar[data-height="98%"] { height: 98%; }
+  .score-chart-bar[data-height="99%"] { height: 99%; }
+  .score-chart-bar[data-height="100%"] { height: 100%; }
+}

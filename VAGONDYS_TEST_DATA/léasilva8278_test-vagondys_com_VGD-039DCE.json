@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-039DCE",
+  "client_identity": {
+    "nom": "Léa Silva",
+    "email": "léasilva8278@test-vagondys.com",
+    "telephone": "0631000148",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-039DCE",
+    "created_at": "2026-02-05T20:59:23.885Z",
+    "payload": {
+      "name": "Léa Silva",
+      "pseudo": "LéaSilva8278",
+      "email": "léasilva8278@test-vagondys.com",
+      "phone": "0633482425",
+      "city": "Lyon",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Silva | Email: léasilva8278@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.885Z",
+      "details": {
+        "name": "Léa Silva",
+        "email": "léasilva8278@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léasilva8278@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.885Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.885Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

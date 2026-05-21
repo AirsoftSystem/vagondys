@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-31F67E",
+  "client_identity": {
+    "nom": "Hugo Rodriguez",
+    "email": "hugorodriguez8367@test-vagondys.com",
+    "telephone": "0673312083",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-31F67E",
+    "created_at": "2026-02-05T20:59:24.118Z",
+    "payload": {
+      "name": "Hugo Rodriguez",
+      "pseudo": "HugoRodriguez8367",
+      "email": "hugorodriguez8367@test-vagondys.com",
+      "phone": "0612063202",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Rodriguez | Email: hugorodriguez8367@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.118Z",
+      "details": {
+        "name": "Hugo Rodriguez",
+        "email": "hugorodriguez8367@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugorodriguez8367@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.118Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.118Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

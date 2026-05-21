@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-75E14D",
+  "client_identity": {
+    "nom": "Emma Petit",
+    "email": "emmapetit8057@test-vagondys.com",
+    "telephone": "0612088870",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-75E14D",
+    "created_at": "2026-02-05T20:59:24.204Z",
+    "payload": {
+      "name": "Emma Petit",
+      "pseudo": "EmmaPetit8057",
+      "email": "emmapetit8057@test-vagondys.com",
+      "phone": "0664969624",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Emma Petit | Email: emmapetit8057@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.204Z",
+      "details": {
+        "name": "Emma Petit",
+        "email": "emmapetit8057@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "emmapetit8057@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.204Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.204Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

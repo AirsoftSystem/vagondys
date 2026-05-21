@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-71BEDF",
+  "client_identity": {
+    "nom": "Inès Gomes",
+    "email": "inèsgomes476@test-vagondys.com",
+    "telephone": "0631957302",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-71BEDF",
+    "created_at": "2026-02-05T20:59:24.169Z",
+    "payload": {
+      "name": "Inès Gomes",
+      "pseudo": "InèsGomes476",
+      "email": "inèsgomes476@test-vagondys.com",
+      "phone": "0615980147",
+      "city": "Séville",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Gomes | Email: inèsgomes476@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.169Z",
+      "details": {
+        "name": "Inès Gomes",
+        "email": "inèsgomes476@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèsgomes476@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.169Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.169Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-7AC55D",
+  "client_identity": {
+    "nom": "Martim Lopes",
+    "email": "martimlopes7751@test-vagondys.com",
+    "telephone": "0697615986",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-7AC55D",
+    "created_at": "2026-02-05T20:57:36.722Z",
+    "payload": {
+      "name": "Martim Lopes",
+      "pseudo": "MartimLopes7751",
+      "email": "martimlopes7751@test-vagondys.com",
+      "phone": "0637973535",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Lopes | Email: martimlopes7751@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.722Z",
+      "details": {
+        "name": "Martim Lopes",
+        "email": "martimlopes7751@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimlopes7751@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.722Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.722Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

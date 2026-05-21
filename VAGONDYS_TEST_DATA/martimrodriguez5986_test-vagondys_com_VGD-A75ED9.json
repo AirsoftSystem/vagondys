@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-A75ED9",
+  "client_identity": {
+    "nom": "Martim Rodriguez",
+    "email": "martimrodriguez5986@test-vagondys.com",
+    "telephone": "0643351171",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-A75ED9",
+    "created_at": "2026-02-05T20:59:23.766Z",
+    "payload": {
+      "name": "Martim Rodriguez",
+      "pseudo": "MartimRodriguez5986",
+      "email": "martimrodriguez5986@test-vagondys.com",
+      "phone": "0643430834",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Martim Rodriguez | Email: martimrodriguez5986@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.766Z",
+      "details": {
+        "name": "Martim Rodriguez",
+        "email": "martimrodriguez5986@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "martimrodriguez5986@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.766Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.766Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

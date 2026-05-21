@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-AAF2F8",
+  "client_identity": {
+    "nom": "Manon Rodriguez",
+    "email": "manonrodriguez2241@test-vagondys.com",
+    "telephone": "0683887962",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-AAF2F8",
+    "created_at": "2026-02-05T20:59:24.233Z",
+    "payload": {
+      "name": "Manon Rodriguez",
+      "pseudo": "ManonRodriguez2241",
+      "email": "manonrodriguez2241@test-vagondys.com",
+      "phone": "0642437313",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Manon Rodriguez | Email: manonrodriguez2241@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.233Z",
+      "details": {
+        "name": "Manon Rodriguez",
+        "email": "manonrodriguez2241@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "manonrodriguez2241@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.233Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.233Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

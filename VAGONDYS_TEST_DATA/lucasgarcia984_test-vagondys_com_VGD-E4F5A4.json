@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E4F5A4",
+  "client_identity": {
+    "nom": "Lucas Garcia",
+    "email": "lucasgarcia984@test-vagondys.com",
+    "telephone": "0616312806",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E4F5A4",
+    "created_at": "2026-02-05T20:57:37.293Z",
+    "payload": {
+      "name": "Lucas Garcia",
+      "pseudo": "LucasGarcia984",
+      "email": "lucasgarcia984@test-vagondys.com",
+      "phone": "0626513386",
+      "city": "Malaga",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucas Garcia | Email: lucasgarcia984@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.293Z",
+      "details": {
+        "name": "Lucas Garcia",
+        "email": "lucasgarcia984@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucasgarcia984@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.293Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.293Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

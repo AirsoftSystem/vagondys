@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-4650FD",
+  "client_identity": {
+    "nom": "Chloé Rousseau",
+    "email": "chloérousseau7443@test-vagondys.com",
+    "telephone": "0618735330",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-4650FD",
+    "created_at": "2026-02-05T20:57:36.758Z",
+    "payload": {
+      "name": "Chloé Rousseau",
+      "pseudo": "ChloéRousseau7443",
+      "email": "chloérousseau7443@test-vagondys.com",
+      "phone": "0627208533",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Rousseau | Email: chloérousseau7443@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:36.758Z",
+      "details": {
+        "name": "Chloé Rousseau",
+        "email": "chloérousseau7443@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloérousseau7443@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:36.758Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:36.758Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

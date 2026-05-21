@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-C1B21D",
+  "client_identity": {
+    "nom": "Inès Garcia",
+    "email": "inèsgarcia724@test-vagondys.com",
+    "telephone": "0690294069",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-C1B21D",
+    "created_at": "2026-02-05T20:59:24.055Z",
+    "payload": {
+      "name": "Inès Garcia",
+      "pseudo": "InèsGarcia724",
+      "email": "inèsgarcia724@test-vagondys.com",
+      "phone": "0690150618",
+      "city": "Strasbourg",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Garcia | Email: inèsgarcia724@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.055Z",
+      "details": {
+        "name": "Inès Garcia",
+        "email": "inèsgarcia724@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèsgarcia724@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.055Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.055Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

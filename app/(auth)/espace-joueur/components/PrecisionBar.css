@@ -1,0 +1,316 @@
+/* ========================================== */
+/* PRECISION BAR - Styles spécifiques */
+/* Style VAGONDYS - Ne pas modifier */
+/* ========================================== */
+
+.precision-bar-container {
+  background-color: #09090b;
+  border: 1px solid #18181b;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.precision-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.precision-bar-title {
+  font-size: 0.625rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #71717a;
+}
+
+.precision-bar-tirs {
+  font-size: 0.5625rem;
+  font-family: monospace;
+  color: #52525b;
+}
+
+.precision-bar-wrapper {
+  position: relative;
+  width: 100%;
+  height: 1.5rem;
+  background-color: #18181b;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+}
+
+/* Dégradé de fond */
+.precision-bar-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #dc2626 0%, #eab308 50%, #22c55e 100%);
+}
+
+/* Marqueur de position */
+.precision-bar-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.25rem;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  transform: translateX(-50%);
+}
+
+.precision-bar-marker[data-position] {
+  left: attr(data-position);
+}
+
+/* Marqueurs de seuils */
+.precision-bar-seuil {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.125rem;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.precision-bar-seuil[data-position] {
+  left: attr(data-position);
+}
+
+/* Texte centré */
+.precision-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.precision-bar-value {
+  font-size: 0.625rem;
+  font-weight: 900;
+  color: white;
+  mix-blend-mode: difference;
+}
+
+/* Légende */
+.precision-bar-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #3f3f46;
+  margin-top: 0.5rem;
+}
+
+/* Couleurs de texte dynamiques */
+.text-precision-low { color: #dc2626; }
+.text-precision-mid { color: #eab308; }
+.text-precision-high { color: #22c55e; }
+
+/* Fallback pour les navigateurs */
+@supports not (left: attr(data-position)) {
+  .precision-bar-marker[data-position="0%"] { left: 0%; }
+  .precision-bar-marker[data-position="1%"] { left: 1%; }
+  .precision-bar-marker[data-position="2%"] { left: 2%; }
+  .precision-bar-marker[data-position="3%"] { left: 3%; }
+  .precision-bar-marker[data-position="4%"] { left: 4%; }
+  .precision-bar-marker[data-position="5%"] { left: 5%; }
+  .precision-bar-marker[data-position="6%"] { left: 6%; }
+  .precision-bar-marker[data-position="7%"] { left: 7%; }
+  .precision-bar-marker[data-position="8%"] { left: 8%; }
+  .precision-bar-marker[data-position="9%"] { left: 9%; }
+  .precision-bar-marker[data-position="10%"] { left: 10%; }
+  .precision-bar-marker[data-position="11%"] { left: 11%; }
+  .precision-bar-marker[data-position="12%"] { left: 12%; }
+  .precision-bar-marker[data-position="13%"] { left: 13%; }
+  .precision-bar-marker[data-position="14%"] { left: 14%; }
+  .precision-bar-marker[data-position="15%"] { left: 15%; }
+  .precision-bar-marker[data-position="16%"] { left: 16%; }
+  .precision-bar-marker[data-position="17%"] { left: 17%; }
+  .precision-bar-marker[data-position="18%"] { left: 18%; }
+  .precision-bar-marker[data-position="19%"] { left: 19%; }
+  .precision-bar-marker[data-position="20%"] { left: 20%; }
+  .precision-bar-marker[data-position="21%"] { left: 21%; }
+  .precision-bar-marker[data-position="22%"] { left: 22%; }
+  .precision-bar-marker[data-position="23%"] { left: 23%; }
+  .precision-bar-marker[data-position="24%"] { left: 24%; }
+  .precision-bar-marker[data-position="25%"] { left: 25%; }
+  .precision-bar-marker[data-position="26%"] { left: 26%; }
+  .precision-bar-marker[data-position="27%"] { left: 27%; }
+  .precision-bar-marker[data-position="28%"] { left: 28%; }
+  .precision-bar-marker[data-position="29%"] { left: 29%; }
+  .precision-bar-marker[data-position="30%"] { left: 30%; }
+  .precision-bar-marker[data-position="31%"] { left: 31%; }
+  .precision-bar-marker[data-position="32%"] { left: 32%; }
+  .precision-bar-marker[data-position="33%"] { left: 33%; }
+  .precision-bar-marker[data-position="34%"] { left: 34%; }
+  .precision-bar-marker[data-position="35%"] { left: 35%; }
+  .precision-bar-marker[data-position="36%"] { left: 36%; }
+  .precision-bar-marker[data-position="37%"] { left: 37%; }
+  .precision-bar-marker[data-position="38%"] { left: 38%; }
+  .precision-bar-marker[data-position="39%"] { left: 39%; }
+  .precision-bar-marker[data-position="40%"] { left: 40%; }
+  .precision-bar-marker[data-position="41%"] { left: 41%; }
+  .precision-bar-marker[data-position="42%"] { left: 42%; }
+  .precision-bar-marker[data-position="43%"] { left: 43%; }
+  .precision-bar-marker[data-position="44%"] { left: 44%; }
+  .precision-bar-marker[data-position="45%"] { left: 45%; }
+  .precision-bar-marker[data-position="46%"] { left: 46%; }
+  .precision-bar-marker[data-position="47%"] { left: 47%; }
+  .precision-bar-marker[data-position="48%"] { left: 48%; }
+  .precision-bar-marker[data-position="49%"] { left: 49%; }
+  .precision-bar-marker[data-position="50%"] { left: 50%; }
+  .precision-bar-marker[data-position="51%"] { left: 51%; }
+  .precision-bar-marker[data-position="52%"] { left: 52%; }
+  .precision-bar-marker[data-position="53%"] { left: 53%; }
+  .precision-bar-marker[data-position="54%"] { left: 54%; }
+  .precision-bar-marker[data-position="55%"] { left: 55%; }
+  .precision-bar-marker[data-position="56%"] { left: 56%; }
+  .precision-bar-marker[data-position="57%"] { left: 57%; }
+  .precision-bar-marker[data-position="58%"] { left: 58%; }
+  .precision-bar-marker[data-position="59%"] { left: 59%; }
+  .precision-bar-marker[data-position="60%"] { left: 60%; }
+  .precision-bar-marker[data-position="61%"] { left: 61%; }
+  .precision-bar-marker[data-position="62%"] { left: 62%; }
+  .precision-bar-marker[data-position="63%"] { left: 63%; }
+  .precision-bar-marker[data-position="64%"] { left: 64%; }
+  .precision-bar-marker[data-position="65%"] { left: 65%; }
+  .precision-bar-marker[data-position="66%"] { left: 66%; }
+  .precision-bar-marker[data-position="67%"] { left: 67%; }
+  .precision-bar-marker[data-position="68%"] { left: 68%; }
+  .precision-bar-marker[data-position="69%"] { left: 69%; }
+  .precision-bar-marker[data-position="70%"] { left: 70%; }
+  .precision-bar-marker[data-position="71%"] { left: 71%; }
+  .precision-bar-marker[data-position="72%"] { left: 72%; }
+  .precision-bar-marker[data-position="73%"] { left: 73%; }
+  .precision-bar-marker[data-position="74%"] { left: 74%; }
+  .precision-bar-marker[data-position="75%"] { left: 75%; }
+  .precision-bar-marker[data-position="76%"] { left: 76%; }
+  .precision-bar-marker[data-position="77%"] { left: 77%; }
+  .precision-bar-marker[data-position="78%"] { left: 78%; }
+  .precision-bar-marker[data-position="79%"] { left: 79%; }
+  .precision-bar-marker[data-position="80%"] { left: 80%; }
+  .precision-bar-marker[data-position="81%"] { left: 81%; }
+  .precision-bar-marker[data-position="82%"] { left: 82%; }
+  .precision-bar-marker[data-position="83%"] { left: 83%; }
+  .precision-bar-marker[data-position="84%"] { left: 84%; }
+  .precision-bar-marker[data-position="85%"] { left: 85%; }
+  .precision-bar-marker[data-position="86%"] { left: 86%; }
+  .precision-bar-marker[data-position="87%"] { left: 87%; }
+  .precision-bar-marker[data-position="88%"] { left: 88%; }
+  .precision-bar-marker[data-position="89%"] { left: 89%; }
+  .precision-bar-marker[data-position="90%"] { left: 90%; }
+  .precision-bar-marker[data-position="91%"] { left: 91%; }
+  .precision-bar-marker[data-position="92%"] { left: 92%; }
+  .precision-bar-marker[data-position="93%"] { left: 93%; }
+  .precision-bar-marker[data-position="94%"] { left: 94%; }
+  .precision-bar-marker[data-position="95%"] { left: 95%; }
+  .precision-bar-marker[data-position="96%"] { left: 96%; }
+  .precision-bar-marker[data-position="97%"] { left: 97%; }
+  .precision-bar-marker[data-position="98%"] { left: 98%; }
+  .precision-bar-marker[data-position="99%"] { left: 99%; }
+  .precision-bar-marker[data-position="100%"] { left: 100%; }
+
+  .precision-bar-seuil[data-position="0%"] { left: 0%; }
+  .precision-bar-seuil[data-position="1%"] { left: 1%; }
+  .precision-bar-seuil[data-position="2%"] { left: 2%; }
+  .precision-bar-seuil[data-position="3%"] { left: 3%; }
+  .precision-bar-seuil[data-position="4%"] { left: 4%; }
+  .precision-bar-seuil[data-position="5%"] { left: 5%; }
+  .precision-bar-seuil[data-position="6%"] { left: 6%; }
+  .precision-bar-seuil[data-position="7%"] { left: 7%; }
+  .precision-bar-seuil[data-position="8%"] { left: 8%; }
+  .precision-bar-seuil[data-position="9%"] { left: 9%; }
+  .precision-bar-seuil[data-position="10%"] { left: 10%; }
+  .precision-bar-seuil[data-position="11%"] { left: 11%; }
+  .precision-bar-seuil[data-position="12%"] { left: 12%; }
+  .precision-bar-seuil[data-position="13%"] { left: 13%; }
+  .precision-bar-seuil[data-position="14%"] { left: 14%; }
+  .precision-bar-seuil[data-position="15%"] { left: 15%; }
+  .precision-bar-seuil[data-position="16%"] { left: 16%; }
+  .precision-bar-seuil[data-position="17%"] { left: 17%; }
+  .precision-bar-seuil[data-position="18%"] { left: 18%; }
+  .precision-bar-seuil[data-position="19%"] { left: 19%; }
+  .precision-bar-seuil[data-position="20%"] { left: 20%; }
+  .precision-bar-seuil[data-position="21%"] { left: 21%; }
+  .precision-bar-seuil[data-position="22%"] { left: 22%; }
+  .precision-bar-seuil[data-position="23%"] { left: 23%; }
+  .precision-bar-seuil[data-position="24%"] { left: 24%; }
+  .precision-bar-seuil[data-position="25%"] { left: 25%; }
+  .precision-bar-seuil[data-position="26%"] { left: 26%; }
+  .precision-bar-seuil[data-position="27%"] { left: 27%; }
+  .precision-bar-seuil[data-position="28%"] { left: 28%; }
+  .precision-bar-seuil[data-position="29%"] { left: 29%; }
+  .precision-bar-seuil[data-position="30%"] { left: 30%; }
+  .precision-bar-seuil[data-position="31%"] { left: 31%; }
+  .precision-bar-seuil[data-position="32%"] { left: 32%; }
+  .precision-bar-seuil[data-position="33%"] { left: 33%; }
+  .precision-bar-seuil[data-position="34%"] { left: 34%; }
+  .precision-bar-seuil[data-position="35%"] { left: 35%; }
+  .precision-bar-seuil[data-position="36%"] { left: 36%; }
+  .precision-bar-seuil[data-position="37%"] { left: 37%; }
+  .precision-bar-seuil[data-position="38%"] { left: 38%; }
+  .precision-bar-seuil[data-position="39%"] { left: 39%; }
+  .precision-bar-seuil[data-position="40%"] { left: 40%; }
+  .precision-bar-seuil[data-position="41%"] { left: 41%; }
+  .precision-bar-seuil[data-position="42%"] { left: 42%; }
+  .precision-bar-seuil[data-position="43%"] { left: 43%; }
+  .precision-bar-seuil[data-position="44%"] { left: 44%; }
+  .precision-bar-seuil[data-position="45%"] { left: 45%; }
+  .precision-bar-seuil[data-position="46%"] { left: 46%; }
+  .precision-bar-seuil[data-position="47%"] { left: 47%; }
+  .precision-bar-seuil[data-position="48%"] { left: 48%; }
+  .precision-bar-seuil[data-position="49%"] { left: 49%; }
+  .precision-bar-seuil[data-position="50%"] { left: 50%; }
+  .precision-bar-seuil[data-position="51%"] { left: 51%; }
+  .precision-bar-seuil[data-position="52%"] { left: 52%; }
+  .precision-bar-seuil[data-position="53%"] { left: 53%; }
+  .precision-bar-seuil[data-position="54%"] { left: 54%; }
+  .precision-bar-seuil[data-position="55%"] { left: 55%; }
+  .precision-bar-seuil[data-position="56%"] { left: 56%; }
+  .precision-bar-seuil[data-position="57%"] { left: 57%; }
+  .precision-bar-seuil[data-position="58%"] { left: 58%; }
+  .precision-bar-seuil[data-position="59%"] { left: 59%; }
+  .precision-bar-seuil[data-position="60%"] { left: 60%; }
+  .precision-bar-seuil[data-position="61%"] { left: 61%; }
+  .precision-bar-seuil[data-position="62%"] { left: 62%; }
+  .precision-bar-seuil[data-position="63%"] { left: 63%; }
+  .precision-bar-seuil[data-position="64%"] { left: 64%; }
+  .precision-bar-seuil[data-position="65%"] { left: 65%; }
+  .precision-bar-seuil[data-position="66%"] { left: 66%; }
+  .precision-bar-seuil[data-position="67%"] { left: 67%; }
+  .precision-bar-seuil[data-position="68%"] { left: 68%; }
+  .precision-bar-seuil[data-position="69%"] { left: 69%; }
+  .precision-bar-seuil[data-position="70%"] { left: 70%; }
+  .precision-bar-seuil[data-position="71%"] { left: 71%; }
+  .precision-bar-seuil[data-position="72%"] { left: 72%; }
+  .precision-bar-seuil[data-position="73%"] { left: 73%; }
+  .precision-bar-seuil[data-position="74%"] { left: 74%; }
+  .precision-bar-seuil[data-position="75%"] { left: 75%; }
+  .precision-bar-seuil[data-position="76%"] { left: 76%; }
+  .precision-bar-seuil[data-position="77%"] { left: 77%; }
+  .precision-bar-seuil[data-position="78%"] { left: 78%; }
+  .precision-bar-seuil[data-position="79%"] { left: 79%; }
+  .precision-bar-seuil[data-position="80%"] { left: 80%; }
+  .precision-bar-seuil[data-position="81%"] { left: 81%; }
+  .precision-bar-seuil[data-position="82%"] { left: 82%; }
+  .precision-bar-seuil[data-position="83%"] { left: 83%; }
+  .precision-bar-seuil[data-position="84%"] { left: 84%; }
+  .precision-bar-seuil[data-position="85%"] { left: 85%; }
+  .precision-bar-seuil[data-position="86%"] { left: 86%; }
+  .precision-bar-seuil[data-position="87%"] { left: 87%; }
+  .precision-bar-seuil[data-position="88%"] { left: 88%; }
+  .precision-bar-seuil[data-position="89%"] { left: 89%; }
+  .precision-bar-seuil[data-position="90%"] { left: 90%; }
+  .precision-bar-seuil[data-position="91%"] { left: 91%; }
+  .precision-bar-seuil[data-position="92%"] { left: 92%; }
+  .precision-bar-seuil[data-position="93%"] { left: 93%; }
+  .precision-bar-seuil[data-position="94%"] { left: 94%; }
+  .precision-bar-seuil[data-position="95%"] { left: 95%; }
+  .precision-bar-seuil[data-position="96%"] { left: 96%; }
+  .precision-bar-seuil[data-position="97%"] { left: 97%; }
+  .precision-bar-seuil[data-position="98%"] { left: 98%; }
+  .precision-bar-seuil[data-position="99%"] { left: 99%; }
+  .precision-bar-seuil[data-position="100%"] { left: 100%; }
+}

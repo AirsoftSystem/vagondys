@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-A6A9A0",
+  "client_identity": {
+    "nom": "Lucas Ferreira",
+    "email": "lucasferreira2030@test-vagondys.com",
+    "telephone": "0681051075",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-A6A9A0",
+    "created_at": "2026-02-05T20:57:37.350Z",
+    "payload": {
+      "name": "Lucas Ferreira",
+      "pseudo": "LucasFerreira2030",
+      "email": "lucasferreira2030@test-vagondys.com",
+      "phone": "0662460697",
+      "city": "Lisbonne",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucas Ferreira | Email: lucasferreira2030@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.350Z",
+      "details": {
+        "name": "Lucas Ferreira",
+        "email": "lucasferreira2030@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "lucasferreira2030@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.350Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.350Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-006F22",
+  "client_identity": {
+    "nom": "Inès Dubois",
+    "email": "inèsdubois2468@test-vagondys.com",
+    "telephone": "0685750937",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-006F22",
+    "created_at": "2026-02-05T20:59:24.248Z",
+    "payload": {
+      "name": "Inès Dubois",
+      "pseudo": "InèsDubois2468",
+      "email": "inèsdubois2468@test-vagondys.com",
+      "phone": "0688981829",
+      "city": "Porto",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Inès Dubois | Email: inèsdubois2468@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.248Z",
+      "details": {
+        "name": "Inès Dubois",
+        "email": "inèsdubois2468@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "inèsdubois2468@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.248Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.248Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

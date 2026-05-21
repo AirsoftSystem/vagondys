@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-968D67",
+  "client_identity": {
+    "nom": "Thomas Rousseau",
+    "email": "thomasrousseau7257@test-vagondys.com",
+    "telephone": "0646049282",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-968D67",
+    "created_at": "2026-02-05T20:59:23.917Z",
+    "payload": {
+      "name": "Thomas Rousseau",
+      "pseudo": "ThomasRousseau7257",
+      "email": "thomasrousseau7257@test-vagondys.com",
+      "phone": "0635027913",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Thomas Rousseau | Email: thomasrousseau7257@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.917Z",
+      "details": {
+        "name": "Thomas Rousseau",
+        "email": "thomasrousseau7257@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "thomasrousseau7257@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.917Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.917Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

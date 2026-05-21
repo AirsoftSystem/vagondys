@@ -1,0 +1,137 @@
+/*
+app/(auth)/espace-joueur/
+│
+├── 📄 page.tsx
+│   ├── Imports: 
+│   │   ├── useWebSocketStats (hooks/)
+│   │   ├── StatsCard, RankCard, PrecisionBar, GlobalProgressBar (components/)
+│   │   ├── WebSocketControl, Notification (components/)
+│   │   ├── ScoreChart, HistoryTable (components/)
+│   │   ├── FullscreenCibles (components/cibles/)
+│   │   └── formatters (utils/)
+│   │
+│   ├── États:
+│   │   ├── loading, player, archive
+│   │   ├── serverIp, autoConnect, showNotification
+│   │   ├── gameStats, showFullscreenCibles
+│   │   └── isConnected (depuis hook)
+│   │
+│   ├── Hooks:
+│   │   └── useWebSocketStats avec callback handleNewGameResult
+│   │
+│   ├── Fonctions:
+│   │   ├── handleNewGameResult (mise à jour Supabase + state)
+│   │   ├── fetchPlayerData (chargement profil)
+│   │   ├── handleLogout
+│   │   └── handleIpChange
+│   │
+│   └── Rendu:
+│       ├── Notification
+│       ├── Header avec WebSocketControl
+│       ├── Grille: RankCard + StatsCard
+│       ├── Grille: PrecisionBar + GlobalProgressBar
+│       ├── Bloc dernière partie (si lastGameResult)
+│       ├── Archive GitHub (si archive)
+│       ├── Section Cibles avec bouton plein écran
+│       ├── FleurCibles (aperçu)
+│       ├── ScoreChart
+│       ├── HistoryTable
+│       └── FullscreenCibles (modal)
+│
+├── 📁 types/
+│   └── 📄 index.ts
+│       ├── interface MatchRecord
+│       ├── interface GameStats
+│       └── interface GameResult
+│
+├── 📁 utils/
+│   └── 📄 formatters.ts
+│       ├── formatSeconds(seconds)
+│       ├── formatDateTime(date)
+│       ├── formatNumber(num)
+│       └── formatPercent(value, total)
+│
+├── 📁 hooks/
+│   └── 📄 useWebSocketStats.ts
+│       ├── Types internes: MatchRecord, WebSocketMessage, CibleStats
+│       ├── Constantes: POINTS_CIBLE_1, POINTS_CIBLES
+│       ├── États: isConnected, socket, currentGameStats, lastGameResult, cibleStats
+│       ├── Ref: gameStatsRef (accumulation partie en cours)
+│       ├── Callbacks: registerTirOnCible, registerTimeoutOnCible
+│       ├── Handlers: handleScoreUpdate, handleTimeout, handleGameStatus
+│       ├── Connexion: connect, disconnect
+│       └── Return: isConnected, currentGameStats, lastGameResult, cibleStats, connect, disconnect
+│
+└── 📁 components/
+    │
+    ├── 📄 StatsCard.tsx
+    │   ├── Props: title, value, subValue, icon, color?, trend?
+    │   └── Dépendances: formatters (formatNumber)
+    │
+    ├── 📄 RankCard.tsx
+    │   ├── Props: rank, stars, maxStars, progress, demotionRule?
+    │   ├── Logique: calcul progressPercent, génération étoiles SVG
+    │   └── Dépendances: formatters (formatPercent)
+    │
+    ├── 📄 PrecisionBar.tsx
+    │   ├── Props: value, seuilBas, seuilHaut, nbTirs, maxTirs?
+    │   ├── Logique: getPrecisionColor(), percent
+    │   └── Style: dégradé linéaire, marqueurs positionnés
+    │
+    ├── 📄 GlobalProgressBar.tsx
+    │   ├── Props: grades, currentGradeId, precisionProgress, currentGradeMaxStars
+    │   ├── Logique: calcul totalStars, starsBefore, completedInGrade, percent
+    │   └── Rendu: barre avec séparateurs de grades
+    │
+    ├── 📄 WebSocketControl.tsx
+    │   ├── Props: isConnected, serverIp, onIpChange, onConnect, onDisconnect
+    │   ├── État local: inputValue
+    │   └── Rendu conditionnel: connecté / déconnecté
+    │
+    ├── 📄 Notification.tsx
+    │   ├── Props: show, result, onClose
+    │   ├── Logique: affichage conditionnel
+    │   └── Dépendances: types (MatchRecord), formatters (formatDateTime)
+    │
+    ├── 📄 ScoreChart.tsx
+    │   ├── Props: history, maxPoints?
+    │   ├── Logique: recentHistory (10 dernières), maxScore, height%
+    │   └── Rendu: barres avec tooltips
+    │
+    ├── 📄 HistoryTable.tsx
+    │   ├── Props: history
+    │   ├── État: expanded
+    │   ├── Logique: displayHistory, calcul highPoints (100+)
+    │   └── Rendu: tableau avec couleurs par zone
+    │
+    └── 📁 cibles/
+        │
+        ├── 📄 types.ts
+        │   ├── interface CibleStats { total, timeouts, perZone }
+        │   ├── interface ZoneColor { bg, text, border }
+        │   ├── const ZONE_COLORS: mapping points → classes Tailwind
+        │   └── const POINTS_CIBLE_1, POINTS_CIBLES
+        │
+        ├── 📄 CibleSimple.tsx
+        │   ├── Props: numero, isSpecial?, zones?, onClick?, size?
+        │   ├── Logique: hasHits (détection activité)
+        │   └── Rendu: cercle avec anneaux, numéro, badge activité
+        │
+        ├── 📄 FleurCibles.tsx
+        │   ├── Props: stats?, onCibleClick?, size?
+        │   ├── Constante: positions (13 positions en %)
+        │   ├── SVG: lignes de connexion entre cibles
+        │   └── Rendu: mapping positions → CibleSimple
+        │
+        ├── 📄 CibleDetail.tsx
+        │   ├── Props: numero, stats, onClose
+        │   ├── Logique: isSpecial, pointsList, totalTirs, timeouts, precision
+        │   └── Rendu: stats globales + liste détaillée des zones
+        │
+        └── 📄 FullscreenCibles.tsx
+            ├── Props: stats, onClose
+            ├── États: selectedCible, zoomMode ('fleur' | 'grille')
+            ├── Logique: switch vue, sélection cible
+            ├── Rendu: barre contrôle + FleurCibles ou grille + CibleDetail (modal)
+            └── Dépendances: FleurCibles, CibleDetail
+*/

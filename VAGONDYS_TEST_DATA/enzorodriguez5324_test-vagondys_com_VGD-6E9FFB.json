@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-6E9FFB",
+  "client_identity": {
+    "nom": "Enzo Rodriguez",
+    "email": "enzorodriguez5324@test-vagondys.com",
+    "telephone": "0699806213",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-6E9FFB",
+    "created_at": "2026-02-05T20:59:24.113Z",
+    "payload": {
+      "name": "Enzo Rodriguez",
+      "pseudo": "EnzoRodriguez5324",
+      "email": "enzorodriguez5324@test-vagondys.com",
+      "phone": "0636884920",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Enzo Rodriguez | Email: enzorodriguez5324@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.113Z",
+      "details": {
+        "name": "Enzo Rodriguez",
+        "email": "enzorodriguez5324@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "enzorodriguez5324@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.113Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.113Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

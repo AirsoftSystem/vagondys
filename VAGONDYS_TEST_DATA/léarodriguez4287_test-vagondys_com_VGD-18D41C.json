@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-18D41C",
+  "client_identity": {
+    "nom": "Léa Rodriguez",
+    "email": "léarodriguez4287@test-vagondys.com",
+    "telephone": "0676508607",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-18D41C",
+    "created_at": "2026-02-05T20:57:37.362Z",
+    "payload": {
+      "name": "Léa Rodriguez",
+      "pseudo": "LéaRodriguez4287",
+      "email": "léarodriguez4287@test-vagondys.com",
+      "phone": "0620365963",
+      "city": "Porto",
+      "country": "Portugal",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Léa Rodriguez | Email: léarodriguez4287@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.362Z",
+      "details": {
+        "name": "Léa Rodriguez",
+        "email": "léarodriguez4287@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "léarodriguez4287@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.362Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.362Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

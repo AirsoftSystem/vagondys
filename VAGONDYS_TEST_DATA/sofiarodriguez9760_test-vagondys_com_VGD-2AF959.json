@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-2AF959",
+  "client_identity": {
+    "nom": "Sofia Rodriguez",
+    "email": "sofiarodriguez9760@test-vagondys.com",
+    "telephone": "0629880602",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-2AF959",
+    "created_at": "2026-02-05T20:59:23.632Z",
+    "payload": {
+      "name": "Sofia Rodriguez",
+      "pseudo": "SofiaRodriguez9760",
+      "email": "sofiarodriguez9760@test-vagondys.com",
+      "phone": "0674817495",
+      "city": "Nantes",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Sofia Rodriguez | Email: sofiarodriguez9760@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.632Z",
+      "details": {
+        "name": "Sofia Rodriguez",
+        "email": "sofiarodriguez9760@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "sofiarodriguez9760@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.632Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.632Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

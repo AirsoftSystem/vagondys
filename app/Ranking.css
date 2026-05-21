@@ -1,0 +1,62 @@
+@reference "./globals.css"; 
+
+.ranking-chart-container {
+  @apply flex items-end h-64 border-b border-zinc-900 px-2 gap-1;
+}
+
+/* Base d'une barre de graphique */
+.chart-bar {
+  @apply flex-1 flex flex-col justify-end items-center transition-all duration-700 ease-out hover:brightness-150 bg-zinc-800 relative;
+  height: 0%; 
+}
+
+/* Texte vertical pour les noms */
+.vertical-text {
+  writing-mode: vertical-rl;
+}
+
+/* --- MAPPING DES HAUTEURS ET COULEURS --- */
+
+/* ÉLITE (EUS) - ROUGE */
+.chart-bar[data-status="EUS"] { @apply bg-red-600; }
+.chart-bar[data-height="95"] { height: 95%; }
+.chart-bar[data-height="88"] { height: 88%; }
+.chart-bar[data-height="82"] { height: 82%; }
+.chart-bar[data-height="78"] { height: 78%; }
+.chart-bar[data-height="70"] { height: 70%; }
+.chart-bar[data-height="68"] { height: 68%; }
+.chart-bar[data-height="65"] { height: 65%; }
+.chart-bar[data-height="62"] { height: 62%; }
+
+/* MASTERS (UMS) - GRIS */
+.chart-bar[data-status="UMS"] { @apply bg-zinc-800; }
+.chart-bar[data-height="58"] { height: 58%; }
+.chart-bar[data-height="55"] { height: 55%; }
+.chart-bar[data-height="52"] { height: 52%; }
+.chart-bar[data-height="48"] { height: 48%; }
+.chart-bar[data-height="45"] { height: 45%; }
+.chart-bar[data-height="40"] { height: 40%; }
+.chart-bar[data-height="35"] { height: 35%; }
+.chart-bar[data-height="20"] { height: 20%; }
+
+/* Effet Outline pour le titre */
+.text-outline {
+  -webkit-text-stroke: 1px #27272a;
+  color: transparent;
+}
+
+/* Barre de progression FMP (Saison Page) */
+.performance-bar-bg {
+  @apply w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden mt-2;
+}
+
+.performance-bar-fill {
+  @apply h-full bg-zinc-700 transition-all duration-1000 ease-out;
+  width: 0%;
+}
+
+.performance-bar-fill[data-width="100"] { width: 100%; @apply bg-red-600; }
+.performance-bar-fill[data-width="90"] { width: 90%; @apply bg-red-600; }
+.performance-bar-fill[data-width="75"] { width: 75%; @apply bg-zinc-400; }
+.performance-bar-fill[data-width="50"] { width: 50%; @apply bg-zinc-600; }
+.performance-bar-fill {width: var(--progress-width, 0%);}

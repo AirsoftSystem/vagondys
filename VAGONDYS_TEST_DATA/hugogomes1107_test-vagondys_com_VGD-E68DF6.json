@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-E68DF6",
+  "client_identity": {
+    "nom": "Hugo Gomes",
+    "email": "hugogomes1107@test-vagondys.com",
+    "telephone": "0637761266",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-E68DF6",
+    "created_at": "2026-02-05T20:59:23.893Z",
+    "payload": {
+      "name": "Hugo Gomes",
+      "pseudo": "HugoGomes1107",
+      "email": "hugogomes1107@test-vagondys.com",
+      "phone": "0672889581",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Hugo Gomes | Email: hugogomes1107@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:23.893Z",
+      "details": {
+        "name": "Hugo Gomes",
+        "email": "hugogomes1107@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "hugogomes1107@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:23.893Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:23.893Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

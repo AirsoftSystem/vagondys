@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-52DCF2",
+  "client_identity": {
+    "nom": "Alejandro Garcia",
+    "email": "alejandrogarcia5734@test-vagondys.com",
+    "telephone": "0623333127",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-52DCF2",
+    "created_at": "2026-02-05T20:59:24.145Z",
+    "payload": {
+      "name": "Alejandro Garcia",
+      "pseudo": "AlejandroGarcia5734",
+      "email": "alejandrogarcia5734@test-vagondys.com",
+      "phone": "0686003036",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Alejandro Garcia | Email: alejandrogarcia5734@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.145Z",
+      "details": {
+        "name": "Alejandro Garcia",
+        "email": "alejandrogarcia5734@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "alejandrogarcia5734@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.145Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.145Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

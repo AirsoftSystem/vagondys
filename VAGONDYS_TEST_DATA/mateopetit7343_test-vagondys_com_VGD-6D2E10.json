@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-6D2E10",
+  "client_identity": {
+    "nom": "Mateo Petit",
+    "email": "mateopetit7343@test-vagondys.com",
+    "telephone": "0666294343",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-6D2E10",
+    "created_at": "2026-02-05T20:57:37.086Z",
+    "payload": {
+      "name": "Mateo Petit",
+      "pseudo": "MateoPetit7343",
+      "email": "mateopetit7343@test-vagondys.com",
+      "phone": "0621300406",
+      "city": "Paris",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Mateo Petit | Email: mateopetit7343@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.086Z",
+      "details": {
+        "name": "Mateo Petit",
+        "email": "mateopetit7343@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "mateopetit7343@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.086Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.086Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

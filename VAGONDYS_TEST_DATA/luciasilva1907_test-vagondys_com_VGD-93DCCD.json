@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-93DCCD",
+  "client_identity": {
+    "nom": "Lucia Silva",
+    "email": "luciasilva1907@test-vagondys.com",
+    "telephone": "0668223825",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-93DCCD",
+    "created_at": "2026-02-05T20:59:24.150Z",
+    "payload": {
+      "name": "Lucia Silva",
+      "pseudo": "LuciaSilva1907",
+      "email": "luciasilva1907@test-vagondys.com",
+      "phone": "0677520012",
+      "city": "Barcelone",
+      "country": "Espagne",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Silva | Email: luciasilva1907@test-vagondys.com",
+      "created_at": "2026-02-05T20:59:24.150Z",
+      "details": {
+        "name": "Lucia Silva",
+        "email": "luciasilva1907@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciasilva1907@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:59:24.150Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:59:24.150Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-1EA9B7",
+  "client_identity": {
+    "nom": "Chloé Dubois",
+    "email": "chloédubois5601@test-vagondys.com",
+    "telephone": "0617893520",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-1EA9B7",
+    "created_at": "2026-02-05T20:57:37.058Z",
+    "payload": {
+      "name": "Chloé Dubois",
+      "pseudo": "ChloéDubois5601",
+      "email": "chloédubois5601@test-vagondys.com",
+      "phone": "0653480956",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Chloé Dubois | Email: chloédubois5601@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.058Z",
+      "details": {
+        "name": "Chloé Dubois",
+        "email": "chloédubois5601@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "chloédubois5601@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.058Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.058Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}

@@ -1,0 +1,48 @@
+{
+  "reference": "VGD-611DE7",
+  "client_identity": {
+    "nom": "Lucia Martinez",
+    "email": "luciamartinez1098@test-vagondys.com",
+    "telephone": "0656634401",
+    "sujet": "ENRÔLEMENT ATHLÈTE"
+  },
+  "dossier_complet": {
+    "dossier_ref": "VGD-611DE7",
+    "created_at": "2026-02-05T20:57:37.039Z",
+    "payload": {
+      "name": "Lucia Martinez",
+      "pseudo": "LuciaMartinez1098",
+      "email": "luciamartinez1098@test-vagondys.com",
+      "phone": "0621714051",
+      "city": "Bordeaux",
+      "country": "France",
+      "subject": "ENRÔLEMENT ATHLÈTE",
+      "password_virtuel": "Test1234#",
+      "message": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS."
+    }
+  },
+  "echanges_staff": [],
+  "fil_de_discussion": [
+    {
+      "role": "CLIENT_CONTACT_INFO",
+      "sender": "SYSTEM",
+      "content": "Fiche Contact : Lucia Martinez | Email: luciamartinez1098@test-vagondys.com",
+      "created_at": "2026-02-05T20:57:37.039Z",
+      "details": {
+        "name": "Lucia Martinez",
+        "email": "luciamartinez1098@test-vagondys.com",
+        "subject": "ENRÔLEMENT ATHLÈTE"
+      }
+    },
+    {
+      "role": "public",
+      "sender": "luciamartinez1098@test-vagondys.com",
+      "is_initial": true,
+      "content": "FÉLICITATIONS : VOTRE COMPTE EST DÉSORMAIS ACTIF. BIENVENUE CHEZ VAGONDYS.",
+      "created_at": "2026-02-05T20:57:37.039Z"
+    }
+  ],
+  "date_archivage": "2026-02-05T20:57:37.039Z",
+  "archive_by": "VAGONDYS_AUTO_SYSTEM",
+  "security_version": "1.4"
+}
