@@ -324,8 +324,12 @@ export function useDashboardData(
     }
   }, [supabaseClient, userCity, userEmail]);
 
+  // ✅ CORRECTION: Appel asynchrone dans l'effet pour éviter l'erreur ESLint
   useEffect(() => {
-    fetchDashboardData();
+    const loadData = async () => {
+      await fetchDashboardData();
+    };
+    loadData();
   }, [fetchDashboardData]);
 
   // Realtime subscriptions (uniquement sur STAFF, car PUBLIC n'a pas RLS pour les écritures STAFF)
