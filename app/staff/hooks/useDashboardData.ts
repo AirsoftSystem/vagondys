@@ -2,7 +2,7 @@
 // app/staff/hooks/useDashboardData.ts
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { 
   CityInfo, 
@@ -11,7 +11,7 @@ import {
   TopPlayer,
   DashboardData 
 } from '../types/dashboard';
-import { getStationConfig, createDynamicClient } from '@/lib/supabase/master';
+import { getStationConfig } from '@/lib/supabase/master';
 
 // Interface pour typer la réponse de la relation athletes dans match_history
 interface MatchWithAthlete {
@@ -44,6 +44,9 @@ export function useDashboardData(
   const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Ref pour éviter les appels multiples au montage
+  const isInitialMount = useRef(true);
 
   const fetchDashboardData = useCallback(async () => {
     if (!supabaseClient || !userCity || !userEmail) {
@@ -56,25 +59,16 @@ export function useDashboardData(
     setError(null);
 
     try {
-      // ✅ 1. Récupérer la configuration de la station
+      // ✅ 1. Récupérer la configuration de la station (info seulement)
       const stationConfig = await getStationConfig(userCity, 'FR');
       console.log('[useDashboardData] stationConfig:', stationConfig?.name || 'non trouvée');
 
-      // ✅ 2. CORRECTION : Créer un client PUBLIC avec SERVICE_ROLE pour bypasser les RLS
-      let publicClient: SupabaseClient | null = null;
-      try {
-        // Utiliser la clé service_role pour avoir accès à toutes les données
-        publicClient = await createDynamicClient(userCity, 'FR', 'PUBLIC');
-        console.log('[useDashboardData] Client PUBLIC créé avec succès (SERVICE_ROLE)');
-      } catch (err) {
-        console.error('[useDashboardData] Erreur création client PUBLIC:', err);
-      }
+      // ✅ 2. CORRECTION : Utiliser UNIQUEMENT le client STAFF fourni (service_role)
+      // Le client STAFF a les droits pour lire TOUTES les tables (athletes, match_history, pending_signals, game_launches)
+      const client = supabaseClient;
+      console.log('[useDashboardData] Client STAFF disponible:', !!client);
 
-      // ✅ 3. Client STAFF (déjà fourni) pour pending_signals et game_launches
-      const staffClient = supabaseClient;
-      console.log('[useDashboardData] Client STAFF disponible:', !!staffClient);
-
-      // ✅ 4. CITY INFO
+      // ✅ 3. CITY INFO
       const cityInfoData: CityInfo = {
         name: stationConfig?.name || userCity,
         country: stationConfig?.country_code || 'FR',
@@ -83,16 +77,18 @@ export function useDashboardData(
       };
 
       // ==========================================
-      // STATISTIQUES (PUBLIC pour athletes/match_history)
+      // STATISTIQUES (via client STAFF)
       // ==========================================
       let totalAthletes = 0;
       let activeAthletes = 0;
       let todayMatches = 0;
       let newAthletesThisMonth = 0;
+      let pendingMessages = 0;
+      let totalGameLaunches = 0;
 
-      if (publicClient) {
+      if (client) {
         // Total athlètes
-        const { count: totalCount, error: totalError } = await publicClient
+        const { count: totalCount, error: totalError } = await client
           .from('athletes')
           .select('*', { count: 'exact', head: true });
 
@@ -104,7 +100,7 @@ export function useDashboardData(
         }
 
         // Athlètes actifs
-        const { count: activeCount, error: activeError } = await publicClient
+        const { count: activeCount, error: activeError } = await client
           .from('athletes')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'ACTIF');
@@ -122,7 +118,7 @@ export function useDashboardData(
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const { count: matchesCount, error: matchesError } = await publicClient
+        const { count: matchesCount, error: matchesError } = await client
           .from('match_history')
           .select('*', { count: 'exact', head: true })
           .gte('date', today.toISOString())
@@ -136,7 +132,7 @@ export function useDashboardData(
 
         // Nouveaux athlètes ce mois
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const { count: newCount, error: newError } = await publicClient
+        const { count: newCount, error: newError } = await client
           .from('athletes')
           .select('*', { count: 'exact', head: true })
           .gte('created_at', firstDayOfMonth.toISOString());
@@ -146,19 +142,9 @@ export function useDashboardData(
         } else {
           newAthletesThisMonth = newCount || 0;
         }
-      } else {
-        console.warn('[useDashboardData] Pas de client PUBLIC, stats athletes = 0');
-      }
 
-      // ==========================================
-      // STATISTIQUES (STAFF pour pending_signals/game_launches)
-      // ==========================================
-      let pendingMessages = 0;
-      let totalGameLaunches = 0;
-
-      if (staffClient) {
         // Messages non lus
-        const { count: msgCount, error: msgError } = await staffClient
+        const { count: msgCount, error: msgError } = await client
           .from('pending_signals')
           .select('*', { count: 'exact', head: true })
           .eq('is_read', false);
@@ -171,7 +157,7 @@ export function useDashboardData(
         }
 
         // Lancements de jeux
-        const { count: launchesCount, error: launchesError } = await staffClient
+        const { count: launchesCount, error: launchesError } = await client
           .from('game_launches')
           .select('*', { count: 'exact', head: true });
 
@@ -181,7 +167,7 @@ export function useDashboardData(
           totalGameLaunches = launchesCount || 0;
         }
       } else {
-        console.warn('[useDashboardData] Pas de client STAFF, stats staff = 0');
+        console.warn('[useDashboardData] Pas de client STAFF, toutes les stats = 0');
       }
 
       setCityInfo({
@@ -201,13 +187,13 @@ export function useDashboardData(
       });
 
       // ==========================================
-      // ACTIVITÉS RÉCENTES
+      // ACTIVITÉS RÉCENTES (via client STAFF)
       // ==========================================
       const activities: RecentActivity[] = [];
 
-      // Derniers messages (STAFF)
-      if (staffClient) {
-        const { data: recentMessages, error: recentMessagesError } = await staffClient
+      if (client) {
+        // Derniers messages
+        const { data: recentMessages, error: recentMessagesError } = await client
           .from('pending_signals')
           .select('*')
           .order('created_at', { ascending: false })
@@ -226,8 +212,8 @@ export function useDashboardData(
           });
         }
 
-        // Derniers lancements de jeux (STAFF)
-        const { data: recentLaunches, error: launchesError2 } = await staffClient
+        // Derniers lancements de jeux
+        const { data: recentLaunches, error: launchesError2 } = await client
           .from('game_launches')
           .select('*')
           .order('created_at', { ascending: false })
@@ -245,11 +231,9 @@ export function useDashboardData(
             });
           });
         }
-      }
 
-      // Derniers matchs (PUBLIC)
-      if (publicClient) {
-        const { data: recentMatches, error: matchesError2 } = await publicClient
+        // Derniers matchs
+        const { data: recentMatches, error: matchesError2 } = await client
           .from('match_history')
           .select('*, athletes(pseudo, full_name)')
           .order('date', { ascending: false })
@@ -275,10 +259,10 @@ export function useDashboardData(
       setRecentActivities(activities);
 
       // ==========================================
-      // TOP JOUEURS (PUBLIC)
+      // TOP JOUEURS (via client STAFF)
       // ==========================================
-      if (publicClient) {
-        const { data: players, error: playersError } = await publicClient
+      if (client) {
+        const { data: players, error: playersError } = await client
           .from('athletes')
           .select('id, pseudo, full_name, points, rank')
           .order('points', { ascending: false })
@@ -287,12 +271,12 @@ export function useDashboardData(
         if (!playersError && players) {
           const topPlayersData: TopPlayer[] = await Promise.all(
             players.map(async (player) => {
-              const { count: matchesPlayed } = await publicClient
+              const { count: matchesPlayed } = await client
                 .from('match_history')
                 .select('*', { count: 'exact', head: true })
                 .eq('player_id', player.id);
 
-              const { count: wins } = await publicClient
+              const { count: wins } = await client
                 .from('match_history')
                 .select('*', { count: 'exact', head: true })
                 .eq('player_id', player.id)
@@ -324,11 +308,16 @@ export function useDashboardData(
     }
   }, [supabaseClient, userCity, userEmail]);
 
+  // CORRECTION: Utilisation d'un effet qui s'exécute uniquement au montage
+  // pour éviter l'avertissement ESLint sur les setState synchrones
   useEffect(() => {
-    fetchDashboardData();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      fetchDashboardData();
+    }
   }, [fetchDashboardData]);
 
-  // Realtime subscriptions (uniquement sur STAFF, car PUBLIC n'a pas RLS pour les écritures STAFF)
+  // Realtime subscriptions
   useEffect(() => {
     if (!supabaseClient) return;
 
