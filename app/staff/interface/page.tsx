@@ -102,8 +102,9 @@ export default function StaffMessagesPage() {
   const loadingRef = useRef(false);
   const viewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Charger les données depuis le localStorage au démarrage
+  // ✅ Charger les données depuis le localStorage au démarrage (UNIQUEMENT côté client)
   const loadFromCache = useCallback(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const cachedData = localStorage.getItem(STORAGE_KEYS.MESSAGES_CACHE);
       const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
@@ -125,8 +126,9 @@ export default function StaffMessagesPage() {
     return false;
   }, [view, userEmail]);
 
-  // ✅ Sauvegarder les données dans le localStorage
+  // ✅ Sauvegarder les données dans le localStorage (UNIQUEMENT côté client)
   const saveToCache = useCallback((messagesToSave: SignalMessage[]) => {
+    if (typeof window === 'undefined') return;
     try {
       const cacheData = {
         messages: messagesToSave,
@@ -145,8 +147,8 @@ export default function StaffMessagesPage() {
   const loadMessages = useCallback(async (forceRefresh: boolean = false) => {
     if (!userEmail || loadingRef.current) return;
     
-    // Essayer le cache d'abord
-    if (!forceRefresh && loadFromCache()) {
+    // Essayer le cache d'abord (uniquement côté client)
+    if (!forceRefresh && typeof window !== 'undefined' && loadFromCache()) {
       setLoading(false);
     }
     
@@ -160,7 +162,9 @@ export default function StaffMessagesPage() {
       if (response.ok && isMounted.current) {
         const newMessages = result.messages || [];
         setMessages(newMessages);
-        saveToCache(newMessages);
+        if (typeof window !== 'undefined') {
+          saveToCache(newMessages);
+        }
       } else {
         throw new Error(result.error || "Erreur chargement des messages");
       }
@@ -184,19 +188,20 @@ export default function StaffMessagesPage() {
       setError(null);
       
       try {
-        // 1. Essayer de charger la ville depuis le localStorage
-        const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
-        if (cachedCity) {
-          const { city, country, email, timestamp } = JSON.parse(cachedCity);
-          const age = Date.now() - timestamp;
-          if (age < CACHE_DURATION && city && email) {
-            setUserEmail(email);
-            setUserCity(city);
-            setUserCountry(country || "FR");
-            console.log(`📍 Ville depuis cache: ${city}`);
-            // Charger les messages en parallèle
-            await loadMessages(false);
-            return;
+        // 1. Essayer de charger la ville depuis le localStorage (UNIQUEMENT côté client)
+        if (typeof window !== 'undefined') {
+          const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
+          if (cachedCity) {
+            const { city, country, email, timestamp } = JSON.parse(cachedCity);
+            const age = Date.now() - timestamp;
+            if (age < CACHE_DURATION && city && email) {
+              setUserEmail(email);
+              setUserCity(city);
+              setUserCountry(country || "FR");
+              console.log(`📍 Ville depuis cache: ${city}`);
+              await loadMessages(false);
+              return;
+            }
           }
         }
         
@@ -207,10 +212,12 @@ export default function StaffMessagesPage() {
           if (city) {
             setUserCity(city);
             setUserCountry(country || "FR");
-            // Sauvegarder la ville dans localStorage
-            localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
-              city, country, email, timestamp: Date.now()
-            }));
+            // Sauvegarder la ville dans localStorage (UNIQUEMENT côté client)
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
+                city, country, email, timestamp: Date.now()
+              }));
+            }
           }
         }
         
@@ -376,8 +383,10 @@ export default function StaffMessagesPage() {
         (m.payload.email !== secureEmail)
       ));
       
-      // Invalider le cache
-      localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+      // Invalider le cache (UNIQUEMENT côté client)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+      }
       
     } catch (err: unknown) {
       console.error("Erreur lors du marquage comme lu:", err);
@@ -424,8 +433,10 @@ export default function StaffMessagesPage() {
         setReplyingTo(null);
         alert(result.message || "Sécurisation et purge réussies.");
         
-        // Invalider le cache
-        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+        // Invalider le cache (UNIQUEMENT côté client)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+        }
       } else {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
@@ -489,8 +500,10 @@ export default function StaffMessagesPage() {
         ));
       }
       
-      // Invalider le cache
-      localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+      // Invalider le cache (UNIQUEMENT côté client)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
+      }
       
       window.dispatchEvent(new CustomEvent('staff-message-updated'));
       

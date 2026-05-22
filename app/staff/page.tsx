@@ -51,8 +51,9 @@ export default function StaffDashboard() {
   const isMounted = useRef(true);
   const loadingCountersRef = useRef(false);
 
-  // ✅ Charger les compteurs depuis le cache
+  // ✅ Charger les compteurs depuis le cache (UNIQUEMENT côté client)
   const loadCountersFromCache = useCallback(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const cachedData = localStorage.getItem(STORAGE_KEYS.COUNTERS_CACHE);
       const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
@@ -73,8 +74,9 @@ export default function StaffDashboard() {
     return false;
   }, []);
 
-  // ✅ Sauvegarder les compteurs dans le cache
+  // ✅ Sauvegarder les compteurs dans le cache (UNIQUEMENT côté client)
   const saveCountersToCache = useCallback((unread: number, newAthletes: number) => {
+    if (typeof window === 'undefined') return;
     try {
       const cacheData = {
         unread,
@@ -172,30 +174,32 @@ export default function StaffDashboard() {
       setIsLoading(true);
       
       try {
-        // ✅ Essayer de charger depuis le cache localStorage
-        const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
-        if (cachedCity) {
-          const { city, country, email, timestamp } = JSON.parse(cachedCity);
-          const age = Date.now() - timestamp;
-          if (age < CACHE_DURATION && city && email) {
-            console.log(`📍 Ville depuis cache: ${city} (${Math.round(age / 1000)}s)`);
-            setUserEmail(email);
-            setUserCity(city);
-            setUserCountry(country || "FR");
-            
-            // Charger les compteurs depuis le cache aussi
-            loadCountersFromCache();
-            
-            // Créer le client Supabase
-            const config = await getStaffConfig(city, country || 'FR');
-            if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
-              const { createClient } = await import('@supabase/supabase-js');
-              const client = createClient(config.staff_url, config.staff_anon_key);
-              setSupabaseClient(client);
+        // ✅ Essayer de charger depuis le cache localStorage (UNIQUEMENT côté client)
+        if (typeof window !== 'undefined') {
+          const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
+          if (cachedCity) {
+            const { city, country, email, timestamp } = JSON.parse(cachedCity);
+            const age = Date.now() - timestamp;
+            if (age < CACHE_DURATION && city && email) {
+              console.log(`📍 Ville depuis cache: ${city} (${Math.round(age / 1000)}s)`);
+              setUserEmail(email);
+              setUserCity(city);
+              setUserCountry(country || "FR");
+              
+              // Charger les compteurs depuis le cache aussi
+              loadCountersFromCache();
+              
+              // Créer le client Supabase
+              const config = await getStaffConfig(city, country || 'FR');
+              if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
+                const { createClient } = await import('@supabase/supabase-js');
+                const client = createClient(config.staff_url, config.staff_anon_key);
+                setSupabaseClient(client);
+              }
+              
+              setIsLoading(false);
+              return;
             }
-            
-            setIsLoading(false);
-            return;
           }
         }
         
@@ -208,10 +212,12 @@ export default function StaffDashboard() {
             setUserCity(city);
             setUserCountry(country || "FR");
             
-            // Sauvegarder la ville dans localStorage
-            localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
-              city, country, email, timestamp: Date.now()
-            }));
+            // Sauvegarder la ville dans localStorage (UNIQUEMENT côté client)
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
+                city, country, email, timestamp: Date.now()
+              }));
+            }
           }
           
           // Créer le client Supabase
@@ -276,10 +282,12 @@ export default function StaffDashboard() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
       );
       await masterClient.auth.signOut();
-      // Nettoyer le cache localStorage
-      localStorage.removeItem(STORAGE_KEYS.CITY_CACHE);
-      localStorage.removeItem(STORAGE_KEYS.COUNTERS_CACHE);
-      localStorage.removeItem(STORAGE_KEYS.CACHE_TIMESTAMP);
+      // Nettoyer le cache localStorage (UNIQUEMENT côté client)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.CITY_CACHE);
+        localStorage.removeItem(STORAGE_KEYS.COUNTERS_CACHE);
+        localStorage.removeItem(STORAGE_KEYS.CACHE_TIMESTAMP);
+      }
     } catch (err) {
       console.error('Erreur déconnexion:', err);
     }
