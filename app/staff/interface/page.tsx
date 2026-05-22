@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { createStaffClient, fetchGitHubArchive } from "@/lib/supabase/client";
+import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { getStaffCity } from "@/actions/staff-actions";
 import { 
   Mail, Phone, Clock,
@@ -52,15 +52,17 @@ interface GitHubArchiveData {
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
-  // ✅ DYNAMIQUE : Client Supabase créé après détection de la ville
-  const [supabase, setSupabase] = useState<ReturnType<typeof createStaffClient> | null>(null);
-  const [userCity, setUserCity] = useState<string | null>(null);
-  const [userCountry, setUserCountry] = useState<string | null>(null);
+  // États principaux
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [view, setView] = useState<"pending" | "archived">("pending"); 
+  const [userCity, setUserCity] = useState<string | null>(null);
+  const [userCountry, setUserCountry] = useState<string | null>(null);
+  const [view, setView] = useState<"pending" | "archived">("pending");
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
+  
+  // États pour l'historique et les réponses
   const [replyingTo, setReplyingTo] = useState<SignalMessage | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [documentLink, setDocumentLink] = useState("");
@@ -69,7 +71,7 @@ export default function StaffMessagesPage() {
   const [isMarkingRead, setIsMarkingRead] = useState<string | null>(null);
   const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [linkedDossiers, setLinkedDossiers] = useState<string[]>([]); 
+  const [linkedDossiers, setLinkedDossiers] = useState<string[]>([]);
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
@@ -77,59 +79,57 @@ export default function StaffMessagesPage() {
   // Ref pour éviter les appels après démontage
   const isMounted = useRef(true);
 
-  // ✅ DIAGNOSTIC : Vérification des variables d'environnement STAFF
+  // Chargement des informations de l'agent et des messages via l'API
   useEffect(() => {
-    console.log("🔍 DIAGNOSTIC - Variables STAFF:");
-    console.log("  - NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF:", process.env.NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF);
-    console.log("  - NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF?.substring(0, 30) + "...");
-    console.log("  - NEXT_PUBLIC_SUPABASE_URL_MASTER:", process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER);
-  }, []);
-
-  // ✅ RÉCUPÉRATION DE LA VILLE DE L'AGENT (DYNAMIQUE)
-  useEffect(() => {
-    const loadStaffInfo = async () => {
-      const { city, country, email } = await getStaffCity();
-      if (isMounted.current) {
-        setUserEmail(email);
-        if (city) {
-          setUserCity(city);
-          setUserCountry(country || "FR");
-          console.log(`📍 Station détectée: ${city} (${country}) pour ${email}`);
-          
-          // ✅ DIAGNOSTIC : Tester la connexion directe à la base STAFF
-          const expectedUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${country}_${city}_STAFF`];
-          console.log(`🔍 URL attendue pour ${country}_${city}_STAFF:`, expectedUrl);
-          
-          // Création du client STAFF pour cette ville
-          const client = createStaffClient(city, country || "FR");
-          setSupabase(client);
-          
-          // ✅ DIAGNOSTIC : Tester la connexion avec une requête simple
-          if (client) {
-            try {
-              const { data, error } = await client.from('pending_signals').select('count', { count: 'exact', head: true });
-              console.log(`🔍 Test connexion STAFF - count: ${data}, error:`, error?.message || "aucune");
-            } catch (err) {
-              console.error("❌ Test connexion STAFF échoué:", err);
-            }
+    const loadStaffAndMessages = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // 1. Récupérer les infos de l'agent
+        const { city, country, email } = await getStaffCity();
+        if (isMounted.current) {
+          setUserEmail(email);
+          if (city) {
+            setUserCity(city);
+            setUserCountry(country || "FR");
+            console.log(`📍 Station détectée: ${city} (${country || "FR"}) pour ${email}`);
           }
         }
+        
+        // 2. Appeler l'API pour les messages
+        const response = await fetch(`/api/staff/pending-signals?view=${view}`);
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || "Erreur chargement des messages");
+        }
+        
+        console.log(`📦 Messages reçus via API: ${result.messages?.length || 0} pour ${result.city || city}`);
+        if (isMounted.current) {
+          setMessages(result.messages || []);
+        }
+      } catch (err) {
+        console.error("❌ Erreur chargement:", err);
+        if (isMounted.current) {
+          setError(err instanceof Error ? err.message : "Erreur inconnue");
+        }
+      } finally {
+        if (isMounted.current) setLoading(false);
       }
     };
-    loadStaffInfo();
+    
+    loadStaffAndMessages();
     
     return () => { isMounted.current = false; };
-  }, []);
+  }, [view]);
 
   // --- LOGIQUE DE REGROUPEMENT POUR ÉVITER LES DOUBLONS DANS L'INTERFACE ---
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
     
     messages.forEach(msg => {
-      // Priorité à la référence de dossier, sinon email
       const key = msg.dossier_ref || msg.payload.email;
-      
-      // On garde l'instance la plus récente pour chaque dossier/email
       if (!groups[key] || new Date(msg.created_at) > new Date(groups[key].created_at)) {
         groups[key] = msg;
       }
@@ -145,186 +145,64 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  const handleExternalSearch = async () => {
-    if (!searchRef.trim()) return;
-    setIsSearchingExternal(true);
-    setGithubArchive(null);    
-    const archivedData = await fetchGitHubArchive(searchRef.trim().toUpperCase());   
-    if (archivedData) {
-      const mockMsg: SignalMessage = {
-        ...archivedData.dossier,
-        id: `archived-${archivedData.dossier.dossier_ref}`
-      };      
-      const formattedHistory: HistoryMessage[] = (archivedData.echanges_staff || []).map(h => ({
-        ...h,
-        document_url: h.document_url || null
-      }));
-      setHistoryMessages(formattedHistory);
-      setGithubArchive(archivedData);
-      setReplyingTo(mockMsg);
-    } else {
-      alert("Aucune archive trouvée pour cette référence dans le coffre-fort.");
-    }
-    setIsSearchingExternal(false);
-  };
-
+  // Récupération de l'historique (via l'API archive-external)
   const fetchHistoryAndLinks = useCallback(async (ref: string, email: string) => {
-    if (!ref || !supabase) return;
+    if (!ref) return;
     setLoadingHistory(true);
     setGithubArchive(null);
     
     try {
-      // 1. Récupérer l'historique des réponses de l'agent
-      const { data: historyData } = await supabase
-        .from('communication_replies')
-        .select('*')
-        .eq('dossier_ref', ref)
-        .order('created_at', { ascending: true });
-
-      // 2. Récupérer TOUS les messages originaux du client pour ce dossier
-      const { data: clientMessages } = await supabase
-        .from('pending_signals')
-        .select('*')
-        .eq('dossier_ref', ref)
-        .order('created_at', { ascending: true });
-
-      const archivedData = await fetchGitHubArchive(ref);    
+      const archivedData = await fetchGitHubArchive(ref);
       
-      // Transformation en format HistoryMessage
-      const clientHistory: HistoryMessage[] = (clientMessages || []).map(m => ({
-          id: m.id,
-          created_at: m.created_at,
-          agent_email: "CLIENT",
-          content: m.payload.message,
-          dossier_ref: m.dossier_ref || "",
-          document_url: null
-      }));
-
-      let combinedHistory: HistoryMessage[] = [
-          ...clientHistory,
-          ...(historyData || []).map(h => ({ ...h, document_url: h.document_url || null }))
-      ];
-
       if (archivedData && archivedData.echanges_staff) {
-          setGithubArchive(archivedData);
-          const archivedHistory: HistoryMessage[] = archivedData.echanges_staff.map(h => ({
-              ...h,
-              document_url: h.document_url || null
-          }));
-          combinedHistory = [...archivedHistory, ...combinedHistory];
+        setGithubArchive(archivedData);
+        const formattedHistory: HistoryMessage[] = archivedData.echanges_staff.map(h => ({
+          ...h,
+          document_url: h.document_url || null
+        }));
+        setHistoryMessages(formattedHistory);
+      } else {
+        setHistoryMessages([]);
       }
-
-      // Filtrage par ID unique
-      const uniqueHistory = Array.from(
-        new Map(combinedHistory.map(item => [item.id, item])).values()
-      );
-
-      uniqueHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-      const { data: linkedData } = await supabase
-        .from('pending_signals')
-        .select('dossier_ref')
-        .eq('payload->>email', email.toLowerCase())
-        .neq('dossier_ref', ref);
-
-      if (isMounted.current) {
-        setHistoryMessages(uniqueHistory);
-        const uniqueRefs = Array.from(new Set(linkedData?.map(d => d.dossier_ref).filter(Boolean)));
-        setLinkedDossiers(uniqueRefs as string[]);
-      }
+      
+      // Simulation de dossiers liés (à améliorer avec une API dédiée)
+      setLinkedDossiers([]);
     } catch (err) {
       console.error("Erreur historique:", err);
     } finally {
-      if (isMounted.current) setLoadingHistory(false);
+      setLoadingHistory(false);
     }
-  }, [supabase]);
+  }, []);
 
-  // ✅ Fonction de chargement des messages (sans setLoading à l'intérieur)
-  const loadMessages = useCallback(async (email: string) => {
-    if (!supabase || !isMounted.current) {
-      console.log("⏳ Supabase pas encore initialisé ou composant démonté");
-      return;
-    }
-    
-    console.log(`🔍 Chargement des messages pour ${email} (${userCity}), vue: ${view}`);
-    // Affichage de l'URL Supabase utilisée (sans 'any')
-    console.log(`🔍 Client Supabase initialisé:`, supabase ? "oui" : "non");
+  const handleExternalSearch = async () => {
+    if (!searchRef.trim()) return;
+    setIsSearchingExternal(true);
+    setGithubArchive(null);
     
     try {
-      let query = supabase
-        .from('pending_signals')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (view === "pending") {
-        query = query.eq('is_read', false);
+      const archivedData = await fetchGitHubArchive(searchRef.trim().toUpperCase());
+      if (archivedData) {
+        const mockMsg: SignalMessage = {
+          ...archivedData.dossier,
+          id: `archived-${archivedData.dossier.dossier_ref}`
+        };
+        const formattedHistory: HistoryMessage[] = (archivedData.echanges_staff || []).map(h => ({
+          ...h,
+          document_url: h.document_url || null
+        }));
+        setHistoryMessages(formattedHistory);
+        setGithubArchive(archivedData);
+        setReplyingTo(mockMsg);
       } else {
-        query = query.eq('is_read', true);
+        alert("Aucune archive trouvée pour cette référence dans le coffre-fort.");
       }
-      
-      // Forcer confirmed = true
-      query = query.eq('confirmed', true);
-
-      const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
-      if (!admins.includes(email.toLowerCase())) {
-        let keyword = "";
-        const lowerEmail = email.toLowerCase();
-        if (lowerEmail.includes("communication")) keyword = "communication";
-        else if (lowerEmail.includes("sponsors")) keyword = "sponsor";
-        else if (lowerEmail.includes("ligue")) keyword = "ligue";
-        else if (lowerEmail.includes("competition")) keyword = "competition";
-        else if (lowerEmail.includes("tournois")) keyword = "tournoi";
-        else if (lowerEmail.includes("player")) keyword = "player";
-        else if (lowerEmail.includes("licence")) keyword = "licence";
-        else if (lowerEmail.includes("reservations")) keyword = "reservation";
-        else if (lowerEmail.includes(userCity?.toLowerCase() || "")) keyword = userCity?.toLowerCase() || "";
-
-        if (keyword) {
-          query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
-        }
-      }
-
-      console.log("📝 Requête SQL construite");
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      console.log(`📦 Données reçues: ${data?.length || 0} messages`);
-      if (isMounted.current) setMessages(data || []);
     } catch (err) {
-      console.error("❌ Erreur chargement messages:", err);
+      console.error(err);
+      alert("Erreur lors de la recherche d'archive.");
+    } finally {
+      setIsSearchingExternal(false);
     }
-  }, [supabase, view, userCity]);
-
-  // ✅ Chargement initial des messages (avec gestion du loading)
-  useEffect(() => {
-    let isActive = true;
-    
-    const initLoading = async () => {
-      if (supabase && userEmail && isActive) {
-        setLoading(true);
-        await loadMessages(userEmail);
-        if (isActive) setLoading(false);
-      }
-    };
-    
-    initLoading();
-    
-    return () => { isActive = false; };
-  }, [supabase, userEmail, loadMessages]);
-
-  // ✅ TEMPS RÉEL (uniquement si supabase est initialisé)
-  useEffect(() => {
-    if (!userEmail || !supabase) return;
-    
-    const channel = supabase
-      .channel('realtime_staff_messages')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_signals' }, () => {
-          loadMessages(userEmail);
-      })
-      .subscribe();
-      
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase, userEmail, loadMessages]);
+  };
 
   const handleMarkAsReadSilent = async (msg: SignalMessage) => {
     if (isMarkingRead || !userEmail) return;
@@ -337,7 +215,7 @@ export default function StaffMessagesPage() {
       return;
     }
 
-    setIsMarkingRead(msg.id);    
+    setIsMarkingRead(msg.id);
     
     try {
       const response = await fetch('/api/notify-read', {
@@ -376,7 +254,7 @@ export default function StaffMessagesPage() {
   };
 
   const handleDeepArchive = async (msg: SignalMessage) => {
-    if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;    
+    if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;
     
     setIsArchiving(msg.id);
     
@@ -416,9 +294,9 @@ export default function StaffMessagesPage() {
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyingTo || !replyContent || !userEmail) return;
-    setIsSending(true);    
+    setIsSending(true);
     
-    const sharedId = self.crypto.randomUUID(); 
+    const sharedId = self.crypto.randomUUID();
     const cleanContentForDB = replyContent;
     const fullEmailContent = `${replyContent}\n\n---\nPour répondre à ce message ou nous recontacter, merci d'utiliser notre formulaire officiel :\nhttps://vagondys.com/contact?ref=${replyingTo.dossier_ref}`;
 
@@ -431,24 +309,24 @@ export default function StaffMessagesPage() {
           messageId: replyingTo.id,
           to: replyingTo.payload.email,
           subject: replyingTo.payload.subject,
-          message: fullEmailContent, 
-          dbContent: cleanContentForDB, 
+          message: fullEmailContent,
+          dbContent: cleanContentForDB,
           agentEmail: userEmail,
           docLink: documentLink,
           dossierRef: replyingTo.dossier_ref,
           cityCode: userCity,
-          silent: false 
+          silent: false
         }),
       });
 
       if (response.ok) {
         setReplyContent("");
         setDocumentLink("");
-        setReplyingTo(null);        
+        setReplyingTo(null);
         
-        if(view === "pending") {
-            setMessages(prev => prev.filter(m => (m.dossier_ref || m.payload.email) !== (replyingTo.dossier_ref || replyingTo.payload.email)));
-        }        
+        if (view === "pending") {
+          setMessages(prev => prev.filter(m => (m.dossier_ref || m.payload.email) !== (replyingTo.dossier_ref || replyingTo.payload.email)));
+        }
         alert("Réponse transmise avec succès.");
       } else {
         alert("Erreur lors de l'envoi de la réponse.");
@@ -513,6 +391,17 @@ export default function StaffMessagesPage() {
           <div className="py-20 text-center">
             <RefreshCcw className="w-8 h-8 text-red-600 animate-spin mx-auto mb-4" />
             <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Synchronisation du flux...</p>
+          </div>
+        ) : error ? (
+          <div className="py-20 text-center border border-red-600/30 rounded-2xl bg-red-600/5">
+            <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <p className="text-[10px] uppercase tracking-[0.3em] text-red-500 font-bold">Erreur : {error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 text-[9px] text-white border border-white/20 px-4 py-2 rounded-lg hover:bg-white/10"
+            >
+              Réessayer
+            </button>
           </div>
         ) : groupedMessages.length === 0 ? (
           <div className="py-20 text-center border border-dashed border-neutral-900 rounded-2xl">
