@@ -123,73 +123,8 @@ export function useStaffInterface() {
   }, [messages]);
 
   // --- FONCTIONS DE CHARGEMENT ---
-  const fetchMessages = useCallback(async (email: string) => {
-    if (!supabase) {
-      console.log("⏳ Supabase pas encore initialisé");
-      return;
-    }
-    
-    setLoading(true);
-    console.log(`🔍 Chargement des messages pour ${email}, vue: ${view}`);
-    
-    try {
-      let query = supabase
-        .from("pending_signals")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      // Filtrer par statut de lecture
-      query = view === "pending" ? query.eq("is_read", false) : query.eq("is_read", true);
-      
-      // AJOUT : Forcer confirmed = true (optionnel selon ta logique)
-      query = query.eq("confirmed", true);
-
-      // Filtres par mots-clés selon l'email de l'agent (Admin vs Spécialisé)
-      const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
-      if (!admins.includes(email.toLowerCase())) {
-        const lowerEmail = email.toLowerCase();
-        let keyword = "";
-        if (lowerEmail.includes("communication")) keyword = "communication";
-        else if (lowerEmail.includes("sponsors")) keyword = "sponsor";
-        else if (lowerEmail.includes("ligue")) keyword = "ligue";
-        else if (lowerEmail.includes("competition")) keyword = "competition";
-        else if (lowerEmail.includes("tournois")) keyword = "tournoi";
-        else if (lowerEmail.includes("player")) keyword = "player";
-        else if (lowerEmail.includes("licence")) keyword = "licence";
-        else if (lowerEmail.includes("reservations")) keyword = "reservation";
-        else if (lowerEmail.includes("nantes")) keyword = "nantes";
-
-        if (keyword) {
-          query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
-        }
-      }
-
-      console.log("📝 Requête SQL construite");
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error("❌ Erreur requête:", error);
-        throw error;
-      }
-      
-      console.log(`📦 Données reçues: ${data?.length || 0} messages`);
-      if (data?.length > 0) {
-        console.log("📋 Premier message:", {
-          id: data[0].id,
-          dossier_ref: data[0].dossier_ref,
-          is_read: data[0].is_read,
-          confirmed: data[0].confirmed,
-          subject: data[0].payload?.subject
-        });
-      }
-      
-      setMessages(data || []);
-    } catch (err) {
-      console.error("❌ Erreur chargement messages:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase, view]);
+  // ✅ Correction: fetchMessages supprimé car non utilisé
+  // Le chargement se fait directement dans l'useEffect qui dépend de supabase, view et userEmail
 
   const fetchHistoryAndLinks = useCallback(async (ref: string, email: string) => {
     if (!ref || !supabase) return;
@@ -367,17 +302,98 @@ export function useStaffInterface() {
     setExpandedMessages(newExpanded);
   };
 
+  // Chargement initial des messages (remplace l'appel à fetchMessages)
+  useEffect(() => {
+    if (!supabase || !userEmail) return;
+    
+    const loadMessages = async () => {
+      setLoading(true);
+      console.log(`🔍 Chargement des messages pour ${userEmail}, vue: ${view}`);
+      
+      try {
+        let query = supabase
+          .from("pending_signals")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        // Filtrer par statut de lecture
+        query = view === "pending" ? query.eq("is_read", false) : query.eq("is_read", true);
+        
+        // AJOUT : Forcer confirmed = true (optionnel selon ta logique)
+        query = query.eq("confirmed", true);
+
+        // Filtres par mots-clés selon l'email de l'agent (Admin vs Spécialisé)
+        const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
+        if (!admins.includes(userEmail.toLowerCase())) {
+          const lowerEmail = userEmail.toLowerCase();
+          let keyword = "";
+          if (lowerEmail.includes("communication")) keyword = "communication";
+          else if (lowerEmail.includes("sponsors")) keyword = "sponsor";
+          else if (lowerEmail.includes("ligue")) keyword = "ligue";
+          else if (lowerEmail.includes("competition")) keyword = "competition";
+          else if (lowerEmail.includes("tournois")) keyword = "tournoi";
+          else if (lowerEmail.includes("player")) keyword = "player";
+          else if (lowerEmail.includes("licence")) keyword = "licence";
+          else if (lowerEmail.includes("reservations")) keyword = "reservation";
+          else if (lowerEmail.includes("nantes")) keyword = "nantes";
+
+          if (keyword) {
+            query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
+          }
+        }
+
+        console.log("📝 Requête SQL construite");
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error("❌ Erreur requête:", error);
+          throw error;
+        }
+        
+        console.log(`📦 Données reçues: ${data?.length || 0} messages`);
+        if (data?.length > 0) {
+          console.log("📋 Premier message:", {
+            id: data[0].id,
+            dossier_ref: data[0].dossier_ref,
+            is_read: data[0].is_read,
+            confirmed: data[0].confirmed,
+            subject: data[0].payload?.subject
+          });
+        }
+        
+        setMessages(data || []);
+      } catch (err) {
+        console.error("❌ Erreur chargement messages:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMessages();
+  }, [supabase, userEmail, view]);
+
   // --- TEMPS RÉEL ---
+  // ✅ CORRECTION TEMPORAIRE : Désactivation du Realtime WebSocket
+  // Le WebSocket cause une erreur "message channel closed" qui bloque le chargement initial.
+  // À réactiver après avoir validé que les messages s'affichent correctement.
+  /*
   useEffect(() => {
     if (!userEmail || !supabase) return;
     const channel = supabase
       .channel('realtime_staff_messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_signals' }, () => {
-          fetchMessages(userEmail);
+          // Recharger les messages
+          if (supabase && userEmail) {
+            const reloadMessages = async () => {
+              // Le rechargement est délégué à l'effet principal
+            };
+            reloadMessages();
+          }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, userEmail, fetchMessages]);
+  }, [supabase, userEmail]);
+  */
 
   return {
     groupedMessages, loading, userEmail, view, setView,
