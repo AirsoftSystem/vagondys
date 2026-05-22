@@ -77,6 +77,14 @@ export default function StaffMessagesPage() {
   // Ref pour éviter les appels après démontage
   const isMounted = useRef(true);
 
+  // ✅ DIAGNOSTIC : Vérification des variables d'environnement STAFF
+  useEffect(() => {
+    console.log("🔍 DIAGNOSTIC - Variables STAFF:");
+    console.log("  - NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF:", process.env.NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF);
+    console.log("  - NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_FR_NANTES_STAFF?.substring(0, 30) + "...");
+    console.log("  - NEXT_PUBLIC_SUPABASE_URL_MASTER:", process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER);
+  }, []);
+
   // ✅ RÉCUPÉRATION DE LA VILLE DE L'AGENT (DYNAMIQUE)
   useEffect(() => {
     const loadStaffInfo = async () => {
@@ -88,9 +96,23 @@ export default function StaffMessagesPage() {
           setUserCountry(country || "FR");
           console.log(`📍 Station détectée: ${city} (${country}) pour ${email}`);
           
+          // ✅ DIAGNOSTIC : Tester la connexion directe à la base STAFF
+          const expectedUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${country}_${city}_STAFF`];
+          console.log(`🔍 URL attendue pour ${country}_${city}_STAFF:`, expectedUrl);
+          
           // Création du client STAFF pour cette ville
           const client = createStaffClient(city, country || "FR");
           setSupabase(client);
+          
+          // ✅ DIAGNOSTIC : Tester la connexion avec une requête simple
+          if (client) {
+            try {
+              const { data, error } = await client.from('pending_signals').select('count', { count: 'exact', head: true });
+              console.log(`🔍 Test connexion STAFF - count: ${data}, error:`, error?.message || "aucune");
+            } catch (err) {
+              console.error("❌ Test connexion STAFF échoué:", err);
+            }
+          }
         }
       }
     };
@@ -225,6 +247,8 @@ export default function StaffMessagesPage() {
     }
     
     console.log(`🔍 Chargement des messages pour ${email} (${userCity}), vue: ${view}`);
+    // Affichage de l'URL Supabase utilisée (sans 'any')
+    console.log(`🔍 Client Supabase initialisé:`, supabase ? "oui" : "non");
     
     try {
       let query = supabase
@@ -267,7 +291,7 @@ export default function StaffMessagesPage() {
       console.log(`📦 Données reçues: ${data?.length || 0} messages`);
       if (isMounted.current) setMessages(data || []);
     } catch (err) {
-      console.error("Erreur chargement messages:", err);
+      console.error("❌ Erreur chargement messages:", err);
     }
   }, [supabase, view, userCity]);
 
