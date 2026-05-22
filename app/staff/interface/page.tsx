@@ -86,17 +86,59 @@ export default function StaffMessagesPage() {
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   
-  // Ref pour éviter les appels après démontage
+  // Refs pour éviter les appels après démontage et les rechargements multiples
   const isMounted = useRef(true);
-  // Ref pour éviter les rechargements multiples
   const loadingRef = useRef(false);
+  const viewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ✅ Cache simple pour éviter les appels API redondants
+  const messagesCacheRef = useRef<Record<string, SignalMessage[]>>({});
 
-  // Chargement des informations de l'agent et des messages via l'API
+  // ✅ Fonction de rafraîchissement des messages (avec cache)
+  const refreshMessages = useCallback(async (forceRefresh: boolean = false) => {
+    if (!userEmail || loadingRef.current) return;
+    
+    // Vérifier le cache
+    const cacheKey = `${userEmail}_${view}`;
+    const cachedMessages = messagesCacheRef.current[cacheKey];
+    
+    if (!forceRefresh && cachedMessages && cachedMessages.length > 0) {
+      console.log(`📦 Utilisation du cache pour ${cacheKey}`);
+      setMessages(cachedMessages);
+      return;
+    }
+    
+    loadingRef.current = true;
+    setLoading(true);
+    
+    try {
+      const response = await fetch(`/api/staff/pending-signals?view=${view}`);
+      const result = await response.json();
+      
+      if (response.ok && isMounted.current) {
+        const newMessages = result.messages || [];
+        // Mettre en cache
+        messagesCacheRef.current[cacheKey] = newMessages;
+        setMessages(newMessages);
+      } else {
+        throw new Error(result.error || "Erreur chargement des messages");
+      }
+    } catch (err) {
+      console.error("❌ Erreur refresh:", err);
+      if (isMounted.current) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+      loadingRef.current = false;
+    }
+  }, [userEmail, view]);
+
+  // Chargement initial
   useEffect(() => {
     const loadStaffAndMessages = async () => {
-      if (loadingRef.current) return;
-      loadingRef.current = true;
-      setLoading(true);
       setError(null);
       
       try {
@@ -110,32 +152,44 @@ export default function StaffMessagesPage() {
           }
         }
         
-        // 2. Appeler l'API pour les messages
-        const response = await fetch(`/api/staff/pending-signals?view=${view}`);
-        const result = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(result.error || "Erreur chargement des messages");
+        // 2. Charger les messages (avec cache)
+        if (email) {
+          await refreshMessages(true);
         }
         
-        if (isMounted.current) {
-          setMessages(result.messages || []);
-        }
       } catch (err) {
         console.error("❌ Erreur chargement:", err);
         if (isMounted.current) {
           setError(err instanceof Error ? err.message : "Erreur inconnue");
         }
-      } finally {
-        if (isMounted.current) setLoading(false);
-        loadingRef.current = false;
       }
     };
     
     loadStaffAndMessages();
     
     return () => { isMounted.current = false; };
-  }, [view]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ✅ Changement de vue avec debounce pour éviter les appels multiples
+  useEffect(() => {
+    if (!userEmail) return;
+    
+    // Nettoyer le timeout précédent
+    if (viewTimeoutRef.current) {
+      clearTimeout(viewTimeoutRef.current);
+    }
+    
+    // Debounce de 300ms
+    viewTimeoutRef.current = setTimeout(() => {
+      refreshMessages(true);
+    }, 300);
+    
+    return () => {
+      if (viewTimeoutRef.current) {
+        clearTimeout(viewTimeoutRef.current);
+      }
+    };
+  }, [view, userEmail, refreshMessages]);
 
   // --- LOGIQUE DE REGROUPEMENT POUR ÉVITER LES DOUBLONS DANS L'INTERFACE ---
   const groupedMessages = useMemo(() => {
@@ -165,7 +219,6 @@ export default function StaffMessagesPage() {
     setGithubArchive(null);
     
     try {
-      // Appeler l'API d'historique
       const response = await fetch(`/api/staff/history?ref=${encodeURIComponent(ref)}`);
       const result = await response.json();
       
@@ -173,7 +226,6 @@ export default function StaffMessagesPage() {
         throw new Error(result.error || "Erreur chargement historique");
       }
       
-      // ✅ Typage correct des données reçues
       const formattedHistory: HistoryMessage[] = (result.history || []).map((item: ApiHistoryItem) => ({
         id: item.id,
         created_at: item.created_at,
@@ -185,7 +237,6 @@ export default function StaffMessagesPage() {
       
       setHistoryMessages(formattedHistory);
       
-      // Récupérer également l'archive GitHub pour information
       const archivedData = await fetchGitHubArchive(ref);
       if (archivedData) {
         setGithubArchive(archivedData);
@@ -266,6 +317,12 @@ export default function StaffMessagesPage() {
         (m.payload.email !== secureEmail)
       ));
       
+      // ✅ Invalider le cache
+      if (userEmail) {
+        const cacheKey = `${userEmail}_${view}`;
+        delete messagesCacheRef.current[cacheKey];
+      }
+      
     } catch (err: unknown) {
       console.error("Erreur lors du marquage comme lu:", err);
       alert(err instanceof Error ? `Erreur : ${err.message}` : "Une erreur inconnue est survenue.");
@@ -310,6 +367,12 @@ export default function StaffMessagesPage() {
         ));
         setReplyingTo(null);
         alert(result.message || "Sécurisation et purge réussies.");
+        
+        // ✅ Invalider le cache
+        if (userEmail) {
+          const cacheKey = `${userEmail}_${view}`;
+          delete messagesCacheRef.current[cacheKey];
+        }
       } else {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
@@ -322,7 +385,6 @@ export default function StaffMessagesPage() {
     }
   };
 
-  // ✅ Fonction d'envoi de réponse avec mise à jour complète
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyingTo || !replyContent || !userEmail) return;
@@ -333,7 +395,6 @@ export default function StaffMessagesPage() {
     const fullEmailContent = `${replyContent}\n\n---\nPour répondre à ce message ou nous recontacter, merci d'utiliser notre formulaire officiel :\nhttps://vagondys.com/contact?ref=${replyingTo.dossier_ref}`;
 
     try {
-      // 1. Envoyer la réponse
       const response = await fetch('/api/send-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -356,7 +417,6 @@ export default function StaffMessagesPage() {
         throw new Error("Erreur lors de l'envoi");
       }
 
-      // 2. Marquer le message comme lu (il disparaît de la vue "pending")
       if (replyingTo.dossier_ref) {
         await fetch('/api/notify-read', {
           method: 'POST',
@@ -369,7 +429,6 @@ export default function StaffMessagesPage() {
         });
       }
 
-      // 3. Mettre à jour la liste localement
       if (view === "pending") {
         setMessages(prev => prev.filter(m => 
           (m.dossier_ref !== replyingTo.dossier_ref) && 
@@ -377,7 +436,12 @@ export default function StaffMessagesPage() {
         ));
       }
       
-      // 4. Notifier le dashboard pour qu'il mette à jour son compteur
+      // ✅ Invalider le cache
+      if (userEmail) {
+        const cacheKey = `${userEmail}_${view}`;
+        delete messagesCacheRef.current[cacheKey];
+      }
+      
       window.dispatchEvent(new CustomEvent('staff-message-updated'));
       
       setReplyContent("");

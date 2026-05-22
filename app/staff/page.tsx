@@ -162,25 +162,7 @@ export default function StaffDashboard() {
     loadCounts();
   }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
 
-  // --- REALTIME ---
-  useEffect(() => {
-    if (!supabaseClient || !userEmail) return;
-
-    const channel = supabaseClient
-      .channel('dashboard-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'pending_signals' },
-        () => {
-          if (userEmail) fetchFilteredCount(userEmail, userCity, supabaseClient);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(channel);
-    };
-  }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
+  // ✅ REALTIME SUPPRIMÉ - Plus nécessaire car les mises à jour se font via l'événement staff-message-updated
 
   // ✅ CORRECTION : Déconnexion via le client MASTER (pas le client STAFF)
   const handleLogout = async () => {
