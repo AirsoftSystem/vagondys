@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createStaffClient, fetchGitHubArchive } from "@/lib/supabase/client";
+import { getStaffCity } from "@/actions/staff-actions";
 import { 
   Mail, Phone, Clock,
   MessageSquare, Send, X, 
@@ -51,7 +52,10 @@ interface GitHubArchiveData {
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
-  const supabase = createStaffClient("NANTES", "FR");
+  // ✅ DYNAMIQUE : Client Supabase créé après détection de la ville
+  const [supabase, setSupabase] = useState<ReturnType<typeof createStaffClient> | null>(null);
+  const [userCity, setUserCity] = useState<string | null>(null);
+  const [userCountry, setUserCountry] = useState<string | null>(null);
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -69,6 +73,31 @@ export default function StaffMessagesPage() {
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
+  
+  // Ref pour éviter les appels après démontage
+  const isMounted = useRef(true);
+
+  // ✅ RÉCUPÉRATION DE LA VILLE DE L'AGENT (DYNAMIQUE)
+  useEffect(() => {
+    const loadStaffInfo = async () => {
+      const { city, country, email } = await getStaffCity();
+      if (isMounted.current) {
+        setUserEmail(email);
+        if (city) {
+          setUserCity(city);
+          setUserCountry(country || "FR");
+          console.log(`📍 Station détectée: ${city} (${country}) pour ${email}`);
+          
+          // Création du client STAFF pour cette ville
+          const client = createStaffClient(city, country || "FR");
+          setSupabase(client);
+        }
+      }
+    };
+    loadStaffInfo();
+    
+    return () => { isMounted.current = false; };
+  }, []);
 
   // --- LOGIQUE DE REGROUPEMENT POUR ÉVITER LES DOUBLONS DANS L'INTERFACE ---
   const groupedMessages = useMemo(() => {
@@ -118,71 +147,85 @@ export default function StaffMessagesPage() {
   };
 
   const fetchHistoryAndLinks = useCallback(async (ref: string, email: string) => {
-    if (!ref) return;
+    if (!ref || !supabase) return;
     setLoadingHistory(true);
     setGithubArchive(null);
     
-    // 1. Récupérer l'historique des réponses de l'agent
-    const { data: historyData } = await supabase
-      .from('communication_replies')
-      .select('*')
-      .eq('dossier_ref', ref)
-      .order('created_at', { ascending: true });
+    try {
+      // 1. Récupérer l'historique des réponses de l'agent
+      const { data: historyData } = await supabase
+        .from('communication_replies')
+        .select('*')
+        .eq('dossier_ref', ref)
+        .order('created_at', { ascending: true });
 
-    // 2. Récupérer TOUS les messages originaux du client pour ce dossier
-    const { data: clientMessages } = await supabase
-      .from('pending_signals')
-      .select('*')
-      .eq('dossier_ref', ref)
-      .order('created_at', { ascending: true });
+      // 2. Récupérer TOUS les messages originaux du client pour ce dossier
+      const { data: clientMessages } = await supabase
+        .from('pending_signals')
+        .select('*')
+        .eq('dossier_ref', ref)
+        .order('created_at', { ascending: true });
 
-    const archivedData = await fetchGitHubArchive(ref);    
-    
-    // Transformation en format HistoryMessage
-    const clientHistory: HistoryMessage[] = (clientMessages || []).map(m => ({
-        id: m.id,
-        created_at: m.created_at,
-        agent_email: "CLIENT",
-        content: m.payload.message,
-        dossier_ref: m.dossier_ref || "",
-        document_url: null
-    }));
+      const archivedData = await fetchGitHubArchive(ref);    
+      
+      // Transformation en format HistoryMessage
+      const clientHistory: HistoryMessage[] = (clientMessages || []).map(m => ({
+          id: m.id,
+          created_at: m.created_at,
+          agent_email: "CLIENT",
+          content: m.payload.message,
+          dossier_ref: m.dossier_ref || "",
+          document_url: null
+      }));
 
-    let combinedHistory: HistoryMessage[] = [
-        ...clientHistory,
-        ...(historyData || []).map(h => ({ ...h, document_url: h.document_url || null }))
-    ];
+      let combinedHistory: HistoryMessage[] = [
+          ...clientHistory,
+          ...(historyData || []).map(h => ({ ...h, document_url: h.document_url || null }))
+      ];
 
-    if (archivedData && archivedData.echanges_staff) {
-        setGithubArchive(archivedData);
-        const archivedHistory: HistoryMessage[] = archivedData.echanges_staff.map(h => ({
-            ...h,
-            document_url: h.document_url || null
-        }));
-        combinedHistory = [...archivedHistory, ...combinedHistory];
+      if (archivedData && archivedData.echanges_staff) {
+          setGithubArchive(archivedData);
+          const archivedHistory: HistoryMessage[] = archivedData.echanges_staff.map(h => ({
+              ...h,
+              document_url: h.document_url || null
+          }));
+          combinedHistory = [...archivedHistory, ...combinedHistory];
+      }
+
+      // Filtrage par ID unique
+      const uniqueHistory = Array.from(
+        new Map(combinedHistory.map(item => [item.id, item])).values()
+      );
+
+      uniqueHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      const { data: linkedData } = await supabase
+        .from('pending_signals')
+        .select('dossier_ref')
+        .eq('payload->>email', email.toLowerCase())
+        .neq('dossier_ref', ref);
+
+      if (isMounted.current) {
+        setHistoryMessages(uniqueHistory);
+        const uniqueRefs = Array.from(new Set(linkedData?.map(d => d.dossier_ref).filter(Boolean)));
+        setLinkedDossiers(uniqueRefs as string[]);
+      }
+    } catch (err) {
+      console.error("Erreur historique:", err);
+    } finally {
+      if (isMounted.current) setLoadingHistory(false);
     }
-
-    // Filtrage par ID unique
-    const uniqueHistory = Array.from(
-      new Map(combinedHistory.map(item => [item.id, item])).values()
-    );
-
-    uniqueHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-    const { data: linkedData } = await supabase
-      .from('pending_signals')
-      .select('dossier_ref')
-      .eq('payload->>email', email.toLowerCase())
-      .neq('dossier_ref', ref);
-
-    setHistoryMessages(uniqueHistory);
-    const uniqueRefs = Array.from(new Set(linkedData?.map(d => d.dossier_ref).filter(Boolean)));
-    setLinkedDossiers(uniqueRefs as string[]);
-    setLoadingHistory(false);
   }, [supabase]);
 
-  const fetchMessages = useCallback(async (email: string) => {
-    setLoading(true);
+  // ✅ Fonction de chargement des messages (sans setLoading à l'intérieur)
+  const loadMessages = useCallback(async (email: string) => {
+    if (!supabase || !isMounted.current) {
+      console.log("⏳ Supabase pas encore initialisé ou composant démonté");
+      return;
+    }
+    
+    console.log(`🔍 Chargement des messages pour ${email} (${userCity}), vue: ${view}`);
+    
     try {
       let query = supabase
         .from('pending_signals')
@@ -194,8 +237,11 @@ export default function StaffMessagesPage() {
       } else {
         query = query.eq('is_read', true);
       }
+      
+      // Forcer confirmed = true
+      query = query.eq('confirmed', true);
 
-      const admins = ["contact@vagondys.com"];
+      const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
       if (!admins.includes(email.toLowerCase())) {
         let keyword = "";
         const lowerEmail = email.toLowerCase();
@@ -207,44 +253,54 @@ export default function StaffMessagesPage() {
         else if (lowerEmail.includes("player")) keyword = "player";
         else if (lowerEmail.includes("licence")) keyword = "licence";
         else if (lowerEmail.includes("reservations")) keyword = "reservation";
-        else if (lowerEmail.includes("nantes")) keyword = "nantes";
+        else if (lowerEmail.includes(userCity?.toLowerCase() || "")) keyword = userCity?.toLowerCase() || "";
 
         if (keyword) {
           query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
         }
       }
 
+      console.log("📝 Requête SQL construite");
       const { data, error } = await query;
       if (error) throw error;
-      setMessages(data || []);
+      
+      console.log(`📦 Données reçues: ${data?.length || 0} messages`);
+      if (isMounted.current) setMessages(data || []);
     } catch (err) {
       console.error("Erreur chargement messages:", err);
-    } finally {
-      setLoading(false);
     }
-  }, [supabase, view]);
+  }, [supabase, view, userCity]);
 
+  // ✅ Chargement initial des messages (avec gestion du loading)
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setUserEmail(user.email);
-        fetchMessages(user.email);
+    let isActive = true;
+    
+    const initLoading = async () => {
+      if (supabase && userEmail && isActive) {
+        setLoading(true);
+        await loadMessages(userEmail);
+        if (isActive) setLoading(false);
       }
     };
-    checkUser();
-  }, [supabase, fetchMessages]);
+    
+    initLoading();
+    
+    return () => { isActive = false; };
+  }, [supabase, userEmail, loadMessages]);
 
+  // ✅ TEMPS RÉEL (uniquement si supabase est initialisé)
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail || !supabase) return;
+    
     const channel = supabase
       .channel('realtime_staff_messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_signals' }, () => {
-          fetchMessages(userEmail);
+          loadMessages(userEmail);
       })
       .subscribe();
+      
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, userEmail, fetchMessages]);
+  }, [supabase, userEmail, loadMessages]);
 
   const handleMarkAsReadSilent = async (msg: SignalMessage) => {
     if (isMarkingRead || !userEmail) return;
@@ -265,7 +321,8 @@ export default function StaffMessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           dossierRef: secureRef,
-          email: secureEmail 
+          email: secureEmail,
+          cityCode: userCity 
         }),
       });
 
@@ -294,7 +351,7 @@ export default function StaffMessagesPage() {
     setExpandedMessages(newExpanded);
   };
 
-const handleDeepArchive = async (msg: SignalMessage) => {
+  const handleDeepArchive = async (msg: SignalMessage) => {
     if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;    
     
     setIsArchiving(msg.id);
@@ -306,7 +363,8 @@ const handleDeepArchive = async (msg: SignalMessage) => {
         body: JSON.stringify({ 
           message: msg, 
           history: historyMessages,
-          purgeActive: true
+          purgeActive: true,
+          city_code: userCity
         }),
       });
 
@@ -354,17 +412,16 @@ const handleDeepArchive = async (msg: SignalMessage) => {
           agentEmail: userEmail,
           docLink: documentLink,
           dossierRef: replyingTo.dossier_ref,
+          cityCode: userCity,
           silent: false 
         }),
       });
 
       if (response.ok) {
-        // MISE À JOUR : On ne déclenche plus notify-read ici pour éviter l'archivage GitHub automatique via le bouton envoi.
         setReplyContent("");
         setDocumentLink("");
         setReplyingTo(null);        
         
-        // On rafraîchit simplement la vue locale pour retirer le dossier s'il est en mode "Pending"
         if(view === "pending") {
             setMessages(prev => prev.filter(m => (m.dossier_ref || m.payload.email) !== (replyingTo.dossier_ref || replyingTo.payload.email)));
         }        
@@ -393,7 +450,7 @@ const handleDeepArchive = async (msg: SignalMessage) => {
             </h1>
           </div>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
-            Agent : {userEmail || "Identification..."}
+            Agent : {userEmail || "Identification..."} {userCity && `(Station ${userCity}${userCountry ? `, ${userCountry}` : ""})`}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -609,7 +666,6 @@ const handleDeepArchive = async (msg: SignalMessage) => {
                       const isClient = h.agent_email === "CLIENT";
                       return (
                         <div key={h.id || idx} className={`${isClient ? "bg-zinc-900/50 border-zinc-800" : "bg-red-600/5 border-red-600/20"} border p-4 rounded-2xl relative`}>
-                          {/* ✅ CORRECTION : classes Tailwind canoniques */}
                           <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-zinc-500" : "border-red-600"} flex items-center justify-center`}>
                             {isClient ? <User className="w-2 h-2 text-zinc-500" /> : <CheckCircle2 className="w-2 h-2 text-red-600" />}
                           </div>
