@@ -88,10 +88,14 @@ export default function StaffMessagesPage() {
   
   // Ref pour éviter les appels après démontage
   const isMounted = useRef(true);
+  // Ref pour éviter les rechargements multiples
+  const loadingRef = useRef(false);
 
   // Chargement des informations de l'agent et des messages via l'API
   useEffect(() => {
     const loadStaffAndMessages = async () => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
       setLoading(true);
       setError(null);
       
@@ -103,7 +107,6 @@ export default function StaffMessagesPage() {
           if (city) {
             setUserCity(city);
             setUserCountry(country || "FR");
-            console.log(`📍 Station détectée: ${city} (${country || "FR"}) pour ${email}`);
           }
         }
         
@@ -115,7 +118,6 @@ export default function StaffMessagesPage() {
           throw new Error(result.error || "Erreur chargement des messages");
         }
         
-        console.log(`📦 Messages reçus via API: ${result.messages?.length || 0} pour ${result.city || city}`);
         if (isMounted.current) {
           setMessages(result.messages || []);
         }
@@ -126,6 +128,7 @@ export default function StaffMessagesPage() {
         }
       } finally {
         if (isMounted.current) setLoading(false);
+        loadingRef.current = false;
       }
     };
     
@@ -170,7 +173,7 @@ export default function StaffMessagesPage() {
         throw new Error(result.error || "Erreur chargement historique");
       }
       
-      // ✅ Typage correct des données reçues (plus de 'any')
+      // ✅ Typage correct des données reçues
       const formattedHistory: HistoryMessage[] = (result.history || []).map((item: ApiHistoryItem) => ({
         id: item.id,
         created_at: item.created_at,
@@ -188,7 +191,6 @@ export default function StaffMessagesPage() {
         setGithubArchive(archivedData);
       }
       
-      // Réinitialiser les dossiers liés (seront gérés par une autre API si besoin)
       setLinkedDossiers([]);
       
     } catch (err) {
@@ -258,7 +260,11 @@ export default function StaffMessagesPage() {
         throw new Error(errorData.error || "Erreur mise à jour statut");
       }
 
-      setMessages(prev => prev.filter(m => (m.dossier_ref || m.payload.email) !== (msg.dossier_ref || msg.payload.email)));
+      // Mettre à jour la liste localement
+      setMessages(prev => prev.filter(m => 
+        (m.dossier_ref && m.dossier_ref !== secureRef) && 
+        (m.payload.email !== secureEmail)
+      ));
       
     } catch (err: unknown) {
       console.error("Erreur lors du marquage comme lu:", err);
@@ -316,6 +322,7 @@ export default function StaffMessagesPage() {
     }
   };
 
+  // ✅ Fonction d'envoi de réponse avec mise à jour complète
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyingTo || !replyContent || !userEmail) return;
@@ -326,6 +333,7 @@ export default function StaffMessagesPage() {
     const fullEmailContent = `${replyContent}\n\n---\nPour répondre à ce message ou nous recontacter, merci d'utiliser notre formulaire officiel :\nhttps://vagondys.com/contact?ref=${replyingTo.dossier_ref}`;
 
     try {
+      // 1. Envoyer la réponse
       const response = await fetch('/api/send-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -344,18 +352,39 @@ export default function StaffMessagesPage() {
         }),
       });
 
-      if (response.ok) {
-        setReplyContent("");
-        setDocumentLink("");
-        setReplyingTo(null);
-        
-        if (view === "pending") {
-          setMessages(prev => prev.filter(m => (m.dossier_ref || m.payload.email) !== (replyingTo.dossier_ref || replyingTo.payload.email)));
-        }
-        alert("Réponse transmise avec succès.");
-      } else {
-        alert("Erreur lors de l'envoi de la réponse.");
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'envoi");
       }
+
+      // 2. Marquer le message comme lu (il disparaît de la vue "pending")
+      if (replyingTo.dossier_ref) {
+        await fetch('/api/notify-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            dossierRef: replyingTo.dossier_ref,
+            email: replyingTo.payload.email,
+            cityCode: userCity 
+          }),
+        });
+      }
+
+      // 3. Mettre à jour la liste localement
+      if (view === "pending") {
+        setMessages(prev => prev.filter(m => 
+          (m.dossier_ref !== replyingTo.dossier_ref) && 
+          (m.payload.email !== replyingTo.payload.email)
+        ));
+      }
+      
+      // 4. Notifier le dashboard pour qu'il mette à jour son compteur
+      window.dispatchEvent(new CustomEvent('staff-message-updated'));
+      
+      setReplyContent("");
+      setDocumentLink("");
+      setReplyingTo(null);
+      alert("Réponse transmise avec succès.");
+      
     } catch (err) {
       console.error(err);
       alert("Échec de la connexion.");

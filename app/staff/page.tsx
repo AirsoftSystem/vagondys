@@ -140,6 +140,18 @@ export default function StaffDashboard() {
     if (!aErr) setNewAthletesCount(aCount || 0);
   }, []);
 
+  // ✅ AJOUT : Écouteur pour l'événement staff-message-updated
+  useEffect(() => {
+    const handleMessageUpdate = () => {
+      if (supabaseClient && userEmail) {
+        fetchFilteredCount(userEmail, userCity, supabaseClient);
+      }
+    };
+
+    window.addEventListener('staff-message-updated', handleMessageUpdate);
+    return () => window.removeEventListener('staff-message-updated', handleMessageUpdate);
+  }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
+
   // --- ÉTAPE 2: Charger les compteurs ---
   useEffect(() => {
     const loadCounts = async () => {
