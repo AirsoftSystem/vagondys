@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   CalendarCheck,
   Trophy,
@@ -12,162 +12,179 @@ import {
   Target
 } from "lucide-react";
 import { getStaffCity } from "@/actions/staff-actions";
-import { getStaffConfig } from "@/actions/get-staff-config";
-import { SupabaseClient } from "@supabase/supabase-js";
 
-// NOUVEAUX COMPOSANTS
+// COMPOSANTS
 import CityInfoCard from "./components/dashboard/CityInfoCard";
 import StatsGrid from "./components/dashboard/StatsGrid";
 import RecentActivityComponent from "./components/dashboard/RecentActivity";
 import TopPlayers from "./components/dashboard/TopPlayers";
 import NavigationGrid from "./components/dashboard/NavigationGrid";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
-import { useDashboardData } from "./hooks/useDashboardData";
+
+// Types locaux
+interface CityInfo {
+  name: string;
+  country: string;
+  totalAthletes: number;
+  activeAthletes: number;
+}
+
+interface DashboardStats {
+  totalAthletes: number;
+  activeAthletes: number;
+  pendingMessages: number;
+  todayMatches: number;
+  totalGameLaunches: number;
+  newAthletesThisMonth: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'message' | 'game_launch' | 'match';
+  title: string;
+  description: string;
+  timestamp: string;
+  link: string;
+}
+
+interface TopPlayer {
+  id: string;
+  pseudo: string | null;
+  full_name: string;
+  points: number;
+  rank: string;
+  matchesPlayed: number;
+  winRate: number;
+}
 
 export default function StaffDashboard() {
-  // --- ÉTATS ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [userCountry, setUserCountry] = useState<string | null>('FR');
+  const [userCountry, setUserCountry] = useState<string>('FR');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Données du dashboard
+  const [cityInfo, setCityInfo] = useState<CityInfo | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalAthletes: 0,
+    activeAthletes: 0,
+    pendingMessages: 0,
+    todayMatches: 0,
+    totalGameLaunches: 0,
+    newAthletesThisMonth: 0
+  });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [topPlayers, setTopPlayers] = useState<TopPlayer[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newAthletesCount, setNewAthletesCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
   
-  // Refs
   const isMounted = useRef(true);
-  const loadingCountersRef = useRef(false);
 
-  // --- LOGIQUE DE FILTRAGE PAR SECTEUR ---
-  const fetchFilteredCount = useCallback(async (email: string, city: string | null, supabase: SupabaseClient) => {
-    if (!supabase || loadingCountersRef.current) return;
-    
-    loadingCountersRef.current = true;
-
-    let cityKeyword = city?.toLowerCase() || "";
-    
-    if (!cityKeyword) {
-      if (email.includes("nantes")) cityKeyword = "nantes";
-      else if (email.includes("lyon")) cityKeyword = "lyon";
-      else if (email.includes("madrid")) cityKeyword = "madrid";
-    }
-
-    const isMainAdmin = email === "vagondys@gmail.com" || email === "admin@vagondys.com";
-
-    let messageQuery = supabase
-      .from('pending_signals')
-      .select('*', { count: 'exact', head: true })
-      .eq('confirmed', true)
-      .eq('is_read', false)
-      .not('payload->>subject', 'ilike', '%INSCRIPTION%');
-
-    if (!isMainAdmin && email !== "") {
-      let keyword = "";
-      if (email.includes("communication")) keyword = "communication";
-      else if (email.includes("sponsors")) keyword = "sponsor";
-      else if (email.includes("ligue")) keyword = "ligue";
-      else if (email.includes("competition")) keyword = "competition";
-      else if (email.includes("tournois")) keyword = "tournois";
-      else if (email.includes("player")) keyword = "player";
-      else if (email.includes("licence")) keyword = "licence";      
-      else if (email.includes("reservations")) keyword = "reservation";
-      else if (email.includes(cityKeyword)) keyword = cityKeyword;      
-      
-      if (keyword !== "") {
-        messageQuery = messageQuery.filter('payload->>subject', 'ilike', `%${keyword}%`);
-      }
-    }
-
-    const { count: mCount, error: mErr } = await messageQuery;
-    if (!mErr) setUnreadCount(mCount || 0);
-
-    let athleteQuery = supabase
-      .from('pending_signals')
-      .select('*', { count: 'exact', head: true })
-      .eq('confirmed', true)
-      .eq('is_read', false)
-      .filter('payload->>subject', 'ilike', '%INSCRIPTION%');
-
-    if (!isMainAdmin && cityKeyword !== "") {
-      athleteQuery = athleteQuery.filter('payload->>email', 'ilike', `%${cityKeyword}%`);
-    }
-
-    const { count: aCount, error: aErr } = await athleteQuery;
-    if (!aErr) setNewAthletesCount(aCount || 0);
-    
-    loadingCountersRef.current = false;
-  }, []);
-
-  // --- ÉTAPE 1: Récupérer les infos de l'agent ---
+  // Chargement unique au montage (comme dans mode_jeux)
   useEffect(() => {
-    const loadStaffInfo = async () => {
-      setIsLoading(true);
+    const loadDashboard = async () => {
+      setLoading(true);
+      setError(null);
       
       try {
-        // Appeler l'API
+        // 1. Récupérer les infos de l'agent
         const { city, country, email } = await getStaffCity();
         
-        if (isMounted.current) {
-          setUserEmail(email);
-          if (city) {
-            setUserCity(city);
-            setUserCountry(country || "FR");
-          }
-          
-          // Créer le client Supabase
-          if (city) {
-            const config = await getStaffConfig(city, country || 'FR');
-            if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
-              const { createClient } = await import('@supabase/supabase-js');
-              const client = createClient(config.staff_url, config.staff_anon_key);
-              setSupabaseClient(client);
-            }
-          }
+        if (!isMounted.current) return;
+        
+        setUserEmail(email);
+        if (!city) {
+          setError("Station non identifiée");
+          setLoading(false);
+          return;
         }
         
+        setUserCity(city);
+        setUserCountry(country || "FR");
+        
+        // 2. Appeler l'API dashboard
+        const response = await fetch(`/api/staff/dashboard?city=${city}&country=${country || "FR"}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || "Erreur chargement dashboard");
+        }
+        
+        if (!isMounted.current) return;
+        
+        // 3. Mettre à jour les états
+        setCityInfo({
+          name: city,
+          country: country || "FR",
+          totalAthletes: data.totalAthletes || 0,
+          activeAthletes: data.activeAthletes || 0
+        });
+        
+        setStats({
+          totalAthletes: data.totalAthletes || 0,
+          activeAthletes: data.activeAthletes || 0,
+          pendingMessages: data.pendingMessages || 0,
+          todayMatches: data.todayMatches || 0,
+          totalGameLaunches: data.totalGameLaunches || 0,
+          newAthletesThisMonth: data.newAthletesThisMonth || 0
+        });
+        
+        setUnreadCount(data.pendingMessages || 0);
+        setNewAthletesCount(data.newAthletesThisMonth || 0);
+        
+        // 4. Formater les activités récentes
+        const activities: RecentActivity[] = (data.recentActivities || []).map((act: RecentActivity) => ({
+          ...act,
+          type: act.type || 'message'
+        }));
+        setRecentActivities(activities);
+        
+        // 5. Top joueurs
+        setTopPlayers(data.topPlayers || []);
+        
       } catch (err) {
-        console.error('❌ Erreur chargement staff info:', err);
+        console.error("❌ Erreur dashboard:", err);
+        if (isMounted.current) {
+          setError(err instanceof Error ? err.message : "Erreur inconnue");
+        }
       } finally {
-        if (isMounted.current) setIsLoading(false);
+        if (isMounted.current) setLoading(false);
       }
     };
     
-    loadStaffInfo();
+    loadDashboard();
     
     return () => { isMounted.current = false; };
   }, []);
 
-  // --- Données du dashboard via hook personnalisé ---
-  const {
-    cityInfo,
-    stats,
-    recentActivities,
-    topPlayers,
-    loading: dashboardLoading,
-    error: dashboardError,
-  } = useDashboardData(supabaseClient, userCity, userEmail);
-
-  // ✅ AJOUT : Écouteur pour l'événement staff-message-updated
+  // Écouteur pour l'événement staff-message-updated (met à jour le compteur)
   useEffect(() => {
-    const handleMessageUpdate = () => {
-      if (supabaseClient && userEmail) {
-        fetchFilteredCount(userEmail, userCity, supabaseClient);
+    const handleMessageUpdate = async () => {
+      if (!userCity) return;
+      
+      try {
+        const response = await fetch(`/api/staff/dashboard?city=${userCity}&country=${userCountry}`);
+        const data = await response.json();
+        
+        if (response.ok && isMounted.current) {
+          setUnreadCount(data.pendingMessages || 0);
+          setNewAthletesCount(data.newAthletesThisMonth || 0);
+          setStats(prev => ({
+            ...prev,
+            pendingMessages: data.pendingMessages || 0,
+            newAthletesThisMonth: data.newAthletesThisMonth || 0
+          }));
+        }
+      } catch (err) {
+        console.error("Erreur mise à jour compteurs:", err);
       }
     };
 
     window.addEventListener('staff-message-updated', handleMessageUpdate);
     return () => window.removeEventListener('staff-message-updated', handleMessageUpdate);
-  }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
+  }, [userCity, userCountry]);
 
-  // --- ÉTAPE 2: Charger les compteurs (une fois le client prêt)---
-  useEffect(() => {
-    if (supabaseClient && userEmail && !loadingCountersRef.current) {
-      fetchFilteredCount(userEmail, userCity, supabaseClient);
-    }
-  }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
-
-  // ✅ CORRECTION : Déconnexion via le client MASTER (pas le client STAFF)
   const handleLogout = async () => {
     try {
       const { createClient } = await import('@supabase/supabase-js');
@@ -182,7 +199,7 @@ export default function StaffDashboard() {
     window.location.href = "/staff/login";
   };
 
-  if (isLoading || dashboardLoading) {
+  if (loading) {
     return <LoadingSpinner text="Chargement du tableau de bord..." fullScreen />;
   }
 
@@ -218,20 +235,24 @@ export default function StaffDashboard() {
           </button>
         </div>
 
-        {dashboardError && (
+        {error && (
           <div className="bg-red-950/30 border border-red-900 rounded-xl p-4">
             <p className="text-[10px] text-red-500 font-black uppercase tracking-widest">
-              ⚠️ {dashboardError}
+              ⚠️ {error}
             </p>
           </div>
         )}
 
-        <CityInfoCard cityInfo={cityInfo} userEmail={userEmail} userCity={userCity} />
+        <CityInfoCard 
+          cityInfo={cityInfo} 
+          userEmail={userEmail} 
+          userCity={userCity} 
+        />
         <StatsGrid stats={stats} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <RecentActivityComponent activities={recentActivities} loading={dashboardLoading} />
-          <TopPlayers players={topPlayers} loading={dashboardLoading} />
+          <RecentActivityComponent activities={recentActivities} loading={loading} />
+          <TopPlayers players={topPlayers} loading={loading} />
         </div>
 
         <NavigationGrid 

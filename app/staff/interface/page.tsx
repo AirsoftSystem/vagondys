@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { getStaffCity } from "@/actions/staff-actions";
 import { 
@@ -61,6 +61,7 @@ interface ApiHistoryItem {
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
+  // États principaux
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export default function StaffMessagesPage() {
   const [view, setView] = useState<"pending" | "archived">("pending");
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   
+  // États pour l'historique et les réponses
   const [replyingTo, setReplyingTo] = useState<SignalMessage | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [documentLink, setDocumentLink] = useState("");
@@ -82,27 +84,31 @@ export default function StaffMessagesPage() {
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
-  
-  const isMounted = useRef(true);
-  const loadingRef = useRef(false);
 
+  // Chargement unique au montage (comme dans mode_jeux)
   useEffect(() => {
-    const loadStaffAndMessages = async () => {
-      if (loadingRef.current) return;
-      loadingRef.current = true;
+    let isMounted = true;
+    let isLoading = false;
+    
+    const loadMessages = async () => {
+      if (isLoading) return;
+      isLoading = true;
       setLoading(true);
       setError(null);
       
       try {
+        // 1. Récupérer les infos de l'agent
         const { city, country, email } = await getStaffCity();
-        if (isMounted.current) {
-          setUserEmail(email);
-          if (city) {
-            setUserCity(city);
-            setUserCountry(country || "FR");
-          }
+        
+        if (!isMounted) return;
+        
+        setUserEmail(email);
+        if (city) {
+          setUserCity(city);
+          setUserCountry(country || "FR");
         }
         
+        // 2. Appeler l'API pour les messages
         const response = await fetch(`/api/staff/pending-signals?view=${view}`);
         const result = await response.json();
         
@@ -110,25 +116,26 @@ export default function StaffMessagesPage() {
           throw new Error(result.error || "Erreur chargement des messages");
         }
         
-        if (isMounted.current) {
+        if (isMounted) {
           setMessages(result.messages || []);
         }
       } catch (err) {
         console.error("❌ Erreur chargement:", err);
-        if (isMounted.current) {
+        if (isMounted) {
           setError(err instanceof Error ? err.message : "Erreur inconnue");
         }
       } finally {
-        if (isMounted.current) setLoading(false);
-        loadingRef.current = false;
+        if (isMounted) setLoading(false);
+        isLoading = false;
       }
     };
     
-    loadStaffAndMessages();
+    loadMessages();
     
-    return () => { isMounted.current = false; };
+    return () => { isMounted = false; };
   }, [view]);
 
+  // Regroupement des messages (évite les doublons)
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
     
@@ -149,6 +156,7 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
+  // Récupération de l'historique (via l'API history)
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
