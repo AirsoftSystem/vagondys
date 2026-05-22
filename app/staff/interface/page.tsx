@@ -59,12 +59,23 @@ interface ApiHistoryItem {
   document_url: string | null;
 }
 
+// ✅ Clés pour le localStorage
+const STORAGE_KEYS = {
+  MESSAGES_CACHE: 'vgd_messages_cache',
+  CITY_CACHE: 'vgd_city_cache',
+  CACHE_TIMESTAMP: 'vgd_cache_timestamp'
+};
+
+// ✅ Durée du cache en millisecondes (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000;
+
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
   // États principaux
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
@@ -86,30 +97,61 @@ export default function StaffMessagesPage() {
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   
-  // Refs pour éviter les appels après démontage et les rechargements multiples
+  // Refs pour éviter les appels après démontage
   const isMounted = useRef(true);
   const loadingRef = useRef(false);
   const viewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // ✅ Cache simple pour éviter les appels API redondants
-  const messagesCacheRef = useRef<Record<string, SignalMessage[]>>({});
 
-  // ✅ Fonction de rafraîchissement des messages (avec cache)
-  const refreshMessages = useCallback(async (forceRefresh: boolean = false) => {
+  // ✅ Charger les données depuis le localStorage au démarrage
+  const loadFromCache = useCallback(() => {
+    try {
+      const cachedData = localStorage.getItem(STORAGE_KEYS.MESSAGES_CACHE);
+      const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
+      
+      if (cachedData && timestamp) {
+        const age = Date.now() - parseInt(timestamp);
+        if (age < CACHE_DURATION) {
+          const { messages: cachedMessages, view: cachedView, userEmail: cachedEmail } = JSON.parse(cachedData);
+          if (cachedMessages && cachedView === view && cachedEmail === userEmail) {
+            console.log(`📦 Chargement depuis localStorage (${Math.round(age / 1000)}s)`);
+            setMessages(cachedMessages);
+            return true;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Erreur lecture cache:", err);
+    }
+    return false;
+  }, [view, userEmail]);
+
+  // ✅ Sauvegarder les données dans le localStorage
+  const saveToCache = useCallback((messagesToSave: SignalMessage[]) => {
+    try {
+      const cacheData = {
+        messages: messagesToSave,
+        view,
+        userEmail,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MESSAGES_CACHE, JSON.stringify(cacheData));
+      localStorage.setItem(STORAGE_KEYS.CACHE_TIMESTAMP, Date.now().toString());
+    } catch (err) {
+      console.warn("Erreur sauvegarde cache:", err);
+    }
+  }, [view, userEmail]);
+
+  // ✅ Fonction de chargement des messages (optimisée)
+  const loadMessages = useCallback(async (forceRefresh: boolean = false) => {
     if (!userEmail || loadingRef.current) return;
     
-    // Vérifier le cache
-    const cacheKey = `${userEmail}_${view}`;
-    const cachedMessages = messagesCacheRef.current[cacheKey];
-    
-    if (!forceRefresh && cachedMessages && cachedMessages.length > 0) {
-      console.log(`📦 Utilisation du cache pour ${cacheKey}`);
-      setMessages(cachedMessages);
-      return;
+    // Essayer le cache d'abord
+    if (!forceRefresh && loadFromCache()) {
+      setLoading(false);
     }
     
     loadingRef.current = true;
-    setLoading(true);
+    setRefreshing(true);
     
     try {
       const response = await fetch(`/api/staff/pending-signals?view=${view}`);
@@ -117,79 +159,96 @@ export default function StaffMessagesPage() {
       
       if (response.ok && isMounted.current) {
         const newMessages = result.messages || [];
-        // Mettre en cache
-        messagesCacheRef.current[cacheKey] = newMessages;
         setMessages(newMessages);
+        saveToCache(newMessages);
       } else {
         throw new Error(result.error || "Erreur chargement des messages");
       }
     } catch (err) {
-      console.error("❌ Erreur refresh:", err);
-      if (isMounted.current) {
+      console.error("❌ Erreur chargement:", err);
+      if (isMounted.current && !loadFromCache()) {
         setError(err instanceof Error ? err.message : "Erreur inconnue");
       }
     } finally {
       if (isMounted.current) {
+        setRefreshing(false);
         setLoading(false);
       }
       loadingRef.current = false;
     }
-  }, [userEmail, view]);
+  }, [userEmail, view, loadFromCache, saveToCache]);
 
-  // Chargement initial
+  // ✅ Chargement initial (parallélisé)
   useEffect(() => {
-    const loadStaffAndMessages = async () => {
+    const initialize = async () => {
       setError(null);
       
       try {
-        // 1. Récupérer les infos de l'agent
+        // 1. Essayer de charger la ville depuis le localStorage
+        const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
+        if (cachedCity) {
+          const { city, country, email, timestamp } = JSON.parse(cachedCity);
+          const age = Date.now() - timestamp;
+          if (age < CACHE_DURATION && city && email) {
+            setUserEmail(email);
+            setUserCity(city);
+            setUserCountry(country || "FR");
+            console.log(`📍 Ville depuis cache: ${city}`);
+            // Charger les messages en parallèle
+            await loadMessages(false);
+            return;
+          }
+        }
+        
+        // 2. Pas de cache valide, appeler l'API
         const { city, country, email } = await getStaffCity();
         if (isMounted.current) {
           setUserEmail(email);
           if (city) {
             setUserCity(city);
             setUserCountry(country || "FR");
+            // Sauvegarder la ville dans localStorage
+            localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
+              city, country, email, timestamp: Date.now()
+            }));
           }
         }
         
-        // 2. Charger les messages (avec cache)
-        if (email) {
-          await refreshMessages(true);
-        }
+        // 3. Charger les messages
+        await loadMessages(true);
         
       } catch (err) {
-        console.error("❌ Erreur chargement:", err);
+        console.error("❌ Erreur initialisation:", err);
         if (isMounted.current) {
           setError(err instanceof Error ? err.message : "Erreur inconnue");
+          setLoading(false);
         }
       }
     };
     
-    loadStaffAndMessages();
+    initialize();
     
     return () => { isMounted.current = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ Changement de vue avec debounce pour éviter les appels multiples
+  // ✅ Changement de vue avec debounce
   useEffect(() => {
     if (!userEmail) return;
     
-    // Nettoyer le timeout précédent
     if (viewTimeoutRef.current) {
       clearTimeout(viewTimeoutRef.current);
     }
     
-    // Debounce de 300ms
     viewTimeoutRef.current = setTimeout(() => {
-      refreshMessages(true);
-    }, 300);
+      loadMessages(true);
+    }, 200);
     
     return () => {
       if (viewTimeoutRef.current) {
         clearTimeout(viewTimeoutRef.current);
       }
     };
-  }, [view, userEmail, refreshMessages]);
+  }, [view, userEmail, loadMessages]);
 
   // --- LOGIQUE DE REGROUPEMENT POUR ÉVITER LES DOUBLONS DANS L'INTERFACE ---
   const groupedMessages = useMemo(() => {
@@ -317,11 +376,8 @@ export default function StaffMessagesPage() {
         (m.payload.email !== secureEmail)
       ));
       
-      // ✅ Invalider le cache
-      if (userEmail) {
-        const cacheKey = `${userEmail}_${view}`;
-        delete messagesCacheRef.current[cacheKey];
-      }
+      // Invalider le cache
+      localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
       
     } catch (err: unknown) {
       console.error("Erreur lors du marquage comme lu:", err);
@@ -368,11 +424,8 @@ export default function StaffMessagesPage() {
         setReplyingTo(null);
         alert(result.message || "Sécurisation et purge réussies.");
         
-        // ✅ Invalider le cache
-        if (userEmail) {
-          const cacheKey = `${userEmail}_${view}`;
-          delete messagesCacheRef.current[cacheKey];
-        }
+        // Invalider le cache
+        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
       } else {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
@@ -436,11 +489,8 @@ export default function StaffMessagesPage() {
         ));
       }
       
-      // ✅ Invalider le cache
-      if (userEmail) {
-        const cacheKey = `${userEmail}_${view}`;
-        delete messagesCacheRef.current[cacheKey];
-      }
+      // Invalider le cache
+      localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
       
       window.dispatchEvent(new CustomEvent('staff-message-updated'));
       
@@ -501,11 +551,17 @@ export default function StaffMessagesPage() {
               Archives
             </button>
           </div>
+          {refreshing && (
+            <div className="flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
+              <RefreshCcw className="w-3 h-3 text-red-600 animate-spin" />
+              <span className="text-[8px] text-zinc-500">Mise à jour...</span>
+            </div>
+          )}
         </div>
       </header>
 
       <div className="space-y-4">
-        {loading ? (
+        {loading && !loadFromCache() ? (
           <div className="py-20 text-center">
             <RefreshCcw className="w-8 h-8 text-red-600 animate-spin mx-auto mb-4" />
             <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Synchronisation du flux...</p>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   CalendarCheck,
   Trophy,
@@ -9,7 +9,8 @@ import {
   Settings,
   MessageSquare,
   LogOut,
-  Target
+  Target,
+  RefreshCcw
 } from "lucide-react";
 import { getStaffCity } from "@/actions/staff-actions";
 import { getStaffConfig } from "@/actions/get-staff-config";
@@ -24,6 +25,16 @@ import NavigationGrid from "./components/dashboard/NavigationGrid";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { useDashboardData } from "./hooks/useDashboardData";
 
+// ✅ Clés pour le localStorage
+const STORAGE_KEYS = {
+  CITY_CACHE: 'vgd_dashboard_city_cache',
+  COUNTERS_CACHE: 'vgd_dashboard_counters_cache',
+  CACHE_TIMESTAMP: 'vgd_dashboard_timestamp'
+};
+
+// ✅ Durée du cache en millisecondes (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000;
+
 export default function StaffDashboard() {
   // --- ÉTATS ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -33,60 +44,61 @@ export default function StaffDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [newAthletesCount, setNewAthletesCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
+  
+  // Refs
+  const isMounted = useRef(true);
+  const loadingCountersRef = useRef(false);
 
-  // --- ÉTAPE 1: Récupérer les infos de l'agent via Server Action ---
-  useEffect(() => {
-    const loadStaffInfo = async () => {
-      setIsLoading(true);
-      const { city, country, email } = await getStaffCity();
-      setUserEmail(email);
+  // ✅ Charger les compteurs depuis le cache
+  const loadCountersFromCache = useCallback(() => {
+    try {
+      const cachedData = localStorage.getItem(STORAGE_KEYS.COUNTERS_CACHE);
+      const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
       
-      if (city) {
-        setUserCity(city);
-        setUserCountry(country);
-      }
-      
-      if (city) {
-        try {
-          const { createClient } = await import('@supabase/supabase-js');
-          
-          // ✅ CORRECTION : Utiliser la Server Action getStaffConfig (côté serveur)
-          const config = await getStaffConfig(city, country || 'FR');
-          
-          if (!config || !config.staff_url || !config.staff_anon_key) {
-            console.error(`❌ Configuration STAFF introuvable pour ${city}`);
-            setIsLoading(false);
-            return;
-          }
-          
-          console.log(`✅ Dashboard: Création client STAFF pour ${city} (${country})`);
-          const client = createClient(config.staff_url, config.staff_anon_key);
-          setSupabaseClient(client);
-          
-        } catch (err) {
-          console.error('❌ Erreur création client STAFF:', err);
+      if (cachedData && timestamp) {
+        const age = Date.now() - parseInt(timestamp);
+        if (age < CACHE_DURATION) {
+          const { unread, newAthletes } = JSON.parse(cachedData);
+          setUnreadCount(unread || 0);
+          setNewAthletesCount(newAthletes || 0);
+          console.log(`📦 Compteurs depuis cache (${Math.round(age / 1000)}s): unread=${unread}, new=${newAthletes}`);
+          return true;
         }
       }
-      
-      setIsLoading(false);
-    };
-    loadStaffInfo();
+    } catch (err) {
+      console.warn("Erreur lecture cache compteurs:", err);
+    }
+    return false;
   }, []);
 
-  // --- Données du dashboard via hook personnalisé ---
-  const {
-    cityInfo,
-    stats,
-    recentActivities,
-    topPlayers,
-    loading: dashboardLoading,
-    error: dashboardError,
-  } = useDashboardData(supabaseClient, userCity, userEmail);
+  // ✅ Sauvegarder les compteurs dans le cache
+  const saveCountersToCache = useCallback((unread: number, newAthletes: number) => {
+    try {
+      const cacheData = {
+        unread,
+        newAthletes,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.COUNTERS_CACHE, JSON.stringify(cacheData));
+      localStorage.setItem(STORAGE_KEYS.CACHE_TIMESTAMP, Date.now().toString());
+    } catch (err) {
+      console.warn("Erreur sauvegarde cache compteurs:", err);
+    }
+  }, []);
 
-  // --- LOGIQUE DE FILTRAGE PAR SECTEUR ---
-  const fetchFilteredCount = useCallback(async (email: string, city: string | null, supabase: SupabaseClient) => {
-    if (!supabase) return;
+  // --- LOGIQUE DE FILTRAGE PAR SECTEUR (optimisée avec cache)---
+  const fetchFilteredCount = useCallback(async (email: string, city: string | null, supabase: SupabaseClient, forceRefresh: boolean = false) => {
+    if (!supabase || loadingCountersRef.current) return;
+    
+    // Essayer le cache d'abord
+    if (!forceRefresh && loadCountersFromCache()) {
+      return;
+    }
+    
+    loadingCountersRef.current = true;
+    setIsRefreshing(true);
 
     let cityKeyword = city?.toLowerCase() || "";
     
@@ -123,7 +135,11 @@ export default function StaffDashboard() {
     }
 
     const { count: mCount, error: mErr } = await messageQuery;
-    if (!mErr) setUnreadCount(mCount || 0);
+    let mCountValue = 0;
+    if (!mErr) {
+      mCountValue = mCount || 0;
+      setUnreadCount(mCountValue);
+    }
 
     let athleteQuery = supabase
       .from('pending_signals')
@@ -137,14 +153,106 @@ export default function StaffDashboard() {
     }
 
     const { count: aCount, error: aErr } = await athleteQuery;
-    if (!aErr) setNewAthletesCount(aCount || 0);
-  }, []);
+    let aCountValue = 0;
+    if (!aErr) {
+      aCountValue = aCount || 0;
+      setNewAthletesCount(aCountValue);
+    }
+    
+    // Sauvegarder dans le cache
+    saveCountersToCache(mCountValue, aCountValue);
+    
+    loadingCountersRef.current = false;
+    setIsRefreshing(false);
+  }, [loadCountersFromCache, saveCountersToCache]);
+
+  // --- ÉTAPE 1: Récupérer les infos de l'agent (avec cache localStorage)---
+  useEffect(() => {
+    const loadStaffInfo = async () => {
+      setIsLoading(true);
+      
+      try {
+        // ✅ Essayer de charger depuis le cache localStorage
+        const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
+        if (cachedCity) {
+          const { city, country, email, timestamp } = JSON.parse(cachedCity);
+          const age = Date.now() - timestamp;
+          if (age < CACHE_DURATION && city && email) {
+            console.log(`📍 Ville depuis cache: ${city} (${Math.round(age / 1000)}s)`);
+            setUserEmail(email);
+            setUserCity(city);
+            setUserCountry(country || "FR");
+            
+            // Charger les compteurs depuis le cache aussi
+            loadCountersFromCache();
+            
+            // Créer le client Supabase
+            const config = await getStaffConfig(city, country || 'FR');
+            if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
+              const { createClient } = await import('@supabase/supabase-js');
+              const client = createClient(config.staff_url, config.staff_anon_key);
+              setSupabaseClient(client);
+            }
+            
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // ✅ Pas de cache valide, appeler l'API
+        const { city, country, email } = await getStaffCity();
+        
+        if (isMounted.current) {
+          setUserEmail(email);
+          if (city) {
+            setUserCity(city);
+            setUserCountry(country || "FR");
+            
+            // Sauvegarder la ville dans localStorage
+            localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
+              city, country, email, timestamp: Date.now()
+            }));
+          }
+          
+          // Créer le client Supabase
+          if (city) {
+            const config = await getStaffConfig(city, country || 'FR');
+            if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
+              const { createClient } = await import('@supabase/supabase-js');
+              const client = createClient(config.staff_url, config.staff_anon_key);
+              setSupabaseClient(client);
+            }
+          }
+        }
+        
+      } catch (err) {
+        console.error('❌ Erreur chargement staff info:', err);
+      } finally {
+        if (isMounted.current) setIsLoading(false);
+      }
+    };
+    
+    loadStaffInfo();
+    
+    return () => { isMounted.current = false; };
+  }, [loadCountersFromCache]);
+
+  // --- Données du dashboard via hook personnalisé ---
+  const {
+    cityInfo,
+    stats,
+    recentActivities,
+    topPlayers,
+    loading: dashboardLoading,
+    error: dashboardError,
+  } = useDashboardData(supabaseClient, userCity, userEmail);
 
   // ✅ AJOUT : Écouteur pour l'événement staff-message-updated
   useEffect(() => {
     const handleMessageUpdate = () => {
       if (supabaseClient && userEmail) {
-        fetchFilteredCount(userEmail, userCity, supabaseClient);
+        // Forcer le rafraîchissement des compteurs
+        fetchFilteredCount(userEmail, userCity, supabaseClient, true);
       }
     };
 
@@ -152,28 +260,26 @@ export default function StaffDashboard() {
     return () => window.removeEventListener('staff-message-updated', handleMessageUpdate);
   }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
 
-  // --- ÉTAPE 2: Charger les compteurs ---
+  // --- ÉTAPE 2: Charger les compteurs (une fois le client prêt)---
   useEffect(() => {
-    const loadCounts = async () => {
-      if (supabaseClient && userEmail) {
-        await fetchFilteredCount(userEmail, userCity, supabaseClient);
-      }
-    };
-    loadCounts();
+    if (supabaseClient && userEmail && !loadingCountersRef.current) {
+      fetchFilteredCount(userEmail, userCity, supabaseClient, false);
+    }
   }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
-
-  // ✅ REALTIME SUPPRIMÉ - Plus nécessaire car les mises à jour se font via l'événement staff-message-updated
 
   // ✅ CORRECTION : Déconnexion via le client MASTER (pas le client STAFF)
   const handleLogout = async () => {
     try {
-      // Créer un client MASTER pour la déconnexion (auth centralisée)
       const { createClient } = await import('@supabase/supabase-js');
       const masterClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
       );
       await masterClient.auth.signOut();
+      // Nettoyer le cache localStorage
+      localStorage.removeItem(STORAGE_KEYS.CITY_CACHE);
+      localStorage.removeItem(STORAGE_KEYS.COUNTERS_CACHE);
+      localStorage.removeItem(STORAGE_KEYS.CACHE_TIMESTAMP);
     } catch (err) {
       console.error('Erreur déconnexion:', err);
     }
@@ -207,13 +313,21 @@ export default function StaffDashboard() {
               Saison 2026
             </p>
           </div>
-          <button 
-            onClick={handleLogout}
-            className="p-2 text-zinc-600 hover:text-red-500 transition-colors bg-neutral-900/50 rounded-full"
-            title="Déconnexion"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            {isRefreshing && (
+              <div className="flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
+                <RefreshCcw className="w-3 h-3 text-red-600 animate-spin" />
+                <span className="text-[8px] text-zinc-500">Mise à jour...</span>
+              </div>
+            )}
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-zinc-600 hover:text-red-500 transition-colors bg-neutral-900/50 rounded-full"
+              title="Déconnexion"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {dashboardError && (
