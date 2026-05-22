@@ -9,8 +9,7 @@ import {
   Settings,
   MessageSquare,
   LogOut,
-  Target,
-  RefreshCcw
+  Target
 } from "lucide-react";
 import { getStaffCity } from "@/actions/staff-actions";
 import { getStaffConfig } from "@/actions/get-staff-config";
@@ -25,16 +24,6 @@ import NavigationGrid from "./components/dashboard/NavigationGrid";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { useDashboardData } from "./hooks/useDashboardData";
 
-// ✅ Clés pour le localStorage
-const STORAGE_KEYS = {
-  CITY_CACHE: 'vgd_dashboard_city_cache',
-  COUNTERS_CACHE: 'vgd_dashboard_counters_cache',
-  CACHE_TIMESTAMP: 'vgd_dashboard_timestamp'
-};
-
-// ✅ Durée du cache en millisecondes (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000;
-
 export default function StaffDashboard() {
   // --- ÉTATS ---
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -44,63 +33,17 @@ export default function StaffDashboard() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [newAthletesCount, setNewAthletesCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
   
   // Refs
   const isMounted = useRef(true);
   const loadingCountersRef = useRef(false);
 
-  // ✅ Charger les compteurs depuis le cache (UNIQUEMENT côté client)
-  const loadCountersFromCache = useCallback(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const cachedData = localStorage.getItem(STORAGE_KEYS.COUNTERS_CACHE);
-      const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
-      
-      if (cachedData && timestamp) {
-        const age = Date.now() - parseInt(timestamp);
-        if (age < CACHE_DURATION) {
-          const { unread, newAthletes } = JSON.parse(cachedData);
-          setUnreadCount(unread || 0);
-          setNewAthletesCount(newAthletes || 0);
-          console.log(`📦 Compteurs depuis cache (${Math.round(age / 1000)}s): unread=${unread}, new=${newAthletes}`);
-          return true;
-        }
-      }
-    } catch (err) {
-      console.warn("Erreur lecture cache compteurs:", err);
-    }
-    return false;
-  }, []);
-
-  // ✅ Sauvegarder les compteurs dans le cache (UNIQUEMENT côté client)
-  const saveCountersToCache = useCallback((unread: number, newAthletes: number) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const cacheData = {
-        unread,
-        newAthletes,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(STORAGE_KEYS.COUNTERS_CACHE, JSON.stringify(cacheData));
-      localStorage.setItem(STORAGE_KEYS.CACHE_TIMESTAMP, Date.now().toString());
-    } catch (err) {
-      console.warn("Erreur sauvegarde cache compteurs:", err);
-    }
-  }, []);
-
-  // --- LOGIQUE DE FILTRAGE PAR SECTEUR (optimisée avec cache)---
-  const fetchFilteredCount = useCallback(async (email: string, city: string | null, supabase: SupabaseClient, forceRefresh: boolean = false) => {
+  // --- LOGIQUE DE FILTRAGE PAR SECTEUR ---
+  const fetchFilteredCount = useCallback(async (email: string, city: string | null, supabase: SupabaseClient) => {
     if (!supabase || loadingCountersRef.current) return;
     
-    // Essayer le cache d'abord
-    if (!forceRefresh && loadCountersFromCache()) {
-      return;
-    }
-    
     loadingCountersRef.current = true;
-    setIsRefreshing(true);
 
     let cityKeyword = city?.toLowerCase() || "";
     
@@ -137,11 +80,7 @@ export default function StaffDashboard() {
     }
 
     const { count: mCount, error: mErr } = await messageQuery;
-    let mCountValue = 0;
-    if (!mErr) {
-      mCountValue = mCount || 0;
-      setUnreadCount(mCountValue);
-    }
+    if (!mErr) setUnreadCount(mCount || 0);
 
     let athleteQuery = supabase
       .from('pending_signals')
@@ -155,55 +94,18 @@ export default function StaffDashboard() {
     }
 
     const { count: aCount, error: aErr } = await athleteQuery;
-    let aCountValue = 0;
-    if (!aErr) {
-      aCountValue = aCount || 0;
-      setNewAthletesCount(aCountValue);
-    }
-    
-    // Sauvegarder dans le cache
-    saveCountersToCache(mCountValue, aCountValue);
+    if (!aErr) setNewAthletesCount(aCount || 0);
     
     loadingCountersRef.current = false;
-    setIsRefreshing(false);
-  }, [loadCountersFromCache, saveCountersToCache]);
+  }, []);
 
-  // --- ÉTAPE 1: Récupérer les infos de l'agent (avec cache localStorage)---
+  // --- ÉTAPE 1: Récupérer les infos de l'agent ---
   useEffect(() => {
     const loadStaffInfo = async () => {
       setIsLoading(true);
       
       try {
-        // ✅ Essayer de charger depuis le cache localStorage (UNIQUEMENT côté client)
-        if (typeof window !== 'undefined') {
-          const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
-          if (cachedCity) {
-            const { city, country, email, timestamp } = JSON.parse(cachedCity);
-            const age = Date.now() - timestamp;
-            if (age < CACHE_DURATION && city && email) {
-              console.log(`📍 Ville depuis cache: ${city} (${Math.round(age / 1000)}s)`);
-              setUserEmail(email);
-              setUserCity(city);
-              setUserCountry(country || "FR");
-              
-              // Charger les compteurs depuis le cache aussi
-              loadCountersFromCache();
-              
-              // Créer le client Supabase
-              const config = await getStaffConfig(city, country || 'FR');
-              if (config && config.staff_url && config.staff_anon_key && isMounted.current) {
-                const { createClient } = await import('@supabase/supabase-js');
-                const client = createClient(config.staff_url, config.staff_anon_key);
-                setSupabaseClient(client);
-              }
-              
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
-        
-        // ✅ Pas de cache valide, appeler l'API
+        // Appeler l'API
         const { city, country, email } = await getStaffCity();
         
         if (isMounted.current) {
@@ -211,13 +113,6 @@ export default function StaffDashboard() {
           if (city) {
             setUserCity(city);
             setUserCountry(country || "FR");
-            
-            // Sauvegarder la ville dans localStorage (UNIQUEMENT côté client)
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
-                city, country, email, timestamp: Date.now()
-              }));
-            }
           }
           
           // Créer le client Supabase
@@ -241,7 +136,7 @@ export default function StaffDashboard() {
     loadStaffInfo();
     
     return () => { isMounted.current = false; };
-  }, [loadCountersFromCache]);
+  }, []);
 
   // --- Données du dashboard via hook personnalisé ---
   const {
@@ -257,8 +152,7 @@ export default function StaffDashboard() {
   useEffect(() => {
     const handleMessageUpdate = () => {
       if (supabaseClient && userEmail) {
-        // Forcer le rafraîchissement des compteurs
-        fetchFilteredCount(userEmail, userCity, supabaseClient, true);
+        fetchFilteredCount(userEmail, userCity, supabaseClient);
       }
     };
 
@@ -269,7 +163,7 @@ export default function StaffDashboard() {
   // --- ÉTAPE 2: Charger les compteurs (une fois le client prêt)---
   useEffect(() => {
     if (supabaseClient && userEmail && !loadingCountersRef.current) {
-      fetchFilteredCount(userEmail, userCity, supabaseClient, false);
+      fetchFilteredCount(userEmail, userCity, supabaseClient);
     }
   }, [supabaseClient, userEmail, userCity, fetchFilteredCount]);
 
@@ -282,12 +176,6 @@ export default function StaffDashboard() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
       );
       await masterClient.auth.signOut();
-      // Nettoyer le cache localStorage (UNIQUEMENT côté client)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEYS.CITY_CACHE);
-        localStorage.removeItem(STORAGE_KEYS.COUNTERS_CACHE);
-        localStorage.removeItem(STORAGE_KEYS.CACHE_TIMESTAMP);
-      }
     } catch (err) {
       console.error('Erreur déconnexion:', err);
     }
@@ -321,21 +209,13 @@ export default function StaffDashboard() {
               Saison 2026
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {isRefreshing && (
-              <div className="flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
-                <RefreshCcw className="w-3 h-3 text-red-600 animate-spin" />
-                <span className="text-[8px] text-zinc-500">Mise à jour...</span>
-              </div>
-            )}
-            <button 
-              onClick={handleLogout}
-              className="p-2 text-zinc-600 hover:text-red-500 transition-colors bg-neutral-900/50 rounded-full"
-              title="Déconnexion"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
+          <button 
+            onClick={handleLogout}
+            className="p-2 text-zinc-600 hover:text-red-500 transition-colors bg-neutral-900/50 rounded-full"
+            title="Déconnexion"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
 
         {dashboardError && (

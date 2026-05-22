@@ -49,7 +49,6 @@ interface GitHubArchiveData {
   archive_by: string;
 }
 
-// ✅ Interface pour typer les éléments retournés par l'API history
 interface ApiHistoryItem {
   id: string;
   created_at: string;
@@ -59,23 +58,11 @@ interface ApiHistoryItem {
   document_url: string | null;
 }
 
-// ✅ Clés pour le localStorage
-const STORAGE_KEYS = {
-  MESSAGES_CACHE: 'vgd_messages_cache',
-  CITY_CACHE: 'vgd_city_cache',
-  CACHE_TIMESTAMP: 'vgd_cache_timestamp'
-};
-
-// ✅ Durée du cache en millisecondes (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000;
-
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
-  // États principaux
   const [messages, setMessages] = useState<SignalMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
@@ -83,7 +70,6 @@ export default function StaffMessagesPage() {
   const [view, setView] = useState<"pending" | "archived">("pending");
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   
-  // États pour l'historique et les réponses
   const [replyingTo, setReplyingTo] = useState<SignalMessage | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [documentLink, setDocumentLink] = useState("");
@@ -97,167 +83,52 @@ export default function StaffMessagesPage() {
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   
-  // Refs pour éviter les appels après démontage
   const isMounted = useRef(true);
   const loadingRef = useRef(false);
-  const viewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Charger les données depuis le localStorage au démarrage (UNIQUEMENT côté client)
-  const loadFromCache = useCallback(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const cachedData = localStorage.getItem(STORAGE_KEYS.MESSAGES_CACHE);
-      const timestamp = localStorage.getItem(STORAGE_KEYS.CACHE_TIMESTAMP);
-      
-      if (cachedData && timestamp) {
-        const age = Date.now() - parseInt(timestamp);
-        if (age < CACHE_DURATION) {
-          const { messages: cachedMessages, view: cachedView, userEmail: cachedEmail } = JSON.parse(cachedData);
-          if (cachedMessages && cachedView === view && cachedEmail === userEmail) {
-            console.log(`📦 Chargement depuis localStorage (${Math.round(age / 1000)}s)`);
-            setMessages(cachedMessages);
-            return true;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Erreur lecture cache:", err);
-    }
-    return false;
-  }, [view, userEmail]);
-
-  // ✅ Sauvegarder les données dans le localStorage (UNIQUEMENT côté client)
-  const saveToCache = useCallback((messagesToSave: SignalMessage[]) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const cacheData = {
-        messages: messagesToSave,
-        view,
-        userEmail,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(STORAGE_KEYS.MESSAGES_CACHE, JSON.stringify(cacheData));
-      localStorage.setItem(STORAGE_KEYS.CACHE_TIMESTAMP, Date.now().toString());
-    } catch (err) {
-      console.warn("Erreur sauvegarde cache:", err);
-    }
-  }, [view, userEmail]);
-
-  // ✅ Fonction de chargement des messages (optimisée)
-  const loadMessages = useCallback(async (forceRefresh: boolean = false) => {
-    if (!userEmail || loadingRef.current) return;
-    
-    // Essayer le cache d'abord (uniquement côté client)
-    if (!forceRefresh && typeof window !== 'undefined' && loadFromCache()) {
-      setLoading(false);
-    }
-    
-    loadingRef.current = true;
-    setRefreshing(true);
-    
-    try {
-      const response = await fetch(`/api/staff/pending-signals?view=${view}`);
-      const result = await response.json();
-      
-      if (response.ok && isMounted.current) {
-        const newMessages = result.messages || [];
-        setMessages(newMessages);
-        if (typeof window !== 'undefined') {
-          saveToCache(newMessages);
-        }
-      } else {
-        throw new Error(result.error || "Erreur chargement des messages");
-      }
-    } catch (err) {
-      console.error("❌ Erreur chargement:", err);
-      if (isMounted.current && !loadFromCache()) {
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
-      }
-    } finally {
-      if (isMounted.current) {
-        setRefreshing(false);
-        setLoading(false);
-      }
-      loadingRef.current = false;
-    }
-  }, [userEmail, view, loadFromCache, saveToCache]);
-
-  // ✅ Chargement initial (parallélisé)
   useEffect(() => {
-    const initialize = async () => {
+    const loadStaffAndMessages = async () => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
+      setLoading(true);
       setError(null);
       
       try {
-        // 1. Essayer de charger la ville depuis le localStorage (UNIQUEMENT côté client)
-        if (typeof window !== 'undefined') {
-          const cachedCity = localStorage.getItem(STORAGE_KEYS.CITY_CACHE);
-          if (cachedCity) {
-            const { city, country, email, timestamp } = JSON.parse(cachedCity);
-            const age = Date.now() - timestamp;
-            if (age < CACHE_DURATION && city && email) {
-              setUserEmail(email);
-              setUserCity(city);
-              setUserCountry(country || "FR");
-              console.log(`📍 Ville depuis cache: ${city}`);
-              await loadMessages(false);
-              return;
-            }
-          }
-        }
-        
-        // 2. Pas de cache valide, appeler l'API
         const { city, country, email } = await getStaffCity();
         if (isMounted.current) {
           setUserEmail(email);
           if (city) {
             setUserCity(city);
             setUserCountry(country || "FR");
-            // Sauvegarder la ville dans localStorage (UNIQUEMENT côté client)
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(STORAGE_KEYS.CITY_CACHE, JSON.stringify({
-                city, country, email, timestamp: Date.now()
-              }));
-            }
           }
         }
         
-        // 3. Charger les messages
-        await loadMessages(true);
+        const response = await fetch(`/api/staff/pending-signals?view=${view}`);
+        const result = await response.json();
         
+        if (!response.ok) {
+          throw new Error(result.error || "Erreur chargement des messages");
+        }
+        
+        if (isMounted.current) {
+          setMessages(result.messages || []);
+        }
       } catch (err) {
-        console.error("❌ Erreur initialisation:", err);
+        console.error("❌ Erreur chargement:", err);
         if (isMounted.current) {
           setError(err instanceof Error ? err.message : "Erreur inconnue");
-          setLoading(false);
         }
+      } finally {
+        if (isMounted.current) setLoading(false);
+        loadingRef.current = false;
       }
     };
     
-    initialize();
+    loadStaffAndMessages();
     
     return () => { isMounted.current = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view]);
 
-  // ✅ Changement de vue avec debounce
-  useEffect(() => {
-    if (!userEmail) return;
-    
-    if (viewTimeoutRef.current) {
-      clearTimeout(viewTimeoutRef.current);
-    }
-    
-    viewTimeoutRef.current = setTimeout(() => {
-      loadMessages(true);
-    }, 200);
-    
-    return () => {
-      if (viewTimeoutRef.current) {
-        clearTimeout(viewTimeoutRef.current);
-      }
-    };
-  }, [view, userEmail, loadMessages]);
-
-  // --- LOGIQUE DE REGROUPEMENT POUR ÉVITER LES DOUBLONS DANS L'INTERFACE ---
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
     
@@ -278,7 +149,6 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ Récupération de l'historique (via l'API history)
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -377,16 +247,10 @@ export default function StaffMessagesPage() {
         throw new Error(errorData.error || "Erreur mise à jour statut");
       }
 
-      // Mettre à jour la liste localement
       setMessages(prev => prev.filter(m => 
         (m.dossier_ref && m.dossier_ref !== secureRef) && 
         (m.payload.email !== secureEmail)
       ));
-      
-      // Invalider le cache (UNIQUEMENT côté client)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
-      }
       
     } catch (err: unknown) {
       console.error("Erreur lors du marquage comme lu:", err);
@@ -432,11 +296,6 @@ export default function StaffMessagesPage() {
         ));
         setReplyingTo(null);
         alert(result.message || "Sécurisation et purge réussies.");
-        
-        // Invalider le cache (UNIQUEMENT côté client)
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
-        }
       } else {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
@@ -500,11 +359,6 @@ export default function StaffMessagesPage() {
         ));
       }
       
-      // Invalider le cache (UNIQUEMENT côté client)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEYS.MESSAGES_CACHE);
-      }
-      
       window.dispatchEvent(new CustomEvent('staff-message-updated'));
       
       setReplyContent("");
@@ -564,17 +418,11 @@ export default function StaffMessagesPage() {
               Archives
             </button>
           </div>
-          {refreshing && (
-            <div className="flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
-              <RefreshCcw className="w-3 h-3 text-red-600 animate-spin" />
-              <span className="text-[8px] text-zinc-500">Mise à jour...</span>
-            </div>
-          )}
         </div>
       </header>
 
       <div className="space-y-4">
-        {loading && !loadFromCache() ? (
+        {loading ? (
           <div className="py-20 text-center">
             <RefreshCcw className="w-8 h-8 text-red-600 animate-spin mx-auto mb-4" />
             <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Synchronisation du flux...</p>
