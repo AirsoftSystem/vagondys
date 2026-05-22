@@ -49,6 +49,16 @@ interface GitHubArchiveData {
   archive_by: string;
 }
 
+// ✅ Interface pour typer les éléments retournés par l'API history
+interface ApiHistoryItem {
+  id: string;
+  created_at: string;
+  agent_email: string;
+  content: string;
+  dossier_ref: string;
+  document_url: string | null;
+}
+
 export const dynamic = 'force-dynamic';
 
 export default function StaffMessagesPage() {
@@ -145,30 +155,45 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // Récupération de l'historique (via l'API archive-external)
-  const fetchHistoryAndLinks = useCallback(async (ref: string, email: string) => {
+  // ✅ Récupération de l'historique (via l'API history)
+  const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
     setGithubArchive(null);
     
     try {
-      const archivedData = await fetchGitHubArchive(ref);
+      // Appeler l'API d'historique
+      const response = await fetch(`/api/staff/history?ref=${encodeURIComponent(ref)}`);
+      const result = await response.json();
       
-      if (archivedData && archivedData.echanges_staff) {
-        setGithubArchive(archivedData);
-        const formattedHistory: HistoryMessage[] = archivedData.echanges_staff.map(h => ({
-          ...h,
-          document_url: h.document_url || null
-        }));
-        setHistoryMessages(formattedHistory);
-      } else {
-        setHistoryMessages([]);
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur chargement historique");
       }
       
-      // Simulation de dossiers liés (à améliorer avec une API dédiée)
+      // ✅ Typage correct des données reçues (plus de 'any')
+      const formattedHistory: HistoryMessage[] = (result.history || []).map((item: ApiHistoryItem) => ({
+        id: item.id,
+        created_at: item.created_at,
+        agent_email: item.agent_email,
+        content: item.content,
+        dossier_ref: item.dossier_ref,
+        document_url: item.document_url || null
+      }));
+      
+      setHistoryMessages(formattedHistory);
+      
+      // Récupérer également l'archive GitHub pour information
+      const archivedData = await fetchGitHubArchive(ref);
+      if (archivedData) {
+        setGithubArchive(archivedData);
+      }
+      
+      // Réinitialiser les dossiers liés (seront gérés par une autre API si besoin)
       setLinkedDossiers([]);
+      
     } catch (err) {
       console.error("Erreur historique:", err);
+      setHistoryMessages([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -459,7 +484,7 @@ export default function StaffMessagesPage() {
                     <button 
                       onClick={() => {
                         setReplyingTo(msg);
-                        if(msg.dossier_ref) fetchHistoryAndLinks(msg.dossier_ref, msg.payload.email);
+                        if(msg.dossier_ref) fetchHistoryAndLinks(msg.dossier_ref);
                       }}
                       className="bg-white text-black text-[9px] font-black uppercase tracking-widest px-6 py-3 rounded-md hover:bg-red-600 hover:text-white transition-all flex items-center gap-2">
                       <Send className="w-3 h-3" /> RÉPONDRE / HISTORIQUE
