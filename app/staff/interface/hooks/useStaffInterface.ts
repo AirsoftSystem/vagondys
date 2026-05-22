@@ -7,6 +7,8 @@ import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { getStationConfig, createDynamicClient } from "@/lib/supabase/master"; 
 import { SignalMessage, HistoryMessage, GitHubArchiveData } from "../types/interface";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * HOOK PERSONNALISÉ : useStaffInterface
  * Centralise 100% de la logique métier, des appels API et de la gestion d'état.
