@@ -65,13 +65,19 @@ export function useStaffInterface() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
         );
 
-        const { data: { user } } = await masterClient.auth.getUser();
+        const { data: { user }, error } = await masterClient.auth.getUser();
+        
+        // ✅ DIAGNOSTIC : Afficher l'erreur si présente
+        if (error) {
+          console.error("❌ Erreur getUser MASTER:", error.message);
+        }
         
         if (user?.email) {
           setUserEmail(user.email);
           console.log("👤 Utilisateur connecté (MASTER):", user.email);
         } else {
           console.log("⚠️ Aucun utilisateur connecté dans MASTER");
+          console.log("🔍 Détails - user:", user, "error:", error);
         }
       } catch (err) {
         console.error("❌ Erreur récupération utilisateur:", err);
@@ -87,6 +93,7 @@ export function useStaffInterface() {
       if (userEmail) {
         const city = getCityFromEmail(userEmail);
         setUserCity(city);
+        console.log(`🔍 Ville détectée pour ${userEmail}: ${city}`);
         try {
           // ✅ Récupérer la configuration de la station
           const config = await getStationConfig(city, 'FR');
@@ -94,6 +101,11 @@ export function useStaffInterface() {
             console.error(`❌ Configuration introuvable pour ${city}`);
             return;
           }
+          
+          console.log(`🔍 Configuration trouvée pour ${city}:`, {
+            staff_url: config.staff_url?.substring(0, 30) + '...',
+            hasKey: !!config.staff_service_key
+          });
           
           // ✅ CORRECTION : Utiliser createDynamicClient avec SERVICE_ROLE
           // pour bypasser les RLS et lire toutes les données
@@ -105,6 +117,8 @@ export function useStaffInterface() {
         } catch (err) {
           console.error("❌ Erreur création client dynamique:", err);
         }
+      } else {
+        console.log("⏳ Attente de userEmail pour initialiser le client STAFF");
       }
     };
     initClient();
@@ -306,7 +320,12 @@ export function useStaffInterface() {
 
   // Chargement initial des messages (remplace l'appel à fetchMessages)
   useEffect(() => {
-    if (!supabase || !userEmail) return;
+    console.log(`🔍 useEffect loadMessages - supabase: ${!!supabase}, userEmail: ${userEmail}, view: ${view}`);
+    
+    if (!supabase || !userEmail) {
+      console.log("⏳ Chargement des messages en attente: supabase ou userEmail manquant");
+      return;
+    }
     
     const loadMessages = async () => {
       setLoading(true);
@@ -366,6 +385,7 @@ export function useStaffInterface() {
         setMessages(data || []);
       } catch (err) {
         console.error("❌ Erreur chargement messages:", err);
+        // ✅ AJOUT : Afficher une erreur à l'utilisateur si le chargement échoue
       } finally {
         setLoading(false);
       }
