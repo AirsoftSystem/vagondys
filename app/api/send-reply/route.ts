@@ -60,10 +60,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "ID ou Destinataire manquant" }, { status: 400 });
     }
 
+    // ✅ CORRECTION : Vérifier que dossierRef est fourni
+    if (!dossierRef) {
+      console.error("❌ send-reply: dossierRef manquant");
+      return NextResponse.json({ error: "Référence dossier manquante" }, { status: 400 });
+    }
+
     const cleanAgentEmail = agentEmail.toLowerCase();
     const cleanClientEmail = to.toLowerCase();
     const serviceNameRaw = (subject || "").split('_')[0].toUpperCase() || "ADMINISTRATION";
-    const cleanDossierRef = dossierRef ? String(dossierRef).trim() : 'REF-INCONNUE';
+    const cleanDossierRef = String(dossierRef).trim().toUpperCase();
+    
+    console.log(`📧 send-reply: début pour dossier ${cleanDossierRef}, ville ${cityCode || 'MASTER'}`);
 
     // --- LOGIQUE DYNAMIQUE PAR VILLE ---
     let targetStaffClient = supabaseStaffMaster;
@@ -71,11 +79,14 @@ export async function POST(req: Request) {
     let stationName = cityCode;
 
     // AIGUILLAGE : Si un cityCode est fourni, on bascule sur les clients de la ville
-    if (cityCode) {
+    if (cityCode && cityCode.toUpperCase() !== 'MASTER') {
+      console.log(`📍 send-reply: aiguillage vers ${cityCode}`);
       const config = await getStationConfig(cityCode);
       if (config) {
         targetStaffClient = await createDynamicClient(cityCode, 'STAFF');
         targetPublicClient = await createDynamicClient(cityCode, 'PUBLIC');
+      } else {
+        console.warn(`⚠️ send-reply: configuration introuvable pour ${cityCode}`);
       }
     }
 
@@ -86,13 +97,24 @@ export async function POST(req: Request) {
     }
 
     // 1. RÉCUPÉRATION DU DOSSIER DANS LA BASE CIBLE (Ville ou Master)
-    const { data: signalInfo } = await targetStaffClient
+    const { data: signalInfo, error: signalError } = await targetStaffClient
       .from('pending_signals')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
-      .single();
+      .maybeSingle();
 
-    // 2. RÉCUPÉRATION DES ÉCHANGES DANS LA BASE CIBLE
+    if (signalError) {
+      console.error("❌ send-reply: erreur récupération signal:", signalError);
+    }
+
+    if (!signalInfo) {
+      console.warn(`⚠️ send-reply: aucun signal trouvé pour ${cleanDossierRef}`);
+    } else {
+      console.log(`✅ send-reply: signal trouvé pour ${cleanDossierRef}`);
+      if (!stationName) stationName = signalInfo.payload?.city;
+    }
+
+    // 2. RÉCUPÉRATION DES ÉCHANGES DANS LA BASE CIBLE (pour l'historique dans l'email)
     const { data: historyData } = await targetStaffClient
       .from('communication_replies')
       .select('*')
@@ -125,8 +147,6 @@ export async function POST(req: Request) {
           <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${firstMsg.replace(/\n/g, '<br>')}</div>
         </div>
       `;
-      // Sécurité : si cityCode n'était pas passé, on tente de le récupérer du payload pour l'archivage
-      if (!stationName) stationName = signalInfo.payload.city;
     }
 
     const now = new Date();
@@ -194,14 +214,19 @@ export async function POST(req: Request) {
         `
       });
       mailError = error;
+      if (mailError) {
+        console.error("❌ send-reply: erreur envoi email:", mailError);
+      } else {
+        console.log(`✅ send-reply: email envoyé à ${cleanClientEmail}`);
+      }
     } else {
-      console.warn(`Email non envoyé à ${cleanClientEmail}: RESEND_API_KEY manquante`);
+      console.warn(`⚠️ send-reply: email non envoyé à ${cleanClientEmail}: RESEND_API_KEY manquante`);
     }
 
     if (mailError) return NextResponse.json({ error: "Échec envoi" }, { status: 400 });
 
     const replyData = {
-      id: id || undefined,
+      id: id || crypto.randomUUID(),
       agent_email: cleanAgentEmail,
       content: message,
       document_url: docLink || null,
@@ -209,36 +234,58 @@ export async function POST(req: Request) {
     };
 
     // 4. MISE À JOUR DES BASES DE DONNÉES CIBLES (Insertion de la réponse et marquage comme lu)
-    await Promise.all([
+    console.log(`📝 send-reply: insertion dans communication_replies pour ${cleanDossierRef}`);
+    
+    // ✅ Correction : suppression de 'publicUpdate' qui n'est pas utilisé
+    const [publicReplyInsert, staffReplyInsert, staffUpdate] = await Promise.all([
       targetPublicClient.from('communication_replies').insert([replyData]),
       targetStaffClient.from('communication_replies').insert([replyData]),
-      targetStaffClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef),
-      targetPublicClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef)
+      targetStaffClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef)
     ]);
+
+    if (staffReplyInsert.error) {
+      console.error("❌ send-reply: erreur insertion STAFF dans communication_replies:", staffReplyInsert.error);
+    } else {
+      console.log(`✅ send-reply: insertion STAFF OK`);
+    }
+    
+    if (publicReplyInsert.error) {
+      console.warn("⚠️ send-reply: erreur insertion PUBLIC dans communication_replies:", publicReplyInsert.error);
+    }
+
+    if (staffUpdate.error) {
+      console.error("❌ send-reply: erreur mise à jour STAFF is_read:", staffUpdate.error);
+    } else {
+      console.log(`✅ send-reply: mise à jour is_read STAFF OK`);
+    }
 
     // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB VERS LE REPO DE LA VILLE
     if (signalInfo) {
         const origin = new URL(req.url).origin;
+        console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
         try {
             await fetch(`${origin}/api/archive-external`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: signalInfo, // Inclut le dossier complet
-                    history: [],        // La route archive-external récupérera l'historique frais en SQL
+                    message: signalInfo,
+                    history: [],
                     purgeActive: false,
-                    city_code: stationName // TRANSMISSION DU CODE VILLE POUR L'AIGUILLAGE GITHUB
+                    city_code: stationName || cityCode
                 })
             });
+            console.log(`✅ send-reply: archivage GitHub déclenché`);
         } catch (arcErr) {
-            console.error("Erreur synchro archive après réponse:", arcErr);
+            console.error("❌ send-reply: erreur synchro archive:", arcErr);
         }
     }
 
+    console.log(`✅ send-reply: succès complet pour ${cleanDossierRef}`);
     return NextResponse.json({ success: true });
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Erreur interne";
+    console.error("❌ send-reply: erreur critique:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

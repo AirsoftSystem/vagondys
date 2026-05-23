@@ -36,7 +36,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
     }
 
-    const cleanDossierRef = String(dossierRef).trim();
+    const cleanDossierRef = String(dossierRef).trim().toUpperCase();
+    console.log(`🔍 notify-read: recherche dossier ${cleanDossierRef} pour ville ${cityCode || 'MASTER'}`);
 
     // --- INITIALISATION DYNAMIQUE DES CLIENTS ---
     // Par défaut, on pointe sur le MASTER
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
     if (cityCode && cityCode.toUpperCase() !== 'MASTER') {
       const config = await getStationConfig(cityCode);
       if (config) {
+        console.log(`🔍 notify-read: utilisation de la base STAFF pour ${cityCode}`);
         targetStaff = await createDynamicClient(cityCode, 'STAFF');
         targetPublic = await createDynamicClient(cityCode, 'PUBLIC');
       }
@@ -59,47 +61,74 @@ export async function POST(req: Request) {
     }
 
     // 1. RÉCUPÉRATION DU SIGNAL DANS LA BASE CIBLE
-    const { data: signal, error: fetchError } = await targetStaff
+    // ✅ CORRECTION : Recherche par dossier_ref d'abord
+    let activeSignal = null;
+    
+    const { data: signalByRef, error: fetchError } = await targetStaff
       .from('pending_signals')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
       .maybeSingle();
 
     if (fetchError) {
-      console.error("Erreur récupération signal:", fetchError.message);
+      console.error("Erreur récupération signal par ref:", fetchError.message);
     }
 
-    let activeSignal = signal;
+    if (signalByRef) {
+      activeSignal = signalByRef;
+      console.log(`✅ notify-read: signal trouvé par ref ${cleanDossierRef}`);
+    }
 
     // Fallback par email si non trouvé par Ref
     if (!activeSignal && email) {
+      console.log(`🔍 notify-read: recherche par email ${email}`);
       const { data: fallbackSignal } = await targetStaff
         .from('pending_signals')
         .select('*')
-        .eq('payload->>email', email)
+        .eq('payload->>email', email.toLowerCase())
         .eq('is_read', false)
         .maybeSingle();
       
-      if (fallbackSignal) activeSignal = fallbackSignal;
+      if (fallbackSignal) {
+        activeSignal = fallbackSignal;
+        console.log(`✅ notify-read: signal trouvé par email, ref: ${fallbackSignal.dossier_ref}`);
+      }
     }
 
     if (!activeSignal) {
+      console.error(`❌ notify-read: aucun signal trouvé pour ref ${cleanDossierRef} ou email ${email}`);
       return NextResponse.json({ error: `Dossier introuvable dans la base ${cityCode || 'MASTER'}` }, { status: 404 });
     }
 
     const finalDossierRef = activeSignal.dossier_ref;
+    
+    if (!finalDossierRef) {
+      console.error(`❌ notify-read: signal trouvé mais sans dossier_ref`);
+      return NextResponse.json({ error: "Signal trouvé mais référence manquante" }, { status: 400 });
+    }
 
     if (activeSignal.is_read) {
       return NextResponse.json({ success: true, message: "Déjà marqué comme lu" });
     }
 
     // 2. MISE À JOUR SYNCHRONISÉE (STAFF & PUBLIC)
-    const [staffUpdate] = await Promise.all([
+    console.log(`📝 notify-read: mise à jour is_read=true pour ${finalDossierRef}`);
+    
+    const [staffUpdate, publicUpdate] = await Promise.all([
       targetStaff.from('pending_signals').update({ is_read: true }).eq('dossier_ref', finalDossierRef),
       targetPublic.from('pending_signals').update({ is_read: true }).eq('dossier_ref', finalDossierRef)
     ]);
 
-    if (staffUpdate.error) throw staffUpdate.error;
+    if (staffUpdate.error) {
+      console.error("❌ Erreur mise à jour STAFF:", staffUpdate.error);
+      throw staffUpdate.error;
+    }
+    
+    if (publicUpdate.error) {
+      console.warn("⚠️ Erreur mise à jour PUBLIC:", publicUpdate.error);
+    }
+
+    console.log(`✅ notify-read: mise à jour réussie pour ${finalDossierRef}`);
 
     // 3. ENVOI DE L'AVIS DE LECTURE (RESEND)
     const contactEmail = activeSignal.payload?.email;
@@ -136,6 +165,7 @@ export async function POST(req: Request) {
           </div>
         `
       });
+      console.log(`📧 notify-read: avis de lecture envoyé à ${contactEmail}`);
     } else if (contactEmail && !resendApiKey) {
       console.warn(`Avis de lecture non envoyé à ${contactEmail}: RESEND_API_KEY manquante`);
     }
