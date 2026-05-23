@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const dossierRef = searchParams.get("ref");
-    const email = searchParams.get("email");
+    // ✅ Correction : suppression de 'email' qui n'est pas utilisé
     const cityParam = searchParams.get("city");
     const countryParam = searchParams.get("country") || "FR";
 
@@ -65,14 +65,58 @@ export async function GET(request: Request) {
       console.log(`📦 history: ${clientMessages?.length || 0} messages client trouvés`);
     }
 
+    // ✅ AJOUT 1 : Extraire l'email du client depuis le premier message
+    let clientEmail: string | null = null;
+    if (clientMessages && clientMessages.length > 0) {
+      clientEmail = clientMessages[0].payload?.email || null;
+      console.log(`📧 history: email client détecté: ${clientEmail}`);
+    }
+
+    // ✅ AJOUT 2 : Rechercher les autres dossiers liés au même email
+    let linkedDossiers: string[] = [];
+    if (clientEmail) {
+      console.log(`🔗 history: recherche dossiers liés pour ${clientEmail}`);
+      
+      const { data: otherSignals, error: otherError } = await adminClient
+        .from("pending_signals")
+        .select("dossier_ref")
+        .eq("payload->>email", clientEmail)
+        .neq("dossier_ref", dossierRef)
+        .not("dossier_ref", "is", null);
+
+      if (!otherError && otherSignals) {
+        linkedDossiers = [...new Set(otherSignals.map(s => s.dossier_ref).filter(Boolean))];
+        console.log(`🔗 history: ${linkedDossiers.length} dossiers liés trouvés:`, linkedDossiers);
+      }
+
+      // Fallback : chercher aussi dans communication_replies
+      if (linkedDossiers.length === 0) {
+        const { data: otherReplies, error: replyError } = await adminClient
+          .from("communication_replies")
+          .select("dossier_ref")
+          .eq("agent_email", clientEmail)
+          .neq("dossier_ref", dossierRef)
+          .not("dossier_ref", "is", null);
+
+        if (!replyError && otherReplies) {
+          const replyRefs = [...new Set(otherReplies.map(r => r.dossier_ref).filter(Boolean))];
+          linkedDossiers = [...new Set([...linkedDossiers, ...replyRefs])];
+          console.log(`🔗 history: ${replyRefs.length} dossiers liés trouvés dans replies`);
+        }
+      }
+    }
+
     // 3. Formater les messages pour l'affichage
-    const clientHistory = (clientMessages || []).map(m => ({
+    // ✅ AJOUT 3 : Inclure le message original du client (payload.message) dans l'historique
+    const clientHistory = (clientMessages || []).map((m, index) => ({
       id: m.id,
       created_at: m.created_at,
       agent_email: "CLIENT",
       content: m.payload?.message || "(message vide)",
       dossier_ref: m.dossier_ref,
-      document_url: null
+      document_url: null,
+      // ✅ AJOUT 4 : Marquer le premier message comme "initial"
+      is_initial: index === 0 ? true : false
     }));
 
     const staffHistory = (replies || []).map(r => ({
@@ -81,7 +125,8 @@ export async function GET(request: Request) {
       agent_email: r.agent_email,
       content: r.content,
       dossier_ref: r.dossier_ref,
-      document_url: r.document_url || null
+      document_url: r.document_url || null,
+      is_initial: false
     }));
 
     // 4. Fusionner et trier par date (du plus ancien au plus récent)
@@ -90,14 +135,12 @@ export async function GET(request: Request) {
 
     console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef}`);
 
-    // Si email est fourni, on pourrait aussi chercher les dossiers liés
-    if (email && clientMessages && clientMessages.length > 0) {
-      console.log(`🔗 history: recherche dossiers liés pour ${email}`);
-      // Optionnel: recherche des autres dossiers du même client
-      // À implémenter si besoin
-    }
-
-    return NextResponse.json({ history: allMessages });
+    // ✅ AJOUT 5 : Retourner également les dossiers liés
+    return NextResponse.json({ 
+      history: allMessages,
+      linkedDossiers: linkedDossiers,
+      clientEmail: clientEmail
+    });
 
   } catch (error) {
     console.error("❌ API history error:", error);

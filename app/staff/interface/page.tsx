@@ -42,6 +42,10 @@ interface HistoryMessage {
   dossier_ref: string;
 }
 
+interface ExtendedHistoryMessage extends HistoryMessage {
+  is_initial?: boolean;
+}
+
 interface GitHubArchiveData {
   dossier: SignalMessage;
   echanges_staff: HistoryMessage[];
@@ -56,6 +60,12 @@ interface ApiHistoryItem {
   content: string;
   dossier_ref: string;
   document_url: string | null;
+}
+
+interface ApiHistoryResponse {
+  history: ApiHistoryItem[];
+  linkedDossiers: string[];
+  clientEmail: string | null;
 }
 
 export const dynamic = 'force-dynamic';
@@ -78,14 +88,15 @@ export default function StaffMessagesPage() {
   const [isSending, setIsSending] = useState(false);
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
   const [isMarkingRead, setIsMarkingRead] = useState<string | null>(null);
-  const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
+  const [historyMessages, setHistoryMessages] = useState<ExtendedHistoryMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [linkedDossiers, setLinkedDossiers] = useState<string[]>([]);
+  const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
 
-  // Chargement unique au montage (comme dans mode_jeux)
+  // Chargement unique au montage
   useEffect(() => {
     let isMounted = true;
     let isLoading = false;
@@ -97,7 +108,6 @@ export default function StaffMessagesPage() {
       setError(null);
       
       try {
-        // 1. Récupérer les infos de l'agent
         const { city, country, email } = await getStaffCity();
         
         if (!isMounted) return;
@@ -108,7 +118,6 @@ export default function StaffMessagesPage() {
           setUserCountry(country || "FR");
         }
         
-        // 2. Appeler l'API pour les messages
         const response = await fetch(`/api/staff/pending-signals?view=${view}`);
         const result = await response.json();
         
@@ -135,7 +144,7 @@ export default function StaffMessagesPage() {
     return () => { isMounted = false; };
   }, [view]);
 
-  // Regroupement des messages (évite les doublons)
+  // Regroupement des messages
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
     
@@ -156,41 +165,65 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // Récupération de l'historique (via l'API history)
+  // Récupération de l'historique
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
     setGithubArchive(null);
+    setLinkedDossiers([]);
+    setClientEmail(null);
     
     try {
       const response = await fetch(`/api/staff/history?ref=${encodeURIComponent(ref)}`);
-      const result = await response.json();
+      const result: ApiHistoryResponse = await response.json();
       
       if (!response.ok) {
-        throw new Error(result.error || "Erreur chargement historique");
+        throw new Error("Erreur chargement historique");
       }
       
-      const formattedHistory: HistoryMessage[] = (result.history || []).map((item: ApiHistoryItem) => ({
+      const formattedHistory: ExtendedHistoryMessage[] = (result.history || []).map((item: ApiHistoryItem) => ({
         id: item.id,
         created_at: item.created_at,
         agent_email: item.agent_email,
         content: item.content,
         dossier_ref: item.dossier_ref,
-        document_url: item.document_url || null
+        document_url: item.document_url || null,
+        is_initial: false
       }));
       
-      setHistoryMessages(formattedHistory);
-      
       const archivedData = await fetchGitHubArchive(ref);
-      if (archivedData) {
+      if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
+        const archivedHistory: ExtendedHistoryMessage[] = archivedData.echanges_staff.map(h => ({
+          id: h.id,
+          created_at: h.created_at,
+          agent_email: h.agent_email,
+          content: h.content,
+          dossier_ref: h.dossier_ref,
+          document_url: h.document_url || null,
+          is_initial: false
+        }));
+        
+        const mergedHistory = [...formattedHistory, ...archivedHistory];
+        mergedHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setHistoryMessages(mergedHistory);
         setGithubArchive(archivedData);
+      } else {
+        setHistoryMessages(formattedHistory);
+        if (archivedData) setGithubArchive(archivedData);
       }
       
-      setLinkedDossiers([]);
+      if (result.linkedDossiers) {
+        setLinkedDossiers(result.linkedDossiers);
+      }
+      if (result.clientEmail) {
+        setClientEmail(result.clientEmail);
+      }
       
     } catch (err) {
       console.error("Erreur historique:", err);
       setHistoryMessages([]);
+      setLinkedDossiers([]);
+      setClientEmail(null);
     } finally {
       setLoadingHistory(false);
     }
@@ -208,13 +241,16 @@ export default function StaffMessagesPage() {
           ...archivedData.dossier,
           id: `archived-${archivedData.dossier.dossier_ref}`
         };
-        const formattedHistory: HistoryMessage[] = (archivedData.echanges_staff || []).map(h => ({
+        const formattedHistory: ExtendedHistoryMessage[] = (archivedData.echanges_staff || []).map(h => ({
           ...h,
-          document_url: h.document_url || null
+          document_url: h.document_url || null,
+          is_initial: false
         }));
         setHistoryMessages(formattedHistory);
         setGithubArchive(archivedData);
         setReplyingTo(mockMsg);
+        setLinkedDossiers([]);
+        setClientEmail(mockMsg.payload.email);
       } else {
         alert("Aucune archive trouvée pour cette référence dans le coffre-fort.");
       }
@@ -226,6 +262,7 @@ export default function StaffMessagesPage() {
     }
   };
 
+  // ✅ AJOUT 1 : Ajout de countryCode dans l'appel à notify-read
   const handleMarkAsReadSilent = async (msg: SignalMessage) => {
     if (isMarkingRead || !userEmail) return;
     
@@ -246,7 +283,8 @@ export default function StaffMessagesPage() {
         body: JSON.stringify({ 
           dossierRef: secureRef,
           email: secureEmail,
-          cityCode: userCity 
+          cityCode: userCity,
+          countryCode: userCountry || 'FR'
         }),
       });
 
@@ -349,13 +387,15 @@ export default function StaffMessagesPage() {
       }
 
       if (replyingTo.dossier_ref) {
+        // ✅ AJOUT 2 : Ajout de countryCode dans le second appel à notify-read
         await fetch('/api/notify-read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             dossierRef: replyingTo.dossier_ref,
             email: replyingTo.payload.email,
-            cityCode: userCity 
+            cityCode: userCity,
+            countryCode: userCountry || 'FR'
           }),
         });
       }
@@ -371,6 +411,11 @@ export default function StaffMessagesPage() {
       
       setReplyContent("");
       setDocumentLink("");
+      
+      if (replyingTo.dossier_ref) {
+        await fetchHistoryAndLinks(replyingTo.dossier_ref);
+      }
+      
       setReplyingTo(null);
       alert("Réponse transmise avec succès.");
       
@@ -547,6 +592,12 @@ export default function StaffMessagesPage() {
                     Fil de discussion <span className="text-zinc-500 font-mono not-italic ml-2">#{replyingTo.dossier_ref}</span>
                   </h2>
 
+                  {clientEmail && (
+                    <p className="text-[9px] text-zinc-500 font-mono mt-1">
+                      Email client : {clientEmail}
+                    </p>
+                  )}
+
                   <div className="mt-2 flex items-center gap-4">
                     <div className="flex flex-col">
                       <div className="text-sm font-black uppercase tracking-tight text-white">
@@ -620,6 +671,7 @@ export default function StaffMessagesPage() {
                   <div className="space-y-4 ml-4 md:ml-8 border-l-2 border-red-600/10 pl-4 md:pl-8">
                     {historyMessages.map((h, idx) => {
                       const isClient = h.agent_email === "CLIENT";
+                      const isInitial = h.is_initial === true;
                       return (
                         <div key={h.id || idx} className={`${isClient ? "bg-zinc-900/50 border-zinc-800" : "bg-red-600/5 border-red-600/20"} border p-4 rounded-2xl relative`}>
                           <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-zinc-500" : "border-red-600"} flex items-center justify-center`}>
@@ -627,7 +679,7 @@ export default function StaffMessagesPage() {
                           </div>
                           <div className="flex justify-between items-center mb-2">
                             <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isClient ? "text-zinc-400" : "text-white"}`}>
-                                 {isClient ? "Message Client" : `Agent: ${h.agent_email}`}
+                              {isClient ? (isInitial ? "Message initial" : "Message Client") : `Agent: ${h.agent_email}`}
                             </span>
                             <span className="text-[8px] font-mono text-zinc-500">{new Date(h.created_at).toLocaleString()}</span>
                           </div>

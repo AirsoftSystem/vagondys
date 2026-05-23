@@ -30,27 +30,34 @@ export async function POST(req: Request) {
     const resend = new Resend(resendApiKey || '');
 
     const body = await req.json();
-    const { dossierRef, email, cityCode } = body;
+    // ✅ AJOUT 1 : Récupération de countryCode
+    const { dossierRef, email, cityCode, countryCode } = body;
 
     if (!dossierRef) {
       return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
     }
 
     const cleanDossierRef = String(dossierRef).trim().toUpperCase();
-    console.log(`🔍 notify-read: recherche dossier ${cleanDossierRef} pour ville ${cityCode || 'MASTER'}`);
+    const activeCity = cityCode && cityCode.toUpperCase() !== 'MASTER' ? cityCode.toUpperCase() : null;
+    const activeCountry = countryCode || 'FR';
+    
+    console.log(`🔍 notify-read: recherche dossier ${cleanDossierRef} pour ville ${activeCity || 'MASTER'} (pays ${activeCountry})`);
 
     // --- INITIALISATION DYNAMIQUE DES CLIENTS ---
     // Par défaut, on pointe sur le MASTER
     let targetStaff = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
     let targetPublic = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-    // Si cityCode est présent, on bascule sur la station locale
-    if (cityCode && cityCode.toUpperCase() !== 'MASTER') {
-      const config = await getStationConfig(cityCode);
+    // ✅ AJOUT 2 : Si cityCode est présent, on bascule sur la station locale avec le pays
+    if (activeCity) {
+      console.log(`🔍 notify-read: recherche config pour ${activeCity}/${activeCountry}`);
+      const config = await getStationConfig(activeCity, activeCountry);
       if (config) {
-        console.log(`🔍 notify-read: utilisation de la base STAFF pour ${cityCode}`);
-        targetStaff = await createDynamicClient(cityCode, 'STAFF');
-        targetPublic = await createDynamicClient(cityCode, 'PUBLIC');
+        console.log(`✅ notify-read: config trouvée, staff_url: ${config.staff_url?.substring(0, 30)}...`);
+        targetStaff = await createDynamicClient(activeCity, activeCountry, 'STAFF');
+        targetPublic = await createDynamicClient(activeCity, activeCountry, 'PUBLIC');
+      } else {
+        console.warn(`⚠️ notify-read: AUCUNE CONFIG trouvée pour ${activeCity}/${activeCountry}, utilisation du MASTER`);
       }
     }
 
@@ -61,7 +68,6 @@ export async function POST(req: Request) {
     }
 
     // 1. RÉCUPÉRATION DU SIGNAL DANS LA BASE CIBLE
-    // ✅ CORRECTION : Recherche par dossier_ref d'abord
     let activeSignal = null;
     
     const { data: signalByRef, error: fetchError } = await targetStaff
@@ -97,7 +103,7 @@ export async function POST(req: Request) {
 
     if (!activeSignal) {
       console.error(`❌ notify-read: aucun signal trouvé pour ref ${cleanDossierRef} ou email ${email}`);
-      return NextResponse.json({ error: `Dossier introuvable dans la base ${cityCode || 'MASTER'}` }, { status: 404 });
+      return NextResponse.json({ error: `Dossier introuvable dans la base ${activeCity || 'MASTER'}` }, { status: 404 });
     }
 
     const finalDossierRef = activeSignal.dossier_ref;
@@ -147,7 +153,7 @@ export async function POST(req: Request) {
               <h1 style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #dc2626;">Avis de lecture officiel</h1>
               <p style="font-size: 18px; font-weight: bold;">Bonjour ${contactName},</p>
               <p style="color: #a1a1aa; line-height: 1.6;">
-                Votre transmission référencée <strong>${finalDossierRef}</strong> vient d'être consultée par nos services (${cityCode || 'CENTRAL'}) à ${timestamp}.
+                Votre transmission référencée <strong>${finalDossierRef}</strong> vient d'être consultée par nos services (${activeCity || 'CENTRAL'}) à ${timestamp}.
               </p>
               <p style="color: #a1a1aa; line-height: 1.6;">
                 Nos agents analysent actuellement les éléments fournis.
@@ -159,7 +165,7 @@ export async function POST(req: Request) {
                 </a>
               </div>
               <div style="margin-top: 30px; font-size: 10px; color: #52525b; text-transform: uppercase; letter-spacing: 1px;">
-                Cellule VAGONDYS • Unité ${cityCode || 'MASTER'}
+                Cellule VAGONDYS • Unité ${activeCity || 'MASTER'} (${activeCountry})
               </div>
             </div>
           </div>
@@ -170,7 +176,8 @@ export async function POST(req: Request) {
       console.warn(`Avis de lecture non envoyé à ${contactEmail}: RESEND_API_KEY manquante`);
     }
 
-    return NextResponse.json({ success: true, city: cityCode || 'MASTER' });
+    // ✅ AJOUT 3 : Retourner également le pays utilisé
+    return NextResponse.json({ success: true, city: activeCity || 'MASTER', country: activeCountry });
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Erreur lors de la mise à jour lecture";
