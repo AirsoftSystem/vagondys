@@ -53,7 +53,8 @@ export async function POST(req: Request) {
       agentEmail,
       docLink,
       dossierRef,
-      cityCode // Paramètre d'aiguillage vers la station reçu du front
+      cityCode,      // Paramètre d'aiguillage vers la station
+      countryCode    // ✅ AJOUT 1 : Récupération du pays
     } = body;
 
     if (!messageId || !to) {
@@ -70,23 +71,27 @@ export async function POST(req: Request) {
     const cleanClientEmail = to.toLowerCase();
     const serviceNameRaw = (subject || "").split('_')[0].toUpperCase() || "ADMINISTRATION";
     const cleanDossierRef = String(dossierRef).trim().toUpperCase();
+    const activeCity = cityCode && cityCode.toUpperCase() !== 'MASTER' ? cityCode.toUpperCase() : null;
+    const activeCountry = countryCode || 'FR';
     
-    console.log(`📧 send-reply: début pour dossier ${cleanDossierRef}, ville ${cityCode || 'MASTER'}`);
+    console.log(`📧 send-reply: début pour dossier ${cleanDossierRef}, ville ${activeCity || 'MASTER'} (pays ${activeCountry})`);
 
     // --- LOGIQUE DYNAMIQUE PAR VILLE ---
     let targetStaffClient = supabaseStaffMaster;
     let targetPublicClient = supabasePublicMaster;
-    let stationName = cityCode;
+    let stationName = activeCity;
 
-    // AIGUILLAGE : Si un cityCode est fourni, on bascule sur les clients de la ville
-    if (cityCode && cityCode.toUpperCase() !== 'MASTER') {
-      console.log(`📍 send-reply: aiguillage vers ${cityCode}`);
-      const config = await getStationConfig(cityCode);
+    // ✅ AJOUT 2 : AIGUILLAGE avec countryCode
+    if (activeCity) {
+      console.log(`📍 send-reply: aiguillage vers ${activeCity}/${activeCountry}`);
+      const config = await getStationConfig(activeCity, activeCountry);
       if (config) {
-        targetStaffClient = await createDynamicClient(cityCode, 'STAFF');
-        targetPublicClient = await createDynamicClient(cityCode, 'PUBLIC');
+        console.log(`✅ send-reply: config trouvée pour ${activeCity}/${activeCountry}`);
+        // ✅ AJOUT 3 : Utilisation de countryCode dans createDynamicClient
+        targetStaffClient = await createDynamicClient(activeCity, activeCountry, 'STAFF');
+        targetPublicClient = await createDynamicClient(activeCity, activeCountry, 'PUBLIC');
       } else {
-        console.warn(`⚠️ send-reply: configuration introuvable pour ${cityCode}`);
+        console.warn(`⚠️ send-reply: configuration introuvable pour ${activeCity}/${activeCountry}`);
       }
     }
 
@@ -236,7 +241,6 @@ export async function POST(req: Request) {
     // 4. MISE À JOUR DES BASES DE DONNÉES CIBLES (Insertion de la réponse et marquage comme lu)
     console.log(`📝 send-reply: insertion dans communication_replies pour ${cleanDossierRef}`);
     
-    // ✅ Correction : suppression de 'publicUpdate' qui n'est pas utilisé
     const [publicReplyInsert, staffReplyInsert, staffUpdate] = await Promise.all([
       targetPublicClient.from('communication_replies').insert([replyData]),
       targetStaffClient.from('communication_replies').insert([replyData]),
@@ -271,7 +275,7 @@ export async function POST(req: Request) {
                     message: signalInfo,
                     history: [],
                     purgeActive: false,
-                    city_code: stationName || cityCode
+                    city_code: stationName || activeCity
                 })
             });
             console.log(`✅ send-reply: archivage GitHub déclenché`);
