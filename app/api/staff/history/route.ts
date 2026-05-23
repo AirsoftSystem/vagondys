@@ -40,11 +40,12 @@ export async function GET(request: Request) {
     console.log(`✅ history: client ADMIN créé pour ${city}`);
 
     // 1. Récupérer les réponses du staff
+    // ✅ MODIFICATION : Tri décroissant (du plus récent au plus ancien)
     const { data: replies, error: repliesError } = await adminClient
       .from("communication_replies")
       .select("*")
       .eq("dossier_ref", dossierRef)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false });
 
     if (repliesError) {
       console.error("❌ history: erreur récupération replies:", repliesError);
@@ -53,11 +54,12 @@ export async function GET(request: Request) {
     }
 
     // 2. Récupérer les messages du client
+    // ✅ MODIFICATION : Tri décroissant (du plus récent au plus ancien)
     const { data: clientMessages, error: clientError } = await adminClient
       .from("pending_signals")
       .select("*")
       .eq("dossier_ref", dossierRef)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: false });
 
     if (clientError) {
       console.error("❌ history: erreur récupération clientMessages:", clientError);
@@ -129,9 +131,12 @@ export async function GET(request: Request) {
       is_initial: false
     }));
 
-    // 4. Fusionner et trier par date (du plus ancien au plus récent)
+    // 4. Fusionner et trier par date (du plus récent au plus ancien)
+    // ✅ NOTE : Les données sont déjà triées par la requête SQL (descending)
+    //    On n'a donc pas besoin de re-trier ici, mais on conserve la fusion
     const allMessages = [...clientHistory, ...staffHistory];
-    allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    // ✅ Petit tri de sécurité pour garantir l'ordre décroissant
+    allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef}`);
 
