@@ -142,6 +142,10 @@ export async function POST(req: Request) {
     const { validateArchiveBody } = await import("@/lib/archive-external/validator");
 
     const body = await req.json();
+    
+    // ✅ AJOUT 1 : Extraction du countryCode depuis le body
+    const { country_code } = body;
+    console.log(`📦 POST archive-external: city_code=${body.city_code}, country_code=${country_code}`);
 
     const validation = validateArchiveBody(body);
     if (!validation.isValid) {
@@ -151,7 +155,14 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    const result = await processArchivePost(body);
+    // ✅ AJOUT 2 : Passage du countryCode à processArchivePost
+    // On enrichit le body avec le country_code pour que engine.ts puisse l'utiliser
+    const enrichedBody = {
+      ...body,
+      country_code: country_code
+    };
+
+    const result = await processArchivePost(enrichedBody);
     return NextResponse.json(result);
 
   } catch (err: unknown) {

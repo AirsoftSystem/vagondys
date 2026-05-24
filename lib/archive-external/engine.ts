@@ -184,8 +184,14 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   // 7. Purge des données locales (Optionnel)
   let purged = false;
   if (purgeActive === true) {
-    await purgeDossierData(ref, rawCity);
+    // ✅ AJOUT 1 : Log avant la purge
+    console.log(`🗑️ processArchivePost: purge active pour ${ref} sur ${rawCity}/${countryCode}`);
+    
+    // ✅ AJOUT 2 : Transmission du countryCode à purgeDossierData
+    await purgeDossierData(ref, rawCity, countryCode);
     purged = true;
+    
+    console.log(`✅ processArchivePost: purge terminée pour ${ref}`);
   }
 
   return { success: true, purged, path, repo: targetRepo };

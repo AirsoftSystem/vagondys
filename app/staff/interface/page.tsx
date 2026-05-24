@@ -262,7 +262,6 @@ export default function StaffMessagesPage() {
     }
   };
 
-  // ✅ AJOUT 1 : Ajout de countryCode dans l'appel à notify-read
   const handleMarkAsReadSilent = async (msg: SignalMessage) => {
     if (isMarkingRead || !userEmail) return;
     
@@ -316,6 +315,7 @@ export default function StaffMessagesPage() {
     setExpandedMessages(newExpanded);
   };
 
+  // ✅ MODIFICATION UNIQUE : Ajout de country_code dans l'appel à archive-external
   const handleDeepArchive = async (msg: SignalMessage) => {
     if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;
     
@@ -329,7 +329,8 @@ export default function StaffMessagesPage() {
           message: msg, 
           history: historyMessages,
           purgeActive: true,
-          city_code: userCity
+          city_code: userCity,
+          country_code: userCountry || 'FR'  // ✅ AJOUT
         }),
       });
 
@@ -387,7 +388,6 @@ export default function StaffMessagesPage() {
       }
 
       if (replyingTo.dossier_ref) {
-        // ✅ AJOUT 2 : Ajout de countryCode dans le second appel à notify-read
         await fetch('/api/notify-read', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

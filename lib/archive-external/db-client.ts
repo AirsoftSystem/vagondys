@@ -1,3 +1,4 @@
+
 import { createClient } from "@supabase/supabase-js";
 import { HistoryRow } from "./types";
 import { createDynamicClient } from "@/lib/supabase/master";
@@ -48,12 +49,39 @@ export async function getHistoryFromDB(ref: string, cityCode?: string): Promise<
 /**
  * Exécute la purge atomique des données après archivage final
  * ADAPTATION : Purge sur la base de la VILLE (Fragmentation des données)
+ * ✅ AJOUT : Paramètre countryCode pour cibler la bonne base STAFF
  */
-export async function purgeDossierData(ref: string, cityCode?: string) {
-  const client = cityCode ? await createDynamicClient(cityCode, 'STAFF') : supabaseMaster;
+export async function purgeDossierData(ref: string, cityCode?: string, countryCode: string = 'FR') {
+  // ✅ AJOUT : Log pour tracer la purge
+  console.log(`🗑️ purgeDossierData: purge pour ${ref} sur ville ${cityCode || 'MASTER'} (pays ${countryCode})`);
+  
+  let client;
+  
+  if (cityCode) {
+    // ✅ AJOUT : Utilisation de countryCode dans createDynamicClient
+    client = await createDynamicClient(cityCode, countryCode, 'STAFF');
+    console.log(`🗑️ purgeDossierData: client STAFF créé pour ${cityCode}/${countryCode}`);
+  } else {
+    client = supabaseMaster;
+    console.log(`🗑️ purgeDossierData: utilisation du MASTER`);
+  }
 
-  return Promise.all([
+  const [repliesResult, signalsResult] = await Promise.all([
     client.from("communication_replies").delete().eq("dossier_ref", ref),
     client.from("pending_signals").delete().eq("dossier_ref", ref)
   ]);
+
+  if (repliesResult.error) {
+    console.error(`❌ purgeDossierData: erreur suppression communication_replies:`, repliesResult.error);
+  } else {
+    console.log(`✅ purgeDossierData: communication_replies supprimées pour ${ref}`);
+  }
+
+  if (signalsResult.error) {
+    console.error(`❌ purgeDossierData: erreur suppression pending_signals:`, signalsResult.error);
+  } else {
+    console.log(`✅ purgeDossierData: pending_signals supprimées pour ${ref}`);
+  }
+
+  return Promise.all([repliesResult, signalsResult]);
 }
