@@ -26,16 +26,27 @@ export async function GET(req: Request) {
     const searchEmail = searchParams.get("search");
     const filterCity = searchParams.get("city");
     const cityCode = searchParams.get("city_code");
+    // ✅ AJOUT 1 : Récupération du countryCode
+    const countryCode = searchParams.get("country_code");
 
     let targetRepo = DEFAULT_REPO_NAME;
     let customToken = process.env.GITHUB_ARCHIVE_TOKEN;
 
     const effectiveCity = cityCode || filterCity;
+    const effectiveCountry = countryCode || 'FR';
+    
+    // ✅ AJOUT 2 : Log pour tracer la recherche
+    console.log(`🔍 GET archive-external: ref=${ref}, search=${searchEmail}, city=${effectiveCity}, country=${effectiveCountry}`);
+    
     if (effectiveCity) {
-      const config = await getStationConfig(effectiveCity);
+      // ✅ AJOUT 3 : Utilisation de countryCode dans getStationConfig
+      const config = await getStationConfig(effectiveCity, effectiveCountry);
       if (config) {
         targetRepo = config.github_repo;
         customToken = config.github_token || process.env.GITHUB_ARCHIVE_TOKEN;
+        console.log(`✅ GET archive-external: config trouvée pour ${effectiveCity}/${effectiveCountry}, repo=${targetRepo}`);
+      } else {
+        console.warn(`⚠️ GET archive-external: AUCUNE CONFIG pour ${effectiveCity}/${effectiveCountry}`);
       }
     }
 
@@ -118,6 +129,9 @@ export async function GET(req: Request) {
     // --- RÉCUPÉRATION PAR RÉFÉRENCE ---
     if (!ref) return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
 
+    // ✅ AJOUT 4 : Log avant recherche dans GitHub
+    console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo}`);
+    
     const targetFile = await findFileInRepo(ref, customToken, targetRepo);
     if (!targetFile) return NextResponse.json({ error: "Archive non trouvée" }, { status: 404 });
 
@@ -184,6 +198,7 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url);
     const ref = searchParams.get("ref");
     const cityCode = searchParams.get("city_code");
+    const countryCode = searchParams.get("country_code") || 'FR';
 
     if (!ref) return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
 
@@ -191,7 +206,7 @@ export async function DELETE(req: Request) {
     let customToken = process.env.GITHUB_ARCHIVE_TOKEN;
 
     if (cityCode) {
-      const config = await getStationConfig(cityCode);
+      const config = await getStationConfig(cityCode, countryCode);
       if (config) {
         targetRepo = config.github_repo;
         customToken = config.github_token || process.env.GITHUB_ARCHIVE_TOKEN;

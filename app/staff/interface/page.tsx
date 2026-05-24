@@ -191,6 +191,7 @@ export default function StaffMessagesPage() {
         is_initial: false
       }));
       
+      // ✅ Appel ORIGINAL : 1 seul argument (sans city/country)
       const archivedData = await fetchGitHubArchive(ref);
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         const archivedHistory: ExtendedHistoryMessage[] = archivedData.echanges_staff.map(h => ({
@@ -229,14 +230,19 @@ export default function StaffMessagesPage() {
     }
   }, []);
 
+  // ✅ Recherche externe : appel ORIGINAL (1 seul argument)
   const handleExternalSearch = async () => {
     if (!searchRef.trim()) return;
     setIsSearchingExternal(true);
     setGithubArchive(null);
     
+    console.log(`🔍 Recherche externe: ${searchRef}`);
+    
     try {
       const archivedData = await fetchGitHubArchive(searchRef.trim().toUpperCase());
+      
       if (archivedData) {
+        console.log(`✅ Archive trouvée pour ${searchRef}`);
         const mockMsg: SignalMessage = {
           ...archivedData.dossier,
           id: `archived-${archivedData.dossier.dossier_ref}`
@@ -252,10 +258,11 @@ export default function StaffMessagesPage() {
         setLinkedDossiers([]);
         setClientEmail(mockMsg.payload.email);
       } else {
+        console.warn(`❌ Aucune archive trouvée pour ${searchRef}`);
         alert("Aucune archive trouvée pour cette référence dans le coffre-fort.");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Erreur recherche externe:", err);
       alert("Erreur lors de la recherche d'archive.");
     } finally {
       setIsSearchingExternal(false);
@@ -315,7 +322,6 @@ export default function StaffMessagesPage() {
     setExpandedMessages(newExpanded);
   };
 
-  // ✅ MODIFICATION UNIQUE : Ajout de country_code dans l'appel à archive-external
   const handleDeepArchive = async (msg: SignalMessage) => {
     if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;
     
@@ -330,7 +336,7 @@ export default function StaffMessagesPage() {
           history: historyMessages,
           purgeActive: true,
           city_code: userCity,
-          country_code: userCountry || 'FR'  // ✅ AJOUT
+          country_code: userCountry || 'FR'
         }),
       });
 
