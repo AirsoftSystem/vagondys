@@ -158,15 +158,15 @@ export type DocCategory = "PI" | "JUSTIFICATIF_DOMICILE" | "CHARTE" | "INSCRIPTI
 
 /**
  * UTILITAIRE DE RÉCUPÉRATION d'ARCHIVES GITHUB
- * ✅ AJOUT : Paramètres cityCode et countryCode pour cibler le bon dépôt
+ * ✅ MODIFICATION : countryCode n'a plus de valeur par défaut (undefined si non fourni)
  */
 export async function fetchGitHubArchive(
   dossierRef: string, 
   cityCode?: string, 
-  countryCode: string = 'FR'
+  countryCode?: string
 ): Promise<GitHubArchiveData | null> {
   try {
-    // ✅ Construction de l'URL avec les paramètres optionnels
+    // Construction de l'URL avec les paramètres optionnels
     let url = `/api/archive-external?ref=${encodeURIComponent(dossierRef)}`;
     
     if (cityCode) {
@@ -176,7 +176,7 @@ export async function fetchGitHubArchive(
       url += `&country_code=${encodeURIComponent(countryCode.toUpperCase())}`;
     }
     
-    console.log(`📦 fetchGitHubArchive: recherche ${dossierRef} avec city=${cityCode || 'non spécifiée'}, country=${countryCode}`);
+    console.log(`📦 fetchGitHubArchive: recherche ${dossierRef} avec city=${cityCode || 'non spécifiée'}, country=${countryCode || 'non spécifié'}`);
     
     const response = await fetch(url);
     

@@ -11,7 +11,6 @@ const DEFAULT_REPO_NAME = "VAGONDYS_ARCHIVES_DATA";
 export async function GET(req: Request) {
   try {
     // ✅ Import dynamique - chargé UNIQUEMENT à l'exécution
-    const { findActiveSignalByEmail } = await import("@/lib/archive-external/db-client");
     const { 
       listAllArchiveFiles, 
       findFileInRepo 
@@ -82,11 +81,8 @@ export async function GET(req: Request) {
 
     // --- RECHERCHE PAR EMAIL ---
     if (searchEmail) {
-      const activeSignal = await findActiveSignalByEmail(searchEmail);
-      if (activeSignal?.dossier_ref) {
-        return NextResponse.json({ dossier_ref: activeSignal.dossier_ref });
-      }
-
+      // ✅ CORRECTION : Suppression de l'appel à findActiveSignalByEmail qui n'existe pas
+      // On va directement chercher dans les fichiers GitHub
       const files = await listAllArchiveFiles(customToken, targetRepo);
       const searchSlug = String(searchEmail).toLowerCase().replace(/[@.]/g, "_");
       const emailToMatch = String(searchEmail).replace(/_/g, ".").replace(/\.([^.]+)$/, "@$1");
@@ -128,8 +124,7 @@ export async function GET(req: Request) {
 
     console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo} avec pays=${effectiveCountry}`);
     
-    // ✅ AJOUT : Passage de effectiveCountry à findFileInRepo (pour les logs dans gh-client)
-    const targetFile = await findFileInRepo(ref, customToken, targetRepo, effectiveCountry);
+    const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", effectiveCountry);
     
     if (!targetFile) {
       console.warn(`❌ GET archive-external: fichier non trouvé pour ref=${ref} dans repo=${targetRepo}`);
@@ -217,7 +212,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Token de configuration manquant" }, { status: 500 });
     }
 
-    const targetFile = await findFileInRepo(ref, customToken, targetRepo, countryCode);
+    const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", countryCode);
     if (!targetFile) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
 
     const deleteRes = await deleteFile(

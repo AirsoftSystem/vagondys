@@ -1,87 +1,150 @@
 
-import { createClient } from "@supabase/supabase-js";
-import { HistoryRow } from "./types";
-import { createDynamicClient } from "@/lib/supabase/master";
+import { GitHubFile } from "./types";
 
-// CLIENT UNIQUE : Connexion à la base MASTER (Tour de Contrôle)
-// Utilisation stricte de vos variables d'environnement originales
-export const supabaseMaster = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER!
-);
+// Propriétaire par défaut mis à jour selon .env.local (MASTER)
+const DEFAULT_OWNER = "vagondys";
+const BRANCH = "main";
 
 /**
- * Recherche un signal actif par email
- * ADAPTATION : Cherche sur la base de la VILLE spécifiée (Gare de Triage)
+ * Helper pour construire l'URL GitHub API
+ * Gère les cas "owner/repo" (ex: VGD-Nantes/repo) ou juste "repo" (utilise vagondys/)
  */
-export async function findActiveSignalByEmail(email: string, cityCode?: string) {
-  // Si on a un cityCode, on interroge la base de la ville, sinon le master
-  const client = cityCode ? await createDynamicClient(cityCode, 'STAFF') : supabaseMaster;
-
-  const { data } = await client
-    .from("pending_signals")
-    .select("dossier_ref")
-    .or(`payload->>email.eq.${email.toLowerCase()}`)
-    .not("dossier_ref", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  
-  return data;
+function buildGitHubUrl(repoName: string, path: string): string {
+  const isScoped = repoName.includes("/");
+  const fullPath = isScoped ? repoName : `${DEFAULT_OWNER}/${repoName}`;
+  return `https://api.github.com/repos/${fullPath}/contents/${path}`;
 }
 
 /**
- * Récupère l'historique des échanges depuis la table communication_replies
- * ADAPTATION : Capable de lire sur la base de la VILLE (STAFF)
+ * Client de base pour les requêtes GitHub
  */
-export async function getHistoryFromDB(ref: string, cityCode?: string): Promise<HistoryRow[]> {
-  const client = cityCode ? await createDynamicClient(cityCode, 'STAFF') : supabaseMaster;
-
-  const { data } = await client
-    .from("communication_replies")
-    .select("*")
-    .eq("dossier_ref", ref)
-    .order("created_at", { ascending: true });
-
-  return (data as HistoryRow[]) || [];
+async function ghFetch(url: string, token: string, options: RequestInit = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "VAGONDYS-APP",
+      ...options.headers,
+    },
+  });
 }
 
 /**
- * Exécute la purge atomique des données après archivage final
- * ADAPTATION : Purge sur la base de la VILLE (Fragmentation des données)
- * ✅ AJOUT : Paramètre countryCode pour cibler la bonne base STAFF
+ * Recherche récursive d'un dossier par sa référence (VGD-XXXX)
+ * Reprend votre algorithme exact de recherche par cleanRef
+ * ✅ AJOUT : Paramètre countryCode (non utilisé, uniquement pour logs)
+ * ✅ AJOUT : Deuxième méthode de comparaison (match direct)
  */
-export async function purgeDossierData(ref: string, cityCode?: string, countryCode: string = 'FR') {
-  // ✅ AJOUT : Log pour tracer la purge
-  console.log(`🗑️ purgeDossierData: purge pour ${ref} sur ville ${cityCode || 'MASTER'} (pays ${countryCode})`);
+export async function findFileInRepo(
+  ref: string, 
+  token: string, 
+  repoName: string, 
+  path: string = "archives",
+  countryCode?: string
+): Promise<GitHubFile | null> {
+  // ✅ Un seul log non bloquant
+  if (countryCode) {
+    console.log(`🔍 findFileInRepo: recherche ref=${ref} dans ${repoName} (${countryCode})`);
+  }
   
-  let client;
+  const url = buildGitHubUrl(repoName, path);
+  const res = await ghFetch(url, token);
+  if (!res.ok) {
+    console.warn(`⚠️ findFileInRepo: échec requête GitHub pour ${path}, status=${res.status}`);
+    return null;
+  }
+
+  const items = (await res.json()) as GitHubFile[];
+  const cleanRef = ref.replace(/-/g, "").toLowerCase();
+
+  for (const item of items) {
+    if (item.type === "dir") {
+      const found = await findFileInRepo(ref, token, repoName, item.path, countryCode);
+      if (found) return found;
+    } else if (item.type === "file") {
+      // ✅ AJOUT : Deuxième méthode de comparaison (match direct avec la référence complète)
+      const itemNameClean = item.name.replace(/-/g, "").toLowerCase();
+      if (itemNameClean.includes(cleanRef) || item.name.includes(ref)) {
+        return item;
+      }
+    }
+  }
   
-  if (cityCode) {
-    // ✅ AJOUT : Utilisation de countryCode dans createDynamicClient
-    client = await createDynamicClient(cityCode, countryCode, 'STAFF');
-    console.log(`🗑️ purgeDossierData: client STAFF créé pour ${cityCode}/${countryCode}`);
-  } else {
-    client = supabaseMaster;
-    console.log(`🗑️ purgeDossierData: utilisation du MASTER`);
+  return null;
+}
+
+/**
+ * Liste tous les fichiers .json de manière récursive
+ */
+export async function listAllArchiveFiles(
+  token: string, 
+  repoName: string, 
+  path: string = "archives"
+): Promise<GitHubFile[]> {
+  const url = buildGitHubUrl(repoName, path);
+  const res = await ghFetch(url, token);
+  if (!res.ok) return [];
+
+  const items = (await res.json()) as GitHubFile[];
+  let allFiles: GitHubFile[] = [];
+
+  for (const item of items) {
+    if (item.type === "dir") {
+      const subFiles = await listAllArchiveFiles(token, repoName, item.path);
+      allFiles = [...allFiles, ...subFiles];
+    } else if (item.name.endsWith(".json")) {
+      allFiles.push(item);
+    }
   }
+  return allFiles;
+}
 
-  const [repliesResult, signalsResult] = await Promise.all([
-    client.from("communication_replies").delete().eq("dossier_ref", ref),
-    client.from("pending_signals").delete().eq("dossier_ref", ref)
-  ]);
+/**
+ * Enregistre ou met à jour un fichier sur GitHub
+ */
+export async function upsertFile(
+  token: string,
+  repoName: string,
+  path: string,
+  content: string,
+  message: string,
+  sha?: string
+) {
+  const contentEncoded = Buffer.from(content).toString("base64");
+  const url = buildGitHubUrl(repoName, path);
+  
+  return ghFetch(url, token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      content: contentEncoded,
+      branch: BRANCH,
+      sha
+    })
+  });
+}
 
-  if (repliesResult.error) {
-    console.error(`❌ purgeDossierData: erreur suppression communication_replies:`, repliesResult.error);
-  } else {
-    console.log(`✅ purgeDossierData: communication_replies supprimées pour ${ref}`);
-  }
-
-  if (signalsResult.error) {
-    console.error(`❌ purgeDossierData: erreur suppression pending_signals:`, signalsResult.error);
-  } else {
-    console.log(`✅ purgeDossierData: pending_signals supprimées pour ${ref}`);
-  }
-
-  return Promise.all([repliesResult, signalsResult]);
+/**
+ * Supprime un fichier sur GitHub
+ */
+export async function deleteFile(
+  token: string,
+  repoName: string,
+  path: string,
+  sha: string,
+  message: string
+) {
+  const url = buildGitHubUrl(repoName, path);
+  
+  return ghFetch(url, token, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      sha,
+      branch: BRANCH
+    })
+  });
 }
