@@ -26,7 +26,6 @@ export async function GET(req: Request) {
     const searchEmail = searchParams.get("search");
     const filterCity = searchParams.get("city");
     const cityCode = searchParams.get("city_code");
-    // ✅ AJOUT 1 : Récupération du countryCode
     const countryCode = searchParams.get("country_code");
 
     let targetRepo = DEFAULT_REPO_NAME;
@@ -35,11 +34,9 @@ export async function GET(req: Request) {
     const effectiveCity = cityCode || filterCity;
     const effectiveCountry = countryCode || 'FR';
     
-    // ✅ AJOUT 2 : Log pour tracer la recherche
     console.log(`🔍 GET archive-external: ref=${ref}, search=${searchEmail}, city=${effectiveCity}, country=${effectiveCountry}`);
     
     if (effectiveCity) {
-      // ✅ AJOUT 3 : Utilisation de countryCode dans getStationConfig
       const config = await getStationConfig(effectiveCity, effectiveCountry);
       if (config) {
         targetRepo = config.github_repo;
@@ -129,11 +126,17 @@ export async function GET(req: Request) {
     // --- RÉCUPÉRATION PAR RÉFÉRENCE ---
     if (!ref) return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
 
-    // ✅ AJOUT 4 : Log avant recherche dans GitHub
-    console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo}`);
+    console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo} avec pays=${effectiveCountry}`);
     
-    const targetFile = await findFileInRepo(ref, customToken, targetRepo);
-    if (!targetFile) return NextResponse.json({ error: "Archive non trouvée" }, { status: 404 });
+    // ✅ AJOUT : Passage de effectiveCountry à findFileInRepo (pour les logs dans gh-client)
+    const targetFile = await findFileInRepo(ref, customToken, targetRepo, effectiveCountry);
+    
+    if (!targetFile) {
+      console.warn(`❌ GET archive-external: fichier non trouvé pour ref=${ref} dans repo=${targetRepo}`);
+      return NextResponse.json({ error: "Archive non trouvée" }, { status: 404 });
+    }
+    
+    console.log(`✅ GET archive-external: fichier trouvé: ${targetFile.path}`);
 
     const fileRes = await fetch(targetFile.download_url);
     const contentJson = await fileRes.json();
@@ -157,7 +160,6 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
-    // ✅ AJOUT 1 : Extraction du countryCode depuis le body
     const { country_code } = body;
     console.log(`📦 POST archive-external: city_code=${body.city_code}, country_code=${country_code}`);
 
@@ -169,8 +171,6 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // ✅ AJOUT 2 : Passage du countryCode à processArchivePost
-    // On enrichit le body avec le country_code pour que engine.ts puisse l'utiliser
     const enrichedBody = {
       ...body,
       country_code: country_code
@@ -217,7 +217,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Token de configuration manquant" }, { status: 500 });
     }
 
-    const targetFile = await findFileInRepo(ref, customToken, targetRepo);
+    const targetFile = await findFileInRepo(ref, customToken, targetRepo, countryCode);
     if (!targetFile) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
 
     const deleteRes = await deleteFile(

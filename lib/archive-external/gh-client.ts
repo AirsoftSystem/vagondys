@@ -1,3 +1,4 @@
+
 import { GitHubFile } from "./types";
 
 // Propriétaire par défaut mis à jour selon .env.local (MASTER)
@@ -32,28 +33,41 @@ async function ghFetch(url: string, token: string, options: RequestInit = {}) {
 /**
  * Recherche récursive d'un dossier par sa référence (VGD-XXXX)
  * Reprend votre algorithme exact de recherche par cleanRef
+ * ✅ AJOUT : Paramètre countryCode pour les logs (n'affecte pas la recherche)
  */
 export async function findFileInRepo(
   ref: string, 
   token: string, 
   repoName: string, 
-  path: string = "archives"
+  path: string = "archives",
+  countryCode?: string
 ): Promise<GitHubFile | null> {
+  // ✅ AJOUT : Log pour tracer la recherche
+  console.log(`🔍 findFileInRepo: recherche ref=${ref} dans repo=${repoName}, path=${path}, country=${countryCode || 'non spécifié'}`);
+  
   const url = buildGitHubUrl(repoName, path);
   const res = await ghFetch(url, token);
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`⚠️ findFileInRepo: échec requête GitHub pour ${url}, status=${res.status}`);
+    return null;
+  }
 
   const items = (await res.json()) as GitHubFile[];
   const cleanRef = ref.replace(/-/g, "").toLowerCase();
 
   for (const item of items) {
     if (item.type === "dir") {
-      const found = await findFileInRepo(ref, token, repoName, item.path);
+      // ✅ AJOUT : Propagation du countryCode dans l'appel récursif
+      const found = await findFileInRepo(ref, token, repoName, item.path, countryCode);
       if (found) return found;
     } else if (item.name.replace(/-/g, "").toLowerCase().includes(cleanRef)) {
+      // ✅ AJOUT : Log quand le fichier est trouvé
+      console.log(`✅ findFileInRepo: fichier trouvé: ${item.path}`);
       return item;
     }
   }
+  
+  console.warn(`⚠️ findFileInRepo: aucun fichier trouvé pour ref=${ref} dans ${repoName}`);
   return null;
 }
 
