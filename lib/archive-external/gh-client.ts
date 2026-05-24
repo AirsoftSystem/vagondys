@@ -33,7 +33,8 @@ async function ghFetch(url: string, token: string, options: RequestInit = {}) {
 /**
  * Recherche récursive d'un dossier par sa référence (VGD-XXXX)
  * Reprend votre algorithme exact de recherche par cleanRef
- * ✅ AJOUT : Paramètre countryCode pour les logs (n'affecte pas la recherche)
+ * ✅ AJOUT : Paramètre countryCode (non utilisé, uniquement pour logs)
+ * ✅ AJOUT : Deuxième méthode de comparaison (match direct)
  */
 export async function findFileInRepo(
   ref: string, 
@@ -42,13 +43,15 @@ export async function findFileInRepo(
   path: string = "archives",
   countryCode?: string
 ): Promise<GitHubFile | null> {
-  // ✅ AJOUT : Log pour tracer la recherche
-  console.log(`🔍 findFileInRepo: recherche ref=${ref} dans repo=${repoName}, path=${path}, country=${countryCode || 'non spécifié'}`);
+  // ✅ Un seul log non bloquant
+  if (countryCode) {
+    console.log(`🔍 findFileInRepo: recherche ref=${ref} dans ${repoName} (${countryCode})`);
+  }
   
   const url = buildGitHubUrl(repoName, path);
   const res = await ghFetch(url, token);
   if (!res.ok) {
-    console.warn(`⚠️ findFileInRepo: échec requête GitHub pour ${url}, status=${res.status}`);
+    console.warn(`⚠️ findFileInRepo: échec requête GitHub pour ${path}, status=${res.status}`);
     return null;
   }
 
@@ -57,17 +60,17 @@ export async function findFileInRepo(
 
   for (const item of items) {
     if (item.type === "dir") {
-      // ✅ AJOUT : Propagation du countryCode dans l'appel récursif
       const found = await findFileInRepo(ref, token, repoName, item.path, countryCode);
       if (found) return found;
-    } else if (item.name.replace(/-/g, "").toLowerCase().includes(cleanRef)) {
-      // ✅ AJOUT : Log quand le fichier est trouvé
-      console.log(`✅ findFileInRepo: fichier trouvé: ${item.path}`);
-      return item;
+    } else if (item.type === "file") {
+      // ✅ AJOUT : Deuxième méthode de comparaison (match direct avec la référence complète)
+      const itemNameClean = item.name.replace(/-/g, "").toLowerCase();
+      if (itemNameClean.includes(cleanRef) || item.name.includes(ref)) {
+        return item;
+      }
     }
   }
   
-  console.warn(`⚠️ findFileInRepo: aucun fichier trouvé pour ref=${ref} dans ${repoName}`);
   return null;
 }
 
