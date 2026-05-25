@@ -1,9 +1,17 @@
 
-import { GitHubFile } from "./types";
+import { GitHubFile, HistoryRow } from "./types";
+import { createDynamicClient } from "@/lib/supabase/master";
+import { createClient } from "@supabase/supabase-js";
 
 // Propriétaire par défaut mis à jour selon .env.local (MASTER)
 const DEFAULT_OWNER = "vagondys";
 const BRANCH = "main";
+
+// Client MASTER pour les opérations par défaut
+export const supabaseMaster = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER!
+);
 
 /**
  * Helper pour construire l'URL GitHub API
@@ -147,4 +155,108 @@ export async function deleteFile(
       branch: BRANCH
     })
   });
+}
+
+// ============================================================
+// ✅ AJOUT : FONCTIONS MANQUANTES POUR engine.ts
+// ============================================================
+
+/**
+ * Récupère l'historique des échanges depuis la table communication_replies
+ * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
+ * @param cityCode - Code de la ville (ex: NANTES)
+ * @param countryCode - Code du pays (ex: FR)
+ */
+export async function getHistoryFromDB(
+  ref: string, 
+  cityCode?: string,
+  countryCode: string = 'FR'
+): Promise<HistoryRow[]> {
+  console.log(`📜 getHistoryFromDB: recherche historique pour ${ref} sur ${cityCode || 'MASTER'}`);
+  
+  try {
+    let client;
+    
+    if (cityCode) {
+      client = await createDynamicClient(cityCode, countryCode, 'STAFF');
+      console.log(`📜 getHistoryFromDB: client STAFF créé pour ${cityCode}/${countryCode}`);
+    } else {
+      client = supabaseMaster;
+      console.log(`📜 getHistoryFromDB: utilisation du MASTER`);
+    }
+    
+    const { data, error } = await client
+      .from("communication_replies")
+      .select("*")
+      .eq("dossier_ref", ref)
+      .order("created_at", { ascending: true });
+    
+    if (error) {
+      console.error(`❌ getHistoryFromDB: erreur pour ${ref}:`, error);
+      return [];
+    }
+    
+    console.log(`✅ getHistoryFromDB: ${data?.length || 0} enregistrements trouvés pour ${ref}`);
+    return (data as HistoryRow[]) || [];
+    
+  } catch (err) {
+    console.error(`❌ getHistoryFromDB: exception pour ${ref}:`, err);
+    return [];
+  }
+}
+
+/**
+ * Purge les données d'un dossier dans les tables actives
+ * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
+ * @param cityCode - Code de la ville (ex: NANTES)
+ * @param countryCode - Code du pays (ex: FR)
+ */
+export async function purgeDossierData(
+  ref: string, 
+  cityCode?: string,
+  countryCode: string = 'FR'
+): Promise<{ purged: boolean; error?: string }> {
+  console.log(`🗑️ purgeDossierData: purge pour ${ref} sur ${cityCode || 'MASTER'} (${countryCode})`);
+  
+  try {
+    let client;
+    
+    if (cityCode) {
+      client = await createDynamicClient(cityCode, countryCode, 'STAFF');
+      console.log(`🗑️ purgeDossierData: client STAFF créé pour ${cityCode}/${countryCode}`);
+    } else {
+      client = supabaseMaster;
+      console.log(`🗑️ purgeDossierData: utilisation du MASTER`);
+    }
+    
+    // Supprimer les réponses
+    const { error: repliesError } = await client
+      .from("communication_replies")
+      .delete()
+      .eq("dossier_ref", ref);
+    
+    if (repliesError) {
+      console.error(`❌ purgeDossierData: erreur suppression replies:`, repliesError);
+      return { purged: false, error: repliesError.message };
+    }
+    
+    // Supprimer le signal
+    const { error: signalsError } = await client
+      .from("pending_signals")
+      .delete()
+      .eq("dossier_ref", ref);
+    
+    if (signalsError) {
+      console.error(`❌ purgeDossierData: erreur suppression signals:`, signalsError);
+      return { purged: false, error: signalsError.message };
+    }
+    
+    console.log(`✅ purgeDossierData: purge réussie pour ${ref}`);
+    return { purged: true };
+    
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Erreur inconnue";
+    console.error(`❌ purgeDossierData: exception pour ${ref}:`, errorMsg);
+    return { purged: false, error: errorMsg };
+  }
 }
