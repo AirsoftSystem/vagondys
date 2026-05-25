@@ -19,6 +19,9 @@ export async function GET(req: Request) {
       mapArchiveToFrontendShape, 
       getPathString 
     } = await import("@/lib/archive-external/utils");
+    
+    // ✅ AJOUT 1 : Import de db-client pour la recherche en base
+    const { findActiveSignalByEmail } = await import("@/lib/archive-external/db-client");
 
     const { searchParams } = new URL(req.url);
     const ref = searchParams.get("ref");
@@ -84,6 +87,20 @@ export async function GET(req: Request) {
 
     // --- RECHERCHE PAR EMAIL ---
     if (searchEmail) {
+      // ✅ AJOUT 2 : Recherche en base MASTER/STAFF avant GitHub
+      console.log(`🔍 GET archive-external: recherche en base pour ${searchEmail}`);
+      
+      try {
+        const activeSignal = await findActiveSignalByEmail(searchEmail, effectiveCity || undefined);
+        if (activeSignal?.dossier_ref) {
+          console.log(`✅ GET archive-external: dossier trouvé en base: ${activeSignal.dossier_ref}`);
+          return NextResponse.json({ dossier_ref: activeSignal.dossier_ref });
+        }
+      } catch (dbErr) {
+        console.warn(`⚠️ GET archive-external: erreur recherche base:`, dbErr);
+      }
+      
+      // Recherche GitHub (inchangée)
       const files = await listAllArchiveFiles(customToken, targetRepo);
       const searchSlug = String(searchEmail).toLowerCase().replace(/[@.]/g, "_");
       const emailToMatch = String(searchEmail).replace(/_/g, ".").replace(/\.([^.]+)$/, "@$1");

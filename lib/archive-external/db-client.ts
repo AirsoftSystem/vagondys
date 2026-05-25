@@ -158,6 +158,84 @@ export async function deleteFile(
 }
 
 // ============================================================
+// ✅ AJOUT : FONCTION RECHERCHE PAR EMAIL (pour route.ts)
+// ============================================================
+
+/**
+ * Recherche un signal actif par email
+ * @param email - Email du client
+ * @param cityCode - Code de la ville (optionnel, pour cibler une base STAFF spécifique)
+ * @returns Le signal trouvé (ou null)
+ */
+export async function findActiveSignalByEmail(
+  email: string, 
+  cityCode?: string
+): Promise<{ dossier_ref: string } | null> {
+  console.log(`🔍 findActiveSignalByEmail: recherche pour ${email}${cityCode ? ` sur ${cityCode}` : ' (MASTER)'}`);
+  
+  try {
+    let client;
+    
+    if (cityCode) {
+      // Recherche dans la base STAFF de la ville spécifique
+      client = await createDynamicClient(cityCode, 'FR', 'STAFF');
+      console.log(`🔍 findActiveSignalByEmail: recherche dans STAFF de ${cityCode}`);
+    } else {
+      // Recherche dans MASTER (athletes_registry)
+      client = supabaseMaster;
+      console.log(`🔍 findActiveSignalByEmail: recherche dans MASTER`);
+    }
+    
+    // Déterminer la table et la condition selon le type de client
+    if (cityCode) {
+      // Dans STAFF, chercher dans pending_signals
+      const { data, error } = await client
+        .from("pending_signals")
+        .select("dossier_ref")
+        .eq("payload->>email", email.toLowerCase())
+        .not("dossier_ref", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) {
+        console.error(`❌ findActiveSignalByEmail: erreur STAFF pour ${cityCode}:`, error);
+        return null;
+      }
+      
+      if (data?.dossier_ref) {
+        console.log(`✅ findActiveSignalByEmail: trouvé dans STAFF ${cityCode}: ${data.dossier_ref}`);
+        return { dossier_ref: data.dossier_ref };
+      }
+    } else {
+      // Dans MASTER, chercher dans athletes_registry
+      const { data, error } = await client
+        .from("athletes_registry")
+        .select("dossier_ref")
+        .eq("email", email.toLowerCase())
+        .maybeSingle();
+      
+      if (error) {
+        console.error(`❌ findActiveSignalByEmail: erreur MASTER:`, error);
+        return null;
+      }
+      
+      if (data?.dossier_ref) {
+        console.log(`✅ findActiveSignalByEmail: trouvé dans MASTER: ${data.dossier_ref}`);
+        return { dossier_ref: data.dossier_ref };
+      }
+    }
+    
+    console.log(`ℹ️ findActiveSignalByEmail: aucun dossier trouvé pour ${email}`);
+    return null;
+    
+  } catch (err) {
+    console.error(`❌ findActiveSignalByEmail: exception pour ${email}:`, err);
+    return null;
+  }
+}
+
+// ============================================================
 // ✅ AJOUT : FONCTIONS MANQUANTES POUR engine.ts
 // ============================================================
 
