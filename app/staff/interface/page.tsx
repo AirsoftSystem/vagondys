@@ -252,7 +252,7 @@ export default function StaffMessagesPage() {
       
       // Convertir la Map en tableau et trier par date (du plus ancien au plus récent)
       const mergedHistory = Array.from(messageMap.values());
-      mergedHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      mergedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
       setHistoryMessages(mergedHistory);
       
