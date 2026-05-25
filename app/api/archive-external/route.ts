@@ -10,7 +10,7 @@ const DEFAULT_REPO_NAME = "VAGONDYS_ARCHIVES_DATA";
  */
 export async function GET(req: Request) {
   try {
-    // ✅ Import dynamique - chargé UNIQUEMENT à l'exécution
+    // ✅ Import dynamique - UNIQUEMENT les modules qui existent
     const { 
       listAllArchiveFiles, 
       findFileInRepo 
@@ -81,8 +81,6 @@ export async function GET(req: Request) {
 
     // --- RECHERCHE PAR EMAIL ---
     if (searchEmail) {
-      // ✅ CORRECTION : Suppression de l'appel à findActiveSignalByEmail qui n'existe pas
-      // On va directement chercher dans les fichiers GitHub
       const files = await listAllArchiveFiles(customToken, targetRepo);
       const searchSlug = String(searchEmail).toLowerCase().replace(/[@.]/g, "_");
       const emailToMatch = String(searchEmail).replace(/_/g, ".").replace(/\.([^.]+)$/, "@$1");
@@ -122,12 +120,13 @@ export async function GET(req: Request) {
     // --- RÉCUPÉRATION PAR RÉFÉRENCE ---
     if (!ref) return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
 
-    console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo} avec pays=${effectiveCountry}`);
+    console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo}`);
     
+    // ✅ CORRECTION : Appel correct avec path="archives"
     const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", effectiveCountry);
     
     if (!targetFile) {
-      console.warn(`❌ GET archive-external: fichier non trouvé pour ref=${ref} dans repo=${targetRepo}`);
+      console.warn(`❌ GET archive-external: fichier non trouvé pour ref=${ref}`);
       return NextResponse.json({ error: "Archive non trouvée" }, { status: 404 });
     }
     
@@ -149,7 +148,6 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    // ✅ Imports dynamiques
     const { processArchivePost } = await import("@/lib/archive-external/engine");
     const { validateArchiveBody } = await import("@/lib/archive-external/validator");
 
@@ -187,7 +185,6 @@ export async function POST(req: Request) {
  */
 export async function DELETE(req: Request) {
   try {
-    // ✅ Imports dynamiques
     const { findFileInRepo, deleteFile } = await import("@/lib/archive-external/gh-client");
 
     const { searchParams } = new URL(req.url);
@@ -212,6 +209,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Token de configuration manquant" }, { status: 500 });
     }
 
+    // ✅ CORRECTION : Appel correct avec path="archives"
     const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", countryCode);
     if (!targetFile) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
 
