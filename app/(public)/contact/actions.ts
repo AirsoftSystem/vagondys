@@ -139,30 +139,30 @@ export async function submitContact(formData: FormData) {
     console.log(`🏙️ Création du client pour ${city} (${country})...`);
     const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
     
-    // 6. INSERTION OU MISE À JOUR DANS LA BASE STAFF
+    // 6. GESTION DU SIGNAL ET DE L'HISTORIQUE
     const insertPayload: SignalPayload = { 
       name, email, phone, subject, message,
       city: registryEntry?.city || city,
       country: registryEntry?.country || country
     };
 
-    // Vérifier si un signal existe déjà pour cet email (pour éviter les doublons)
+    let insertData;
+    
+    // Vérifier si un signal existe déjà pour cet email
     const { data: existingSignal } = await cityStaffClient
       .from('pending_signals')
-      .select('id')
+      .select('id, dossier_ref, payload, confirmed')
       .eq('payload->>email', email)
       .maybeSingle();
     
-    let insertData;
-    
     if (existingSignal) {
-      // Mettre à jour le signal existant avec les nouvelles informations
-      console.log(`📝 Mise à jour du signal existant pour ${email}`);
+      // ✅ CORRECTION : Ne PAS écraser le signal existant
+      // On met simplement à jour is_read = false pour signaler un nouveau message
+      console.log(`📝 Mise à jour du signal existant (is_read=false) pour ${email}`);
+      
       const { data: updatedData, error: updateError } = await cityStaffClient
         .from('pending_signals')
         .update({
-          payload: insertPayload,
-          confirmed: false,
           is_read: false,
           updated_at: new Date().toISOString()
         })
@@ -175,9 +175,30 @@ export async function submitContact(formData: FormData) {
         throw new Error(updateError.message);
       }
       insertData = updatedData;
+      
+      // ✅ AJOUT : Créer un nouvel enregistrement dans communication_replies
+      console.log(`📝 Ajout du nouveau message dans communication_replies pour ${dossier_ref}`);
+      const replyId = randomUUID();
+      const { error: replyError } = await cityStaffClient
+        .from('communication_replies')
+        .insert([{
+          id: replyId,
+          dossier_ref: dossier_ref,
+          content: message,
+          agent_email: "CLIENT",
+          created_at: new Date().toISOString()
+        }]);
+      
+      if (replyError) {
+        console.error("❌ Erreur insertion dans communication_replies:", replyError);
+        // Non bloquant, on continue
+      } else {
+        console.log(`✅ Nouveau message ajouté dans communication_replies avec ID: ${replyId}`);
+      }
+      
       console.log(`✅ Signal mis à jour avec ID: ${insertData.id}`);
     } else {
-      // Créer un nouveau signal
+      // Créer un nouveau signal (premier message)
       console.log(`📝 Insertion dans pending_signals de ${city} (STAFF)...`);
       const { data: newData, error: dbError } = await cityStaffClient
         .from('pending_signals')
@@ -186,7 +207,8 @@ export async function submitContact(formData: FormData) {
           dossier_ref,
           confirmed: false,
           payload: insertPayload,
-          is_new_athlete: !registryEntry && isNewDossier
+          is_new_athlete: !registryEntry && isNewDossier,
+          is_read: false
         }])
         .select()
         .single();
@@ -234,7 +256,7 @@ export async function submitContact(formData: FormData) {
 
     const emailResult = await sendGeneralEmail(
       email,
-      existingSignal ? "CONFIRMATION DE VOTRE TRANSMISSION" : "ACTION REQUISE : Confirmez votre signal",
+      existingSignal ? "NOUVEAU MESSAGE SUR VOTRE DOSSIER" : "ACTION REQUISE : Confirmez votre signal",
       textContent,
       htmlContent,
       "contact@vagondys.com"
