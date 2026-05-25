@@ -95,6 +95,39 @@ export default function StaffMessagesPage() {
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
+  // ✅ AJOUT : État pour la restauration
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // ✅ AJOUT : Fonction de restauration d'un dossier depuis GitHub
+  const restoreArchivedDossier = async (dossierRef: string) => {
+    if (!userCity) return false;
+    
+    try {
+      const response = await fetch('/api/archive-external/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dossier_ref: dossierRef,
+          city_code: userCity,
+          country_code: userCountry || 'FR'
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error("❌ Erreur restauration:", result.error);
+        return false;
+      }
+      
+      console.log(`✅ Dossier ${dossierRef} restauré avec succès`);
+      return true;
+      
+    } catch (err) {
+      console.error("❌ Exception restauration:", err);
+      return false;
+    }
+  };
 
   // Chargement unique au montage
   useEffect(() => {
@@ -165,8 +198,6 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ CORRECTION 1 : Ajout de userCity et userCountry dans l'appel à fetchGitHubArchive
-  // ✅ CORRECTION 3 : Ajout des dépendances userCity, userCountry
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -192,7 +223,6 @@ export default function StaffMessagesPage() {
         is_initial: false
       }));
       
-      // ✅ MODIFICATION : Transmission de userCity et userCountry
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         const archivedHistory: ExtendedHistoryMessage[] = archivedData.echanges_staff.map(h => ({
@@ -231,7 +261,7 @@ export default function StaffMessagesPage() {
     }
   }, [userCity, userCountry]);
 
-  // ✅ CORRECTION 2 : Ajout de userCity et userCountry dans l'appel à fetchGitHubArchive
+  // ✅ MODIFICATION : Recherche externe avec restauration automatique
   const handleExternalSearch = async () => {
     if (!searchRef.trim()) return;
     setIsSearchingExternal(true);
@@ -240,7 +270,6 @@ export default function StaffMessagesPage() {
     console.log(`🔍 Recherche externe: ${searchRef} pour ${userCity}/${userCountry}`);
     
     try {
-      // ✅ MODIFICATION : Transmission de userCity et userCountry
       const archivedData = await fetchGitHubArchive(
         searchRef.trim().toUpperCase(),
         userCity || undefined,
@@ -249,6 +278,23 @@ export default function StaffMessagesPage() {
       
       if (archivedData) {
         console.log(`✅ Archive trouvée pour ${searchRef}`);
+        
+        // ✅ AJOUT : Restaurer le dossier dans la base STAFF
+        setIsRestoring(true);
+        const restored = await restoreArchivedDossier(searchRef.trim().toUpperCase());
+        if (restored) {
+          console.log(`📦 Dossier restauré, rafraîchissement de la vue...`);
+          // Si on est dans l'onglet "archived", rafraîchir la liste
+          if (view === "archived") {
+            const response = await fetch(`/api/staff/pending-signals?view=archived`);
+            const result = await response.json();
+            if (response.ok) {
+              setMessages(result.messages || []);
+            }
+          }
+        }
+        setIsRestoring(false);
+        
         const mockMsg: SignalMessage = {
           ...archivedData.dossier,
           id: `archived-${archivedData.dossier.dossier_ref}`
@@ -263,6 +309,8 @@ export default function StaffMessagesPage() {
         setReplyingTo(mockMsg);
         setLinkedDossiers([]);
         setClientEmail(mockMsg.payload.email);
+        
+        alert(`Dossier ${searchRef} restauré dans les archives.`);
       } else {
         console.warn(`❌ Aucune archive trouvée pour ${searchRef}`);
         alert("Aucune archive trouvée pour cette référence dans le coffre-fort.");
@@ -466,9 +514,9 @@ export default function StaffMessagesPage() {
                className="bg-transparent text-[9px] font-black uppercase tracking-widest outline-none text-white w-40 placeholder:text-zinc-800"/>
              <button 
                onClick={handleExternalSearch}
-               disabled={isSearchingExternal}
+               disabled={isSearchingExternal || isRestoring}
                className="text-[9px] font-black text-red-600 hover:text-white transition-colors">
-               {isSearchingExternal ? "..." : "OK"}
+               {isSearchingExternal || isRestoring ? "..." : "OK"}
              </button>
           </div>
           <div className="flex bg-neutral-900/50 p-1 rounded-lg border border-white/5">
