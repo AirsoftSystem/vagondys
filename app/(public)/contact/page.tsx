@@ -28,6 +28,10 @@ function ContactFormContent() {
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [detectedCity, setDetectedCity] = useState<string | null>(null);
 
+  // Références aux selects pour récupérer les valeurs actuelles
+  const [currentCountry, setCurrentCountry] = useState<string>("FR");
+  const [currentCity, setCurrentCity] = useState<string>("NANTES");
+
   // ✅ MODIFIÉ : Effet pour rechercher la référence via la nouvelle API check-athlete
   useEffect(() => {
     const checkExistingAthlete = async () => {
@@ -50,9 +54,11 @@ function ContactFormContent() {
               // ✅ Pré-remplir le pays et la ville détectés
               if (data.athlete.country) {
                 setDetectedCountry(data.athlete.country);
+                setCurrentCountry(data.athlete.country);
               }
               if (data.athlete.city) {
                 setDetectedCity(data.athlete.city);
+                setCurrentCity(data.athlete.city);
               }
               
               console.log(`✅ Athlète trouvé: ${data.athlete.city}/${data.athlete.country} - Dossier: ${data.athlete.dossier_ref}`);
@@ -61,14 +67,18 @@ function ContactFormContent() {
           }
           
           // ✅ ÉTAPE 2 : Si non trouvé dans MASTER, rechercher dans GitHub (fallback)
+          // ✅ AJOUT : Transmission de la ville et du pays détectés (ou valeurs par défaut)
           const emailSlug = email.toLowerCase().replace(/[@.]/g, '_');
-          const archiveRes = await fetch(`/api/archive-external?search=${emailSlug}`);
+          const cityValue = detectedCity || currentCity;
+          const countryValue = detectedCountry || currentCountry;
+          
+          const archiveRes = await fetch(`/api/archive-external?search=${emailSlug}&city_code=${cityValue}&country_code=${countryValue}`);
           
           if (archiveRes.ok) {
             const archiveData = await archiveRes.json();
             if (archiveData.dossier_ref) {
               setDossierRef(archiveData.dossier_ref);
-              console.log(`📦 Athlète trouvé dans GitHub: ${archiveData.dossier_ref}`);
+              console.log(`📦 Dossier trouvé dans GitHub: ${archiveData.dossier_ref}`);
             } else {
               setDossierRef("0");
             }
@@ -92,7 +102,16 @@ function ContactFormContent() {
 
     const timer = setTimeout(checkExistingAthlete, 1000); // Debounce de 1s
     return () => clearTimeout(timer);
-  }, [email, dossierRef, detectedCountry, detectedCity]);
+  }, [email, dossierRef, detectedCountry, detectedCity, currentCountry, currentCity]);
+
+  // Handlers pour mettre à jour les états courants des selects
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentCountry(e.target.value);
+  };
+
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentCity(e.target.value);
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -224,7 +243,8 @@ function ContactFormContent() {
                   id="country"
                   name="country"
                   required
-                  defaultValue={detectedCountry || "FR"}
+                  value={currentCountry}
+                  onChange={handleCountryChange}
                   className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm appearance-none cursor-pointer uppercase"
                 >
                   <option value="FR">FRANCE</option>
@@ -245,7 +265,8 @@ function ContactFormContent() {
                   id="city"
                   name="city"
                   required
-                  defaultValue={detectedCity || "NANTES"}
+                  value={currentCity}
+                  onChange={handleCityChange}
                   className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm appearance-none cursor-pointer uppercase"
                 >
                   <option value="NANTES">NANTES</option>
