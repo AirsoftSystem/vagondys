@@ -165,7 +165,8 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // Récupération de l'historique
+  // ✅ CORRECTION 1 : Ajout de userCity et userCountry dans l'appel à fetchGitHubArchive
+  // ✅ CORRECTION 3 : Ajout des dépendances userCity, userCountry
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -191,8 +192,8 @@ export default function StaffMessagesPage() {
         is_initial: false
       }));
       
-      // ✅ Appel ORIGINAL : 1 seul argument (sans city/country)
-      const archivedData = await fetchGitHubArchive(ref);
+      // ✅ MODIFICATION : Transmission de userCity et userCountry
+      const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         const archivedHistory: ExtendedHistoryMessage[] = archivedData.echanges_staff.map(h => ({
           id: h.id,
@@ -228,18 +229,23 @@ export default function StaffMessagesPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }, []);
+  }, [userCity, userCountry]);
 
-  // ✅ Recherche externe : appel ORIGINAL (1 seul argument)
+  // ✅ CORRECTION 2 : Ajout de userCity et userCountry dans l'appel à fetchGitHubArchive
   const handleExternalSearch = async () => {
     if (!searchRef.trim()) return;
     setIsSearchingExternal(true);
     setGithubArchive(null);
     
-    console.log(`🔍 Recherche externe: ${searchRef}`);
+    console.log(`🔍 Recherche externe: ${searchRef} pour ${userCity}/${userCountry}`);
     
     try {
-      const archivedData = await fetchGitHubArchive(searchRef.trim().toUpperCase());
+      // ✅ MODIFICATION : Transmission de userCity et userCountry
+      const archivedData = await fetchGitHubArchive(
+        searchRef.trim().toUpperCase(),
+        userCity || undefined,
+        userCountry || undefined
+      );
       
       if (archivedData) {
         console.log(`✅ Archive trouvée pour ${searchRef}`);
