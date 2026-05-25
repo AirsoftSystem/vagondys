@@ -95,10 +95,8 @@ export default function StaffMessagesPage() {
   const [searchRef, setSearchRef] = useState("");
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
-  // ✅ AJOUT : État pour la restauration
   const [isRestoring, setIsRestoring] = useState(false);
 
-  // ✅ AJOUT : Fonction de restauration d'un dossier depuis GitHub
   const restoreArchivedDossier = async (dossierRef: string) => {
     if (!userCity) return false;
     
@@ -198,6 +196,7 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
+  // ✅ CORRECTION : Dédoublonnage des messages dans fetchHistoryAndLinks
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -224,25 +223,38 @@ export default function StaffMessagesPage() {
       }));
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
+      
+      // ✅ Dédoublonnage : utilisation d'une Map pour éliminer les doublons par id
+      const messageMap = new Map<string, ExtendedHistoryMessage>();
+      
+      // Ajouter les messages de la base STAFF (prioritaires)
+      formattedHistory.forEach(msg => {
+        messageMap.set(msg.id, msg);
+      });
+      
+      // Ajouter les messages de GitHub (seulement si l'id n'existe pas déjà)
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
-        const archivedHistory: ExtendedHistoryMessage[] = archivedData.echanges_staff.map(h => ({
-          id: h.id,
-          created_at: h.created_at,
-          agent_email: h.agent_email,
-          content: h.content,
-          dossier_ref: h.dossier_ref,
-          document_url: h.document_url || null,
-          is_initial: false
-        }));
-        
-        const mergedHistory = [...formattedHistory, ...archivedHistory];
-        mergedHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        setHistoryMessages(mergedHistory);
+        archivedData.echanges_staff.forEach(h => {
+          if (!messageMap.has(h.id)) {
+            messageMap.set(h.id, {
+              id: h.id,
+              created_at: h.created_at,
+              agent_email: h.agent_email,
+              content: h.content,
+              dossier_ref: h.dossier_ref,
+              document_url: h.document_url || null,
+              is_initial: false
+            });
+          }
+        });
         setGithubArchive(archivedData);
-      } else {
-        setHistoryMessages(formattedHistory);
-        if (archivedData) setGithubArchive(archivedData);
       }
+      
+      // Convertir la Map en tableau et trier par date (du plus ancien au plus récent)
+      const mergedHistory = Array.from(messageMap.values());
+      mergedHistory.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      
+      setHistoryMessages(mergedHistory);
       
       if (result.linkedDossiers) {
         setLinkedDossiers(result.linkedDossiers);
@@ -261,7 +273,6 @@ export default function StaffMessagesPage() {
     }
   }, [userCity, userCountry]);
 
-  // ✅ MODIFICATION : Recherche externe avec restauration automatique
   const handleExternalSearch = async () => {
     if (!searchRef.trim()) return;
     setIsSearchingExternal(true);
@@ -279,12 +290,10 @@ export default function StaffMessagesPage() {
       if (archivedData) {
         console.log(`✅ Archive trouvée pour ${searchRef}`);
         
-        // ✅ AJOUT : Restaurer le dossier dans la base STAFF
         setIsRestoring(true);
         const restored = await restoreArchivedDossier(searchRef.trim().toUpperCase());
         if (restored) {
           console.log(`📦 Dossier restauré, rafraîchissement de la vue...`);
-          // Si on est dans l'onglet "archived", rafraîchir la liste
           if (view === "archived") {
             const response = await fetch(`/api/staff/pending-signals?view=archived`);
             const result = await response.json();
