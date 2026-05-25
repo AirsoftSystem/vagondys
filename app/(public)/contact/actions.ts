@@ -59,66 +59,150 @@ export async function submitContact(formData: FormData) {
   }
 
   try {
-    // 1. RECHERCHE DANS LE REGISTRE MASTER (comme inscription)
+    // 1. RECHERCHE DANS LE REGISTRE MASTER (athletes_registry)
     console.log("🔍 Recherche dans athletes_registry...");
     const { data: registryEntry } = await supabaseMaster
       .from('athletes_registry')
-      .select('city, country')
+      .select('city, country, dossier_ref')
       .eq('email', email)
       .maybeSingle();
 
     console.log("📋 Registry entry:", registryEntry);
 
-    // 2. ✅ CRÉATION DU CLIENT DYNAMIQUE POUR LA VILLE (comme inscription)
+    // ✅ AJOUT 1 : Vérifier si un dossier existe déjà pour cet email
+    let existingDossierRef: string | null = registryEntry?.dossier_ref || null;
+    
+    // ✅ AJOUT 2 : Si non trouvé dans MASTER, chercher dans pending_signals (STAFF)
+    if (!existingDossierRef) {
+      console.log(`🔍 Recherche dans pending_signals de ${city}...`);
+      try {
+        const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
+        const { data: existingSignal } = await cityStaffClient
+          .from('pending_signals')
+          .select('dossier_ref')
+          .eq('payload->>email', email)
+          .not('dossier_ref', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (existingSignal?.dossier_ref) {
+          existingDossierRef = existingSignal.dossier_ref;
+          console.log(`✅ Dossier existant trouvé dans STAFF: ${existingDossierRef}`);
+        }
+      } catch (staffErr) {
+        console.warn("⚠️ Erreur recherche STAFF:", staffErr);
+      }
+    }
+    
+    // ✅ AJOUT 3 : Si non trouvé, chercher dans les archives GitHub
+    if (!existingDossierRef) {
+      console.log(`🔍 Recherche dans GitHub pour ${email}...`);
+      try {
+        const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${city}&country_code=${country}`;
+        const searchRes = await fetch(searchUrl);
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          if (searchData.dossier_ref) {
+            existingDossierRef = searchData.dossier_ref;
+            console.log(`✅ Dossier existant trouvé dans GitHub: ${existingDossierRef}`);
+          }
+        }
+      } catch (gitErr) {
+        console.warn("⚠️ Erreur recherche GitHub:", gitErr);
+      }
+    }
+
+    // ✅ AJOUT 4 : Si un dossier existe déjà, on le réutilise
+    let dossier_ref: string;
+    let isNewDossier = false;
+    
+    if (existingDossierRef) {
+      dossier_ref = existingDossierRef;
+      console.log(`📁 Réutilisation du dossier existant: ${dossier_ref}`);
+    } else {
+      // Génération d'un nouveau dossier
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const generateSegment = (length: number) => {
+        let result = '';
+        for (let i = 0; i < length; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+      dossier_ref = `VGD-${generateSegment(4)}${generateSegment(4)}`;
+      isNewDossier = true;
+      console.log(`📁 Nouveau dossier généré: ${dossier_ref}`);
+    }
+
+    // 5. CRÉATION DU CLIENT DYNAMIQUE POUR LA VILLE
     console.log(`🏙️ Création du client pour ${city} (${country})...`);
     const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
     
-    // 3. GÉNÉRATION DU DOSSIER (format VGD-XXXXXXXX comme inscription)
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const generateSegment = (length: number) => {
-      let result = '';
-      for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return result;
-    };
-    const dossier_ref = `VGD-${generateSegment(4)}${generateSegment(4)}`;
-    
-    console.log(`📁 Dossier généré: ${dossier_ref}`);
-
-    // 4. ✅ INSERTION DANS LA BASE STAFF DE LA VILLE (comme inscription)
+    // 6. INSERTION OU MISE À JOUR DANS LA BASE STAFF
     const insertPayload: SignalPayload = { 
       name, email, phone, subject, message,
       city: registryEntry?.city || city,
       country: registryEntry?.country || country
     };
 
-    console.log(`📝 Insertion dans pending_signals de ${city} (STAFF)...`);
-    
-    const { data: insertData, error: dbError } = await cityStaffClient
+    // Vérifier si un signal existe déjà pour cet email (pour éviter les doublons)
+    const { data: existingSignal } = await cityStaffClient
       .from('pending_signals')
-      .insert([{
-        id: randomUUID(), 
-        dossier_ref,
-        confirmed: false,
-        payload: insertPayload,
-        is_new_athlete: !registryEntry
-      }])
-      .select()
-      .single();
+      .select('id')
+      .eq('payload->>email', email)
+      .maybeSingle();
+    
+    let insertData;
+    
+    if (existingSignal) {
+      // Mettre à jour le signal existant avec les nouvelles informations
+      console.log(`📝 Mise à jour du signal existant pour ${email}`);
+      const { data: updatedData, error: updateError } = await cityStaffClient
+        .from('pending_signals')
+        .update({
+          payload: insertPayload,
+          confirmed: false,
+          is_read: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSignal.id)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error("❌ Erreur mise à jour:", updateError);
+        throw new Error(updateError.message);
+      }
+      insertData = updatedData;
+      console.log(`✅ Signal mis à jour avec ID: ${insertData.id}`);
+    } else {
+      // Créer un nouveau signal
+      console.log(`📝 Insertion dans pending_signals de ${city} (STAFF)...`);
+      const { data: newData, error: dbError } = await cityStaffClient
+        .from('pending_signals')
+        .insert([{
+          id: randomUUID(), 
+          dossier_ref,
+          confirmed: false,
+          payload: insertPayload,
+          is_new_athlete: !registryEntry && isNewDossier
+        }])
+        .select()
+        .single();
 
-    if (dbError) {
-      console.error("❌ Erreur DB:", dbError);
-      throw new Error(dbError.message);
+      if (dbError) {
+        console.error("❌ Erreur DB:", dbError);
+        throw new Error(dbError.message);
+      }
+      insertData = newData;
+      console.log(`✅ Signal créé avec ID: ${insertData.id} dans la base STAFF de ${city}`);
     }
 
-    console.log(`✅ Signal créé avec ID: ${insertData.id} dans la base STAFF de ${city}`);
-
-    // 5. ✅ ENVOI DE L'EMAIL VIA GMAIL.TS
+    // 7. ENVOI DE L'EMAIL VIA GMAIL.TS
     const baseUrl = siteUrl;
-    const service = subject; // Le sujet choisi dans le formulaire
+    const service = subject;
     
-    // ✅ CORRECTION : Encoder le sujet pour éviter les caractères problématiques dans l'URL
     const encodedService = encodeURIComponent(service);
     const confirmLink = `${baseUrl}/api/confirm-signal?service=${encodedService}&city=${city}&country=${country}&id=${insertData.id}`;
 
@@ -138,7 +222,7 @@ export async function submitContact(formData: FormData) {
           <p style="font-size:12px; font-style:italic; color:#a1a1aa;">"${message}"</p>
         </div>
         <a href="${confirmLink}" style="background:#dc2626; color:white; padding:20px 40px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px;">
-          ACTIVER LA TRANSMISSION
+          ${existingSignal ? "CONFIRMER LA TRANSMISSION" : "ACTIVER LA TRANSMISSION"}
         </a>
         <p style="margin-top:30px; font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
           Cet email est généré automatiquement.
@@ -150,7 +234,7 @@ export async function submitContact(formData: FormData) {
 
     const emailResult = await sendGeneralEmail(
       email,
-      "ACTION REQUISE : Confirmez votre signal",
+      existingSignal ? "CONFIRMATION DE VOTRE TRANSMISSION" : "ACTION REQUISE : Confirmez votre signal",
       textContent,
       htmlContent,
       "contact@vagondys.com"
