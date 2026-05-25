@@ -99,6 +99,14 @@ CREATE POLICY "Staff authenticated access signals" ON public.pending_signals
         AND auth.email() LIKE '%@vagondys.com'
     );
 
+-- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
+-- Permet au client utilisant la clé ANON de lire les signaux
+-- Nécessaire pour que /staff/interface affiche les messages
+CREATE POLICY "Frontend read access signals" ON public.pending_signals
+    FOR SELECT USING (
+        auth.role() = 'anon'
+    );
+
 -- ==========================================
 -- 7. POLITIQUES RLS POUR COMMUNICATION_REPLIES
 -- ==========================================
@@ -118,6 +126,12 @@ CREATE POLICY "Staff authenticated access replies" ON public.communication_repli
         AND auth.email() LIKE '%@vagondys.com'
     );
 
+-- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
+CREATE POLICY "Frontend read access replies" ON public.communication_replies
+    FOR SELECT USING (
+        auth.role() = 'anon'
+    );
+
 -- ==========================================
 -- 8. POLITIQUES RLS POUR GAME_LAUNCHES
 -- ==========================================
@@ -131,6 +145,12 @@ CREATE POLICY "Staff authenticated manage game launches" ON public.game_launches
     FOR ALL USING (
         auth.role() = 'authenticated' 
         AND auth.email() LIKE '%@vagondys.com'
+    );
+
+-- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
+CREATE POLICY "Frontend read access game launches" ON public.game_launches
+    FOR SELECT USING (
+        auth.role() = 'anon'
     );
 
 -- ==========================================
@@ -154,4 +174,27 @@ $$ LANGUAGE plpgsql;
 -- ==========================================
 -- FIN DU SCRIPT
 -- ==========================================
+*/
+
+/*
+-- Vérification 1 : Compter tous les signaux
+SELECT COUNT(*) as total_signals FROM pending_signals;
+
+-- Vérification 2 : Voir les signaux non lus et confirmés
+SELECT id, dossier_ref, confirmed, is_read, created_at, payload->>'email' as email
+FROM pending_signals
+WHERE is_read = false AND confirmed = true
+ORDER BY created_at DESC;
+
+-- Vérification 3 : Voir le signal spécifique VGD-HLU2EHX3
+SELECT id, dossier_ref, confirmed, is_read, created_at, payload->>'email' as email
+FROM pending_signals
+WHERE dossier_ref = 'VGD-HLU2EHX3';
+*/
+
+/*
+DROP POLICY IF EXISTS "Frontend read access signals" ON public.pending_signals;
+
+CREATE POLICY "anon read access" ON public.pending_signals
+    FOR SELECT USING (true);
 */

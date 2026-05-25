@@ -46,6 +46,9 @@ export async function GET(req: Request) {
       }
     }
 
+    // ✅ AJOUT : Log pour tracer le dépôt et le token utilisés
+    console.log(`🔍 GET archive-external: utilisation du repo="${targetRepo}", token="${customToken ? customToken.substring(0, 15) + '...' : 'MANQUANT'}"`);
+
     if (!customToken) {
       return NextResponse.json({ error: "Configuration GitHub manquante" }, { status: 500 });
     }
@@ -122,7 +125,6 @@ export async function GET(req: Request) {
 
     console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo}`);
     
-    // ✅ CORRECTION : Appel correct avec path="archives"
     const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", effectiveCountry);
     
     if (!targetFile) {
@@ -209,7 +211,6 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Token de configuration manquant" }, { status: 500 });
     }
 
-    // ✅ CORRECTION : Appel correct avec path="archives"
     const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", countryCode);
     if (!targetFile) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
 
