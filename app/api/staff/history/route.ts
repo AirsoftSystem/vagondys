@@ -70,8 +70,6 @@ export async function GET(request: Request) {
     }
 
     // 4. Construire l'historique des messages client depuis messages_history
-    // ✅ CORRECTION : Ne plus utiliser payload.message (qui est le dernier message)
-    //    Utiliser uniquement messages_history qui contient TOUS les messages
     const clientHistoryMessages: Array<{
       id: string;
       created_at: string;
@@ -86,18 +84,47 @@ export async function GET(request: Request) {
       const payload = clientSignal.payload;
       const messagesHistory = payload.messages_history || [];
       
-      // ✅ Ajouter tous les messages de l'historique
-      //    Le premier message de l'historique est le vrai message initial
+      // ✅ Ajouter le message initial (premier message) s'il n'est pas déjà dans l'historique
+      // ✅ CORRECTION : Vérifier si le message initial n'est pas déjà présent dans messagesHistory
+      if (payload.message) {
+        // Vérifier si le message initial (payload.message) est déjà dans l'historique
+        // ou si l'historique contient déjà le premier message
+        const isAlreadyInHistory = messagesHistory.some(
+          (m: { content: string }) => m.content === payload.message
+        );
+        
+        // Si l'historique est vide OU que le message n'est pas dans l'historique
+        // on ajoute le message initial avec la date du signal
+        if (messagesHistory.length === 0 || !isAlreadyInHistory) {
+          clientHistoryMessages.push({
+            id: `${clientSignal.id}_initial`,
+            created_at: clientSignal.created_at,
+            agent_email: "CLIENT",
+            content: payload.message,
+            dossier_ref: clientSignal.dossier_ref,
+            document_url: null,
+            is_initial: true
+          });
+        }
+      }
+      
+      // ✅ Ajouter tous les messages de l'historique (sauf si c'est le même que le message initial déjà ajouté)
       messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
-        clientHistoryMessages.push({
-          id: `${clientSignal.id}_history_${index}`,
-          created_at: msg.created_at,
-          agent_email: "CLIENT",
-          content: msg.content,
-          dossier_ref: clientSignal.dossier_ref,
-          document_url: null,
-          is_initial: index === 0
-        });
+        // Éviter d'ajouter un doublon du message initial
+        const isDuplicateOfInitial = payload.message === msg.content && 
+                                     clientHistoryMessages.some(m => m.content === msg.content);
+        
+        if (!isDuplicateOfInitial) {
+          clientHistoryMessages.push({
+            id: `${clientSignal.id}_history_${index}`,
+            created_at: msg.created_at,
+            agent_email: "CLIENT",
+            content: msg.content,
+            dossier_ref: clientSignal.dossier_ref,
+            document_url: null,
+            is_initial: false
+          });
+        }
       });
     }
 
