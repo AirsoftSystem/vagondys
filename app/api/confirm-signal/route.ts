@@ -606,10 +606,19 @@ export async function GET(request: NextRequest) {
         country
       }, 'info');
       
-      // ✅ Récupérer le messages_history complet depuis le payload mis à jour
-      const completeMessagesHistory = cleanPayload.messages_history || [];
+      // ✅ Récupérer l'historique existant
+      const existingHistory = cleanPayload.messages_history || [];
       
-      // ✅ Construire le fil de discussion complet pour GitHub
+      // ✅ Créer un nouvel historique incluant le message actuel
+      const updatedMessagesHistory = [
+        ...existingHistory,
+        {
+          content: currentMessageForEmail,
+          created_at: new Date().toISOString()
+        }
+      ];
+      
+      // ✅ Construire le fil de discussion complet pour GitHub avec tous les messages
       const fullThread = [
         {
           role: "CLIENT_CONTACT_INFO",
@@ -623,7 +632,7 @@ export async function GET(request: NextRequest) {
             subject: rawSubject
           }
         },
-        ...completeMessagesHistory.map((msg, index) => ({
+        ...updatedMessagesHistory.map((msg, index) => ({
           role: "public",
           sender: clientEmail,
           content: msg.content,
@@ -644,7 +653,7 @@ export async function GET(request: NextRequest) {
             country: country,
             subject: rawSubject,
             message: currentMessageForEmail,
-            messages_history: completeMessagesHistory
+            messages_history: updatedMessagesHistory
           }
         },
         history: [],
@@ -659,7 +668,7 @@ export async function GET(request: NextRequest) {
         dossier_ref: finalDossierRef,
         city,
         country,
-        messages_count: completeMessagesHistory.length
+        messages_count: updatedMessagesHistory.length
       }, 'info');
       
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
