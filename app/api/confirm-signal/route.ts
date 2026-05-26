@@ -609,14 +609,28 @@ export async function GET(request: NextRequest) {
       // ✅ Récupérer l'historique existant
       const existingHistory = cleanPayload.messages_history || [];
       
-      // ✅ Créer un nouvel historique incluant le message actuel
-      const updatedMessagesHistory = [
-        ...existingHistory,
-        {
-          content: currentMessageForEmail,
-          created_at: new Date().toISOString()
-        }
-      ];
+      // ✅ Vérifier si le message actuel n'est pas déjà dans l'historique
+      const alreadyExists = existingHistory.some(
+        (msg) => msg.content === currentMessageForEmail
+      );
+      
+      let updatedMessagesHistory;
+      if (!alreadyExists) {
+        updatedMessagesHistory = [
+          ...existingHistory,
+          {
+            content: currentMessageForEmail,
+            created_at: new Date().toISOString()
+          }
+        ];
+      } else {
+        // Ne pas ajouter de doublon
+        updatedMessagesHistory = existingHistory;
+        await forceLog(`confirm-signal-${requestId}`, {
+          event: 'DOUBLON_IGNORE',
+          content: currentMessageForEmail
+        }, 'warn');
+      }
       
       // ✅ Construire le fil de discussion complet pour GitHub avec tous les messages
       const fullThread = [

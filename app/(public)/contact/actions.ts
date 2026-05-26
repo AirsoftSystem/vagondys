@@ -156,11 +156,18 @@ export async function submitContact(formData: FormData) {
         });
       }
       
-      // Ajouter le nouveau message
-      messagesHistory.push({
-        content: message,
-        created_at: new Date().toISOString()
-      });
+      // ✅ Vérifier si le nouveau message n'est pas déjà dans l'historique
+      const alreadyExists = messagesHistory.some(
+        (msg) => msg.content === message
+      );
+      
+      if (!alreadyExists) {
+        // Ajouter le nouveau message seulement s'il n'existe pas
+        messagesHistory.push({
+          content: message,
+          created_at: new Date().toISOString()
+        });
+      }
       
       const updatedPayload: SignalPayload = {
         ...currentPayload,
