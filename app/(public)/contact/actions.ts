@@ -144,7 +144,7 @@ export async function submitContact(formData: FormData) {
     }
     
     if (existingSignal) {
-      // Enrichir le payload existant avec l'historique
+      // ✅ Enrichir le payload existant avec l'historique
       const currentPayload = existingSignal.payload as SignalPayload;
       const messagesHistory = currentPayload.messages_history || [];
       
@@ -168,10 +168,12 @@ export async function submitContact(formData: FormData) {
         messages_history: messagesHistory
       };
       
+      // ✅ Mise à jour : is_read = false, confirmed = false, payload enrichi
       const { data: updatedData, error: updateError } = await cityStaffClient
         .from('pending_signals')
         .update({
           is_read: false,
+          confirmed: false,
           payload: updatedPayload
         })
         .eq('id', existingSignal.id)
@@ -184,7 +186,7 @@ export async function submitContact(formData: FormData) {
       insertData = updatedData;
       
     } else {
-      // Création d'un nouveau signal
+      // Création d'un nouveau signal (premier message)
       const insertPayload: SignalPayload = { 
         name, email, phone, subject, message,
         city: registryEntry?.city || city,
@@ -211,7 +213,7 @@ export async function submitContact(formData: FormData) {
       insertData = newData;
     }
 
-    // 6. ENVOI DE L'EMAIL
+    // 6. ENVOI DE L'EMAIL - TOUJOURS "ACTION REQUISE" (pas "NOUVEAU MESSAGE")
     const confirmLink = `${siteUrl}/api/confirm-signal?service=${encodeURIComponent(subject)}&city=${city}&country=${country}&id=${insertData.id}`;
 
     const htmlContent = `
@@ -227,7 +229,7 @@ export async function submitContact(formData: FormData) {
           <p style="font-size:12px; font-style:italic; color:#a1a1aa;">"${message}"</p>
         </div>
         <a href="${confirmLink}" style="background:#dc2626; color:white; padding:20px 40px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px;">
-          ${existingSignal ? "CONFIRMER LA TRANSMISSION" : "ACTIVER LA TRANSMISSION"}
+          ACTIVER LA TRANSMISSION
         </a>
         <p style="margin-top:30px; font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
           Cet email est généré automatiquement.
@@ -238,9 +240,10 @@ export async function submitContact(formData: FormData) {
     const textContent = `Protocole Sécurisé - Référence Dossier: ${dossier_ref}\n\nMessage à valider: "${message}"\n\nActivez votre transmission ici: ${confirmLink}`;
 
     try {
+      // ✅ Sujet unique pour TOUS les messages : "ACTION REQUISE : Confirmez votre signal"
       await sendGeneralEmail(
         email,
-        existingSignal ? "NOUVEAU MESSAGE SUR VOTRE DOSSIER" : "ACTION REQUISE : Confirmez votre signal",
+        "ACTION REQUISE : Confirmez votre signal",
         textContent,
         htmlContent,
         "contact@vagondys.com"

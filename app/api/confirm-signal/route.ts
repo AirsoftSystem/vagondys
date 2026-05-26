@@ -11,10 +11,14 @@ interface SignalPayload {
   phone?: string;
   subject: string;
   message: string;
-  city: string;           // ✅ AJOUTÉ : ville du signal
-  country: string;        // ✅ AJOUTÉ : pays du signal
+  city: string;
+  country: string;
   original_subject?: string;
   confirmed_at?: string;
+  messages_history?: Array<{
+    content: string;
+    created_at: string;
+  }>;
   meta?: {
     is_returning_client?: boolean;
     is_resurrected?: boolean;
@@ -62,13 +66,10 @@ async function forceLog(context: string, data: ErrorLogData, level: 'info' | 'wa
     url: typeof window !== 'undefined' ? window.location.href : undefined
   };
 
-  // 1. TOUJOURS dans la console (Vercel les verra peut-être)
   const logMethod = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
   logMethod(`📋 [${context}]`, JSON.stringify(logEntry, null, 2));
 
-  // 2. TENTATIVE d'écriture dans Supabase (si la table existe)
   try {
-    // ✅ IMPORT DYNAMIQUE pour les logs (évite les imports statiques)
     const { createClient } = await import("@supabase/supabase-js");
     
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
@@ -76,13 +77,7 @@ async function forceLog(context: string, data: ErrorLogData, level: 'info' | 'wa
     
     if (supabaseUrl && supabaseKey) {
       const supabaseLogs = createClient(supabaseUrl, supabaseKey);
-      const { error } = await supabaseLogs
-        .from('error_logs')
-        .insert([logEntry]);
-      
-      if (error) {
-        // Silencieux - on ne veut pas créer de boucle infinie
-      }
+      await supabaseLogs.from('error_logs').insert([logEntry]);
     }
   } catch {
     // Silencieux
@@ -109,7 +104,6 @@ export async function GET(request: NextRequest) {
   const city = searchParams.get('city');
   const country = searchParams.get('country') || 'FR';
 
-  // Vérifications de base avec logs forcés
   if (!id) {
     await forceLog(`confirm-signal-${requestId}`, {
       event: 'ERREUR_ID_MANQUANT',
@@ -134,7 +128,6 @@ export async function GET(request: NextRequest) {
       country
     }, 'info');
 
-    // 1. ✅ RÉCUPÉRATION DE LA CONFIGURATION DE LA STATION
     const stationConfig = await getStationConfig(city, country);
     
     if (!stationConfig) {
@@ -146,14 +139,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/contact?status=error&message=Station%20${city}%20introuvable`, request.url));
     }
 
-    await forceLog(`confirm-signal-${requestId}`, {
-      event: 'CONFIG_STATION_OK',
-      stationName: stationConfig.name,
-      staff_url: stationConfig.staff_url?.substring(0, 20) + '...',
-      public_url: stationConfig.public_url?.substring(0, 20) + '...'
-    }, 'info');
-
-    // 2. ✅ CRÉATION DU CLIENT DYNAMIQUE POUR LA VILLE (STAFF)
     let supabaseStaff;
     try {
       supabaseStaff = await createDynamicClient(city, country, 'STAFF');
@@ -170,7 +155,6 @@ export async function GET(request: NextRequest) {
       throw staffClientError;
     }
 
-    // 3. ✅ RÉCUPÉRATION DU SIGNAL DEPUIS LA BASE STAFF DE LA VILLE
     let signal;
     try {
       const { data, error: fetchError } = await supabaseStaff
@@ -205,7 +189,6 @@ export async function GET(request: NextRequest) {
       throw fetchSignalError;
     }
 
-    // Évite les doubles confirmations
     if (signal.confirmed) {
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'SIGNAL_DEJA_CONFIRME',
@@ -218,7 +201,6 @@ export async function GET(request: NextRequest) {
     const clientEmail = p.email.toLowerCase();
     const currentMessageForEmail = p.message;
 
-    // ✅ SÉCURITÉ : Vérification de cohérence entre l'URL et le payload
     const signalCity = p.city?.toUpperCase() || city;
     const signalCountry = p.country?.toUpperCase() || country;
     
@@ -246,7 +228,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // 4. ✅ CRÉATION DU CLIENT PUBLIC POUR LA VILLE
     let supabasePublic;
     try {
       supabasePublic = await createDynamicClient(city, country, 'PUBLIC');
@@ -263,13 +244,10 @@ export async function GET(request: NextRequest) {
       throw publicClientError;
     }
 
-    // 5. RECHERCHE DE LA RÉFÉRENCE
     let finalDossierRef = signal.dossier_ref || '';
 
-    // A. Recherche dans le registre MASTER
     let registryEntry;
     try {
-      // ✅ IMPORT DYNAMIQUE pour le client MASTER
       const { createClient } = await import("@supabase/supabase-js");
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
@@ -301,7 +279,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (!registryEntry?.dossier_ref) {
-      // B. Recherche dans GitHub
       try {
         const GITHUB_TOKEN = process.env.GITHUB_ARCHIVE_TOKEN;
         const REPO_OWNER = "AirsoftSystem";
@@ -373,10 +350,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 6. PRÉPARATION DU PAYLOAD FINAL
     const rawSubject = (p.subject || "").toUpperCase();
     const serviceNameRaw = rawSubject.split('_')[0] || "CONTACT"; 
     const cleanServiceName = serviceNameRaw.toLowerCase(); 
+
+    // ✅ Conserver l'historique des messages existant (typé sans 'any')
+    const existingMessagesHistory = p.messages_history || [];
 
     const cleanPayload: SignalPayload = {
       ...p,
@@ -386,6 +365,7 @@ export async function GET(request: NextRequest) {
       confirmed_at: new Date().toISOString(),
       city: p.city,
       country: p.country,
+      messages_history: existingMessagesHistory,
       meta: {
         ...p.meta,
         is_returning_client: !!(registryEntry?.dossier_ref) || finalDossierRef !== signal.dossier_ref,
@@ -393,7 +373,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // 7. ✅ MISE À JOUR DANS STAFF
+    // ✅ MISE À JOUR DANS STAFF
     try {
       const { error: staffUpdateError } = await supabaseStaff
         .from('pending_signals')
@@ -424,50 +404,74 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // 8. ✅ INSERTION DANS PUBLIC
+    // ✅ MISE À JOUR DANS PUBLIC (au lieu d'INSERT)
     try {
       await forceLog(`confirm-signal-${requestId}`, {
-        event: 'TENTATIVE_INSERTION_PUBLIC',
+        event: 'TENTATIVE_UPDATE_PUBLIC',
         city,
         id: id || '',
         dossier_ref: finalDossierRef
       }, 'info');
 
-      const { error: publicInsertError } = await supabasePublic
+      // Vérifier si le signal existe déjà dans PUBLIC
+      const { data: existingPublicSignal } = await supabasePublic
         .from('pending_signals')
-        .insert([{
-          id: id,
-          dossier_ref: finalDossierRef,
-          payload: cleanPayload,
-          confirmed: true,
-          is_read: true,
-          is_new_athlete: signal.is_new_athlete,
-          created_at: signal.created_at
-        }]);
+        .select('id')
+        .eq('dossier_ref', finalDossierRef)
+        .maybeSingle();
 
-      if (publicInsertError) {
+      let publicError;
+      if (existingPublicSignal) {
+        // ✅ UPDATE existant
+        const { error: updatePublicError } = await supabasePublic
+          .from('pending_signals')
+          .update({
+            payload: cleanPayload,
+            confirmed: true,
+            is_read: true,
+            dossier_ref: finalDossierRef
+          })
+          .eq('dossier_ref', finalDossierRef);
+        publicError = updatePublicError;
+      } else {
+        // ✅ INSERT nouveau (premier message seulement)
+        const { error: insertPublicError } = await supabasePublic
+          .from('pending_signals')
+          .insert([{
+            id: id,
+            dossier_ref: finalDossierRef,
+            payload: cleanPayload,
+            confirmed: true,
+            is_read: true,
+            is_new_athlete: signal.is_new_athlete,
+            created_at: signal.created_at
+          }]);
+        publicError = insertPublicError;
+      }
+
+      if (publicError) {
         await forceLog(`confirm-signal-${requestId}`, {
-          event: 'ERREUR_INSERTION_PUBLIC',
-          error: publicInsertError.message,
-          code: publicInsertError.code || 'unknown',
-          details: publicInsertError.details || '',
-          hint: publicInsertError.hint || ''
+          event: 'ERREUR_PUBLIC',
+          error: publicError.message,
+          code: publicError.code || 'unknown',
+          details: publicError.details || '',
+          hint: publicError.hint || ''
         }, 'error');
       } else {
         await forceLog(`confirm-signal-${requestId}`, {
-          event: 'INSERTION_PUBLIC_OK',
+          event: 'PUBLIC_OK',
           id: id || ''
         }, 'info');
       }
-    } catch (publicInsertError) {
-      const error = publicInsertError as Error;
+    } catch (publicError) {
+      const error = publicError as Error;
       await forceLog(`confirm-signal-${requestId}`, {
-        event: 'EXCEPTION_INSERTION_PUBLIC',
+        event: 'EXCEPTION_PUBLIC',
         error: error.message
       }, 'error');
     }
 
-    // 9. ✅ SI CLIENT RETOURNANT, AJOUTER DANS communication_replies
+    // ✅ SI CLIENT RETOURNANT, AJOUTER DANS communication_replies
     if (!signal.is_new_athlete) {
       try {
         const { error: replyError } = await supabaseStaff
@@ -497,7 +501,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 10. ✅ NOTIFICATIONS EMAIL
+    // ✅ NOTIFICATIONS EMAIL
     let serviceEmail = "contact@vagondys.com";
     const s = serviceNameRaw; 
     if (s === "NANTES") serviceEmail = process.env.EMAIL_NANTES || "nantes@vagondys.com";
@@ -515,7 +519,6 @@ export async function GET(request: NextRequest) {
 
     // Email au staff
     try {
-      // ✅ IMPORT DYNAMIQUE pour Resend
       const { Resend } = await import("resend");
       const resendApiKey = process.env.RESEND_API_KEY;
       
@@ -594,7 +597,7 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // 11. ✅ ARCHIVAGE GITHUB - Transmission correcte du city_code et country_code
+    // ✅ ARCHIVAGE GITHUB À CHAQUE CONFIRMATION
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
       await forceLog(`confirm-signal-${requestId}`, {
@@ -602,6 +605,32 @@ export async function GET(request: NextRequest) {
         city,
         country
       }, 'info');
+      
+      // ✅ Récupérer le messages_history complet depuis le payload mis à jour
+      const completeMessagesHistory = cleanPayload.messages_history || [];
+      
+      // ✅ Construire le fil de discussion complet pour GitHub
+      const fullThread = [
+        {
+          role: "CLIENT_CONTACT_INFO",
+          sender: "SYSTEM",
+          content: `Fiche Contact : ${p.name} | Tel: ${p.phone || "Non renseigné"} | Email: ${clientEmail}`,
+          created_at: signal.created_at,
+          details: {
+            name: p.name,
+            phone: p.phone,
+            email: clientEmail,
+            subject: rawSubject
+          }
+        },
+        ...completeMessagesHistory.map((msg, index) => ({
+          role: "public",
+          sender: clientEmail,
+          content: msg.content,
+          created_at: msg.created_at,
+          is_initial: index === 0
+        }))
+      ];
       
       const archivePayload = {
         message: {
@@ -614,20 +643,23 @@ export async function GET(request: NextRequest) {
             city: city,
             country: country,
             subject: rawSubject,
-            message: currentMessageForEmail
+            message: currentMessageForEmail,
+            messages_history: completeMessagesHistory
           }
         },
         history: [],
         purgeActive: false,
         city_code: city,
-        country_code: country
+        country_code: country,
+        fullThread: fullThread
       };
       
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'PAYLOAD_ARCHIVAGE',
         dossier_ref: finalDossierRef,
         city,
-        country
+        country,
+        messages_count: completeMessagesHistory.length
       }, 'info');
       
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
