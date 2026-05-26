@@ -70,6 +70,8 @@ export async function GET(request: Request) {
     }
 
     // 4. Construire l'historique des messages client depuis messages_history
+    // ✅ CORRECTION : Ne plus utiliser payload.message (qui est le dernier message)
+    //    Utiliser uniquement messages_history qui contient TOUS les messages
     const clientHistoryMessages: Array<{
       id: string;
       created_at: string;
@@ -84,26 +86,8 @@ export async function GET(request: Request) {
       const payload = clientSignal.payload;
       const messagesHistory = payload.messages_history || [];
       
-      // Ajouter le message initial (premier message) s'il n'est pas déjà dans l'historique
-      if (payload.message) {
-        const hasInitialInHistory = messagesHistory.some(
-          (m: { content: string }) => m.content === payload.message && messagesHistory.length === 0
-        );
-        
-        if (!hasInitialInHistory || messagesHistory.length === 0) {
-          clientHistoryMessages.push({
-            id: `${clientSignal.id}_initial`,
-            created_at: clientSignal.created_at,
-            agent_email: "CLIENT",
-            content: payload.message,
-            dossier_ref: clientSignal.dossier_ref,
-            document_url: null,
-            is_initial: true
-          });
-        }
-      }
-      
-      // Ajouter tous les messages de l'historique
+      // ✅ Ajouter tous les messages de l'historique
+      //    Le premier message de l'historique est le vrai message initial
       messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
         clientHistoryMessages.push({
           id: `${clientSignal.id}_history_${index}`,
@@ -112,7 +96,7 @@ export async function GET(request: Request) {
           content: msg.content,
           dossier_ref: clientSignal.dossier_ref,
           document_url: null,
-          is_initial: false
+          is_initial: index === 0
         });
       });
     }
