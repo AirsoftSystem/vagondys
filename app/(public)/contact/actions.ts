@@ -15,13 +15,10 @@ interface SignalPayload {
   message: string;
   city: string;
   country: string;
-}
-
-// ✅ Interface pour les erreurs Supabase avec propriétés supplémentaires
-interface SupabaseError extends Error {
-  code?: string;
-  details?: string;
-  hint?: string;
+  messages_history?: Array<{
+    content: string;
+    created_at: string;
+  }>;
 }
 
 /**
@@ -29,20 +26,15 @@ interface SupabaseError extends Error {
  */
 export async function submitContact(formData: FormData) {
   
-  // ✅ Récupération des variables d'environnement à l'exécution
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
   
-  // ✅ Vérification des variables critiques
   if (!supabaseUrl || !supabaseKey) {
     redirect("/contact?status=error");
   }
   
-  // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
   const { createClient } = await import("@supabase/supabase-js");
-  
-  // CLIENT MASTER (uniquement pour le registre) - créé à l'exécution
   const supabaseMaster = createClient(supabaseUrl, supabaseKey);
   
   const name = String(formData.get("name") || "").trim();
@@ -50,11 +42,8 @@ export async function submitContact(formData: FormData) {
   const phone = String(formData.get("phone") || "").trim();
   const subject = String(formData.get("subject") || "").trim();
   const message = String(formData.get("message") || "").trim();
-  
-  // ✅ Récupération du pays et de la ville
   const country = String(formData.get("country") || "FR").trim().toUpperCase();
   const city = String(formData.get("city") || "NANTES").trim().toUpperCase();
-
 
   const token = formData.get("cf-turnstile-response");
   if (!token) {
@@ -62,26 +51,20 @@ export async function submitContact(formData: FormData) {
   }
 
   try {
-    // 1. RECHERCHE DANS LE REGISTRE MASTER (athletes_registry)
-    const { data: registryEntry, error: registryError } = await supabaseMaster
+    // 1. RECHERCHE DANS LE REGISTRE MASTER
+    const { data: registryEntry } = await supabaseMaster
       .from('athletes_registry')
       .select('city, country, dossier_ref')
       .eq('email', email)
       .maybeSingle();
 
-    if (registryError) {
-      // Erreur silencieuse, on continue
-    }
-
-    // ✅ AJOUT 1 : Vérifier si un dossier existe déjà pour cet email
     let existingDossierRef: string | null = registryEntry?.dossier_ref || null;
     
-    // ✅ AJOUT 2 : Si non trouvé dans MASTER, chercher dans pending_signals (STAFF)
+    // 2. RECHERCHE DANS PENDING_SIGNALS (STAFF)
     if (!existingDossierRef) {
       try {
         const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-        
-        const { data: existingSignal, error: signalError } = await cityStaffClient
+        const { data: existingSignal } = await cityStaffClient
           .from('pending_signals')
           .select('dossier_ref')
           .eq('payload->>email', email)
@@ -90,19 +73,15 @@ export async function submitContact(formData: FormData) {
           .limit(1)
           .maybeSingle();
         
-        if (signalError) {
-          // Erreur silencieuse, on continue
-        }
-        
         if (existingSignal?.dossier_ref) {
           existingDossierRef = existingSignal.dossier_ref;
         }
       } catch {
-        // Erreur silencieuse, on continue
+        // Ignoré
       }
     }
     
-    // ✅ AJOUT 3 : Si non trouvé, chercher dans les archives GitHub
+    // 3. RECHERCHE DANS GITHUB
     if (!existingDossierRef) {
       try {
         const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${city}&country_code=${country}`;
@@ -112,22 +91,18 @@ export async function submitContact(formData: FormData) {
           if (searchData.dossier_ref) {
             existingDossierRef = searchData.dossier_ref;
           }
-        } else {
-          // Erreur silencieuse, on continue
         }
       } catch {
-        // Erreur silencieuse, on continue
+        // Ignoré
       }
     }
 
-    // ✅ AJOUT 4 : Si un dossier existe déjà, on le réutilise
     let dossier_ref: string;
     let isNewDossier = false;
     
     if (existingDossierRef) {
       dossier_ref = existingDossierRef;
     } else {
-      // Génération d'un nouveau dossier
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
       const generateSegment = (length: number) => {
         let result = '';
@@ -140,12 +115,10 @@ export async function submitContact(formData: FormData) {
       isNewDossier = true;
     }
 
-    // 5. CRÉATION DU CLIENT DYNAMIQUE POUR LA VILLE
+    // 4. CRÉATION DU CLIENT STAFF
     let cityStaffClient;
     try {
       cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-      
-      // ✅ Vérification que le client fonctionne (requête test)
       const { error: testError } = await cityStaffClient
         .from('pending_signals')
         .select('count', { count: 'exact', head: true });
@@ -153,24 +126,16 @@ export async function submitContact(formData: FormData) {
       if (testError) {
         throw new Error(`Client STAFF invalide: ${testError.message}`);
       }
-      
     } catch (clientErr) {
       throw new Error(`Erreur client STAFF: ${clientErr instanceof Error ? clientErr.message : String(clientErr)}`);
     }
     
-    // 6. GESTION DU SIGNAL ET DE L'HISTORIQUE
-    const insertPayload: SignalPayload = { 
-      name, email, phone, subject, message,
-      city: registryEntry?.city || city,
-      country: registryEntry?.country || country
-    };
-
     let insertData;
     
-    // Vérifier si un signal existe déjà pour cet email
+    // 5. VÉRIFICATION SI SIGNAL EXISTE DÉJÀ
     const { data: existingSignal, error: checkError } = await cityStaffClient
       .from('pending_signals')
-      .select('id, dossier_ref, payload, confirmed')
+      .select('id, dossier_ref, payload, confirmed, created_at')
       .eq('payload->>email', email)
       .maybeSingle();
     
@@ -179,26 +144,54 @@ export async function submitContact(formData: FormData) {
     }
     
     if (existingSignal) {
-      // ✅ CORRECTION : Ne PAS écraser le signal existant
-      // On met simplement à jour is_read = false pour signaler un nouveau message
+      // Enrichir le payload existant avec l'historique
+      const currentPayload = existingSignal.payload as SignalPayload;
+      const messagesHistory = currentPayload.messages_history || [];
+      
+      // Ajouter l'ancien message à l'historique s'il n'y est pas
+      if (currentPayload.message && messagesHistory.length === 0) {
+        messagesHistory.push({
+          content: currentPayload.message,
+          created_at: existingSignal.created_at || new Date().toISOString()
+        });
+      }
+      
+      // Ajouter le nouveau message
+      messagesHistory.push({
+        content: message,
+        created_at: new Date().toISOString()
+      });
+      
+      const updatedPayload: SignalPayload = {
+        ...currentPayload,
+        message: message,
+        messages_history: messagesHistory
+      };
       
       const { data: updatedData, error: updateError } = await cityStaffClient
         .from('pending_signals')
         .update({
-          is_read: false
+          is_read: false,
+          payload: updatedPayload
         })
         .eq('id', existingSignal.id)
         .select()
         .single();
       
       if (updateError) {
-        const supabaseError = updateError as SupabaseError;
-        throw new Error(`Erreur mise à jour signal: ${supabaseError.message}`);
+        throw new Error(`Erreur mise à jour signal: ${updateError.message}`);
       }
       insertData = updatedData;
       
     } else {
-      // Créer un nouveau signal (premier message)
+      // Création d'un nouveau signal
+      const insertPayload: SignalPayload = { 
+        name, email, phone, subject, message,
+        city: registryEntry?.city || city,
+        country: registryEntry?.country || country,
+        messages_history: []
+      };
+      
       const { data: newData, error: dbError } = await cityStaffClient
         .from('pending_signals')
         .insert([{
@@ -213,18 +206,13 @@ export async function submitContact(formData: FormData) {
         .single();
 
       if (dbError) {
-        const supabaseError = dbError as SupabaseError;
-        throw new Error(`Erreur insertion signal: ${supabaseError.message}`);
+        throw new Error(`Erreur insertion signal: ${dbError.message}`);
       }
       insertData = newData;
     }
 
-    // 7. ENVOI DE L'EMAIL VIA GMAIL.TS
-    const baseUrl = siteUrl;
-    const service = subject;
-    
-    const encodedService = encodeURIComponent(service);
-    const confirmLink = `${baseUrl}/api/confirm-signal?service=${encodedService}&city=${city}&country=${country}&id=${insertData.id}`;
+    // 6. ENVOI DE L'EMAIL
+    const confirmLink = `${siteUrl}/api/confirm-signal?service=${encodeURIComponent(subject)}&city=${city}&country=${country}&id=${insertData.id}`;
 
     const htmlContent = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
@@ -249,33 +237,21 @@ export async function submitContact(formData: FormData) {
 
     const textContent = `Protocole Sécurisé - Référence Dossier: ${dossier_ref}\n\nMessage à valider: "${message}"\n\nActivez votre transmission ici: ${confirmLink}`;
 
-    let emailError = null;
     try {
-      const emailResult = await sendGeneralEmail(
+      await sendGeneralEmail(
         email,
         existingSignal ? "NOUVEAU MESSAGE SUR VOTRE DOSSIER" : "ACTION REQUISE : Confirmez votre signal",
         textContent,
         htmlContent,
         "contact@vagondys.com"
       );
-      if (!emailResult.messageId) {
-        emailError = new Error("Aucun messageId retourné");
-      }
-    } catch (emailErr) {
-      emailError = emailErr;
-    }
-
-    if (emailError) {
-      // Non bloquant, on ne jette pas l'erreur
-    } else {
-      // Email envoyé avec succès
+    } catch {
+      // Non bloquant
     }
 
   } catch (error) {
-    // Redirection vers une page d'erreur avec le message
     const err = error as Error;
-    const errorMessage = encodeURIComponent(err.message);
-    redirect(`/contact?status=error&message=${errorMessage}`);
+    redirect(`/contact?status=error&message=${encodeURIComponent(err.message)}`);
   }
 
   redirect("/contact?status=pending_validation"); 

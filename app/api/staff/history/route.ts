@@ -7,7 +7,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const dossierRef = searchParams.get("ref");
-    // ✅ Correction : suppression de 'email' qui n'est pas utilisé
     const cityParam = searchParams.get("city");
     const countryParam = searchParams.get("country") || "FR";
 
@@ -17,7 +16,6 @@ export async function GET(request: Request) {
 
     console.log(`🔍 history: recherche pour dossier ${dossierRef}`);
 
-    // Récupérer la ville de l'agent (ou utiliser le paramètre)
     let city = cityParam;
     let country = countryParam;
     
@@ -35,12 +33,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Agent non identifié" }, { status: 401 });
     }
 
-    // Client ADMIN pour la base STAFF de la ville
     const adminClient = await createAdminClient(city, country, "STAFF");
     console.log(`✅ history: client ADMIN créé pour ${city}`);
 
     // 1. Récupérer les réponses du staff
-    // ✅ MODIFICATION : Tri décroissant (du plus récent au plus ancien)
     const { data: replies, error: repliesError } = await adminClient
       .from("communication_replies")
       .select("*")
@@ -53,28 +49,75 @@ export async function GET(request: Request) {
       console.log(`📦 history: ${replies?.length || 0} réponses staff trouvées`);
     }
 
-    // 2. Récupérer les messages du client
-    // ✅ MODIFICATION : Tri décroissant (du plus récent au plus ancien)
-    const { data: clientMessages, error: clientError } = await adminClient
+    // 2. Récupérer le signal client (un seul par dossier)
+    const { data: clientSignal, error: clientError } = await adminClient
       .from("pending_signals")
       .select("*")
       .eq("dossier_ref", dossierRef)
-      .order("created_at", { ascending: false });
+      .maybeSingle();
 
     if (clientError) {
-      console.error("❌ history: erreur récupération clientMessages:", clientError);
+      console.error("❌ history: erreur récupération clientSignal:", clientError);
     } else {
-      console.log(`📦 history: ${clientMessages?.length || 0} messages client trouvés`);
+      console.log(`📦 history: signal client trouvé pour ${dossierRef}`);
     }
 
-    // ✅ AJOUT 1 : Extraire l'email du client depuis le premier message
+    // 3. Extraire l'email du client
     let clientEmail: string | null = null;
-    if (clientMessages && clientMessages.length > 0) {
-      clientEmail = clientMessages[0].payload?.email || null;
+    if (clientSignal?.payload?.email) {
+      clientEmail = clientSignal.payload.email;
       console.log(`📧 history: email client détecté: ${clientEmail}`);
     }
 
-    // ✅ AJOUT 2 : Rechercher les autres dossiers liés au même email
+    // 4. Construire l'historique des messages client depuis messages_history
+    const clientHistoryMessages: Array<{
+      id: string;
+      created_at: string;
+      agent_email: string;
+      content: string;
+      dossier_ref: string;
+      document_url: null;
+      is_initial: boolean;
+    }> = [];
+
+    if (clientSignal?.payload) {
+      const payload = clientSignal.payload;
+      const messagesHistory = payload.messages_history || [];
+      
+      // Ajouter le message initial (premier message) s'il n'est pas déjà dans l'historique
+      if (payload.message) {
+        const hasInitialInHistory = messagesHistory.some(
+          (m: { content: string }) => m.content === payload.message && messagesHistory.length === 0
+        );
+        
+        if (!hasInitialInHistory || messagesHistory.length === 0) {
+          clientHistoryMessages.push({
+            id: `${clientSignal.id}_initial`,
+            created_at: clientSignal.created_at,
+            agent_email: "CLIENT",
+            content: payload.message,
+            dossier_ref: clientSignal.dossier_ref,
+            document_url: null,
+            is_initial: true
+          });
+        }
+      }
+      
+      // Ajouter tous les messages de l'historique
+      messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
+        clientHistoryMessages.push({
+          id: `${clientSignal.id}_history_${index}`,
+          created_at: msg.created_at,
+          agent_email: "CLIENT",
+          content: msg.content,
+          dossier_ref: clientSignal.dossier_ref,
+          document_url: null,
+          is_initial: false
+        });
+      });
+    }
+
+    // 5. Rechercher les dossiers liés
     let linkedDossiers: string[] = [];
     if (clientEmail) {
       console.log(`🔗 history: recherche dossiers liés pour ${clientEmail}`);
@@ -91,7 +134,6 @@ export async function GET(request: Request) {
         console.log(`🔗 history: ${linkedDossiers.length} dossiers liés trouvés:`, linkedDossiers);
       }
 
-      // Fallback : chercher aussi dans communication_replies
       if (linkedDossiers.length === 0) {
         const { data: otherReplies, error: replyError } = await adminClient
           .from("communication_replies")
@@ -108,19 +150,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. Formater les messages pour l'affichage
-    // ✅ AJOUT 3 : Inclure le message original du client (payload.message) dans l'historique
-    const clientHistory = (clientMessages || []).map((m, index) => ({
-      id: m.id,
-      created_at: m.created_at,
-      agent_email: "CLIENT",
-      content: m.payload?.message || "(message vide)",
-      dossier_ref: m.dossier_ref,
-      document_url: null,
-      // ✅ AJOUT 4 : Marquer le premier message comme "initial"
-      is_initial: index === 0 ? true : false
-    }));
-
+    // 6. Formater les réponses staff
     const staffHistory = (replies || []).map(r => ({
       id: r.id,
       created_at: r.created_at,
@@ -131,16 +161,12 @@ export async function GET(request: Request) {
       is_initial: false
     }));
 
-    // 4. Fusionner et trier par date (du plus récent au plus ancien)
-    // ✅ NOTE : Les données sont déjà triées par la requête SQL (descending)
-    //    On n'a donc pas besoin de re-trier ici, mais on conserve la fusion
-    const allMessages = [...clientHistory, ...staffHistory];
-    // ✅ Petit tri de sécurité pour garantir l'ordre décroissant
+    // 7. Fusionner et trier par date (du plus récent au plus ancien)
+    const allMessages = [...clientHistoryMessages, ...staffHistory];
     allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef}`);
 
-    // ✅ AJOUT 5 : Retourner également les dossiers liés
     return NextResponse.json({ 
       history: allMessages,
       linkedDossiers: linkedDossiers,
