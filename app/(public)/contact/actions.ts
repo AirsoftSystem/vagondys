@@ -28,7 +28,6 @@ interface SupabaseError extends Error {
  * ACTION 1 : Envoi du formulaire initial (calqué sur l'inscription)
  */
 export async function submitContact(formData: FormData) {
-  console.log("🚀 submitContact - Début");
   
   // ✅ Récupération des variables d'environnement à l'exécution
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
@@ -37,7 +36,6 @@ export async function submitContact(formData: FormData) {
   
   // ✅ Vérification des variables critiques
   if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ Variables Supabase MASTER manquantes");
     redirect("/contact?status=error");
   }
   
@@ -57,17 +55,14 @@ export async function submitContact(formData: FormData) {
   const country = String(formData.get("country") || "FR").trim().toUpperCase();
   const city = String(formData.get("city") || "NANTES").trim().toUpperCase();
 
-  console.log(`📧 Email: ${email}, Sujet: ${subject}, Pays: ${country}, Ville: ${city}`);
 
   const token = formData.get("cf-turnstile-response");
   if (!token) {
-    console.error("❌ Token Turnstile manquant");
     redirect("/contact?status=security_error");
   }
 
   try {
     // 1. RECHERCHE DANS LE REGISTRE MASTER (athletes_registry)
-    console.log("🔍 Recherche dans athletes_registry...");
     const { data: registryEntry, error: registryError } = await supabaseMaster
       .from('athletes_registry')
       .select('city, country, dossier_ref')
@@ -75,19 +70,16 @@ export async function submitContact(formData: FormData) {
       .maybeSingle();
 
     if (registryError) {
-      console.error("❌ Erreur registry:", registryError);
+      // Erreur silencieuse, on continue
     }
-    console.log("📋 Registry entry:", registryEntry);
 
     // ✅ AJOUT 1 : Vérifier si un dossier existe déjà pour cet email
     let existingDossierRef: string | null = registryEntry?.dossier_ref || null;
     
     // ✅ AJOUT 2 : Si non trouvé dans MASTER, chercher dans pending_signals (STAFF)
     if (!existingDossierRef) {
-      console.log(`🔍 Recherche dans pending_signals de ${city}...`);
       try {
         const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-        console.log(`✅ Client STAFF créé pour ${city}/${country}`);
         
         const { data: existingSignal, error: signalError } = await cityStaffClient
           .from('pending_signals')
@@ -99,36 +91,32 @@ export async function submitContact(formData: FormData) {
           .maybeSingle();
         
         if (signalError) {
-          console.warn("⚠️ Erreur recherche STAFF:", signalError);
+          // Erreur silencieuse, on continue
         }
         
         if (existingSignal?.dossier_ref) {
           existingDossierRef = existingSignal.dossier_ref;
-          console.log(`✅ Dossier existant trouvé dans STAFF: ${existingDossierRef}`);
         }
-      } catch (staffErr) {
-        console.error("❌ Exception recherche STAFF:", staffErr);
+      } catch {
+        // Erreur silencieuse, on continue
       }
     }
     
     // ✅ AJOUT 3 : Si non trouvé, chercher dans les archives GitHub
     if (!existingDossierRef) {
-      console.log(`🔍 Recherche dans GitHub pour ${email}...`);
       try {
         const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${city}&country_code=${country}`;
-        console.log(`🔗 URL recherche GitHub: ${searchUrl}`);
         const searchRes = await fetch(searchUrl);
         if (searchRes.ok) {
           const searchData = await searchRes.json();
           if (searchData.dossier_ref) {
             existingDossierRef = searchData.dossier_ref;
-            console.log(`✅ Dossier existant trouvé dans GitHub: ${existingDossierRef}`);
           }
         } else {
-          console.warn(`⚠️ Erreur recherche GitHub: status=${searchRes.status}`);
+          // Erreur silencieuse, on continue
         }
-      } catch (gitErr) {
-        console.warn("⚠️ Exception recherche GitHub:", gitErr);
+      } catch {
+        // Erreur silencieuse, on continue
       }
     }
 
@@ -138,7 +126,6 @@ export async function submitContact(formData: FormData) {
     
     if (existingDossierRef) {
       dossier_ref = existingDossierRef;
-      console.log(`📁 Réutilisation du dossier existant: ${dossier_ref}`);
     } else {
       // Génération d'un nouveau dossier
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -151,15 +138,12 @@ export async function submitContact(formData: FormData) {
       };
       dossier_ref = `VGD-${generateSegment(4)}${generateSegment(4)}`;
       isNewDossier = true;
-      console.log(`📁 Nouveau dossier généré: ${dossier_ref}`);
     }
 
     // 5. CRÉATION DU CLIENT DYNAMIQUE POUR LA VILLE
-    console.log(`🏙️ Création du client STAFF pour ${city} (${country})...`);
     let cityStaffClient;
     try {
       cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-      console.log(`✅ Client STAFF créé avec succès`);
       
       // ✅ Vérification que le client fonctionne (requête test)
       const { error: testError } = await cityStaffClient
@@ -167,13 +151,10 @@ export async function submitContact(formData: FormData) {
         .select('count', { count: 'exact', head: true });
       
       if (testError) {
-        console.error(`❌ Client STAFF invalide (erreur test):`, testError);
         throw new Error(`Client STAFF invalide: ${testError.message}`);
       }
-      console.log(`✅ Client STAFF validé (connexion OK)`);
       
     } catch (clientErr) {
-      console.error(`❌ Erreur création/validation client STAFF:`, clientErr);
       throw new Error(`Erreur client STAFF: ${clientErr instanceof Error ? clientErr.message : String(clientErr)}`);
     }
     
@@ -187,7 +168,6 @@ export async function submitContact(formData: FormData) {
     let insertData;
     
     // Vérifier si un signal existe déjà pour cet email
-    console.log(`🔍 Vérification existence signal pour ${email}...`);
     const { data: existingSignal, error: checkError } = await cityStaffClient
       .from('pending_signals')
       .select('id, dossier_ref, payload, confirmed')
@@ -195,22 +175,17 @@ export async function submitContact(formData: FormData) {
       .maybeSingle();
     
     if (checkError) {
-      console.error(`❌ Erreur vérification signal:`, checkError);
       throw new Error(`Erreur vérification signal: ${checkError.message}`);
     }
-    
-    console.log(`📡 existingSignal:`, existingSignal ? `trouvé (id=${existingSignal.id})` : `non trouvé`);
     
     if (existingSignal) {
       // ✅ CORRECTION : Ne PAS écraser le signal existant
       // On met simplement à jour is_read = false pour signaler un nouveau message
-      console.log(`📝 Mise à jour du signal existant (is_read=false) pour ${email}`);
       
       const { data: updatedData, error: updateError } = await cityStaffClient
         .from('pending_signals')
         .update({
-          is_read: false,
-          updated_at: new Date().toISOString()
+          is_read: false
         })
         .eq('id', existingSignal.id)
         .select()
@@ -218,45 +193,12 @@ export async function submitContact(formData: FormData) {
       
       if (updateError) {
         const supabaseError = updateError as SupabaseError;
-        console.error(`❌ Erreur mise à jour signal:`, {
-          message: supabaseError.message,
-          code: supabaseError.code,
-          details: supabaseError.details,
-          hint: supabaseError.hint
-        });
         throw new Error(`Erreur mise à jour signal: ${supabaseError.message}`);
       }
       insertData = updatedData;
-      console.log(`✅ Signal mis à jour avec ID: ${insertData.id}`);
       
-      // ✅ AJOUT : Créer un nouvel enregistrement dans communication_replies
-      console.log(`📝 Ajout du nouveau message dans communication_replies pour ${dossier_ref}`);
-      const replyId = randomUUID();
-      const { error: replyError } = await cityStaffClient
-        .from('communication_replies')
-        .insert([{
-          id: replyId,
-          dossier_ref: dossier_ref,
-          content: message,
-          agent_email: "CLIENT",
-          created_at: new Date().toISOString()
-        }]);
-      
-      if (replyError) {
-        const supabaseError = replyError as SupabaseError;
-        console.error(`❌ Erreur insertion dans communication_replies:`, {
-          message: supabaseError.message,
-          code: supabaseError.code,
-          details: supabaseError.details,
-          hint: supabaseError.hint
-        });
-        // Non bloquant, on continue mais on log
-      } else {
-        console.log(`✅ Nouveau message ajouté dans communication_replies avec ID: ${replyId}`);
-      }
     } else {
       // Créer un nouveau signal (premier message)
-      console.log(`📝 Création d'un nouveau signal pour ${email}`);
       const { data: newData, error: dbError } = await cityStaffClient
         .from('pending_signals')
         .insert([{
@@ -272,26 +214,17 @@ export async function submitContact(formData: FormData) {
 
       if (dbError) {
         const supabaseError = dbError as SupabaseError;
-        console.error(`❌ Erreur insertion signal:`, {
-          message: supabaseError.message,
-          code: supabaseError.code,
-          details: supabaseError.details,
-          hint: supabaseError.hint
-        });
         throw new Error(`Erreur insertion signal: ${supabaseError.message}`);
       }
       insertData = newData;
-      console.log(`✅ Signal créé avec ID: ${insertData.id} dans la base STAFF de ${city}`);
     }
 
     // 7. ENVOI DE L'EMAIL VIA GMAIL.TS
-    console.log(`📧 Envoi d'email à ${email}...`);
     const baseUrl = siteUrl;
     const service = subject;
     
     const encodedService = encodeURIComponent(service);
     const confirmLink = `${baseUrl}/api/confirm-signal?service=${encodedService}&city=${city}&country=${country}&id=${insertData.id}`;
-    console.log(`🔗 Lien de confirmation: ${confirmLink}`);
 
     const htmlContent = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
@@ -325,47 +258,26 @@ export async function submitContact(formData: FormData) {
         htmlContent,
         "contact@vagondys.com"
       );
-      console.log("📧 Réponse Gmail SMTP:", emailResult);
       if (!emailResult.messageId) {
         emailError = new Error("Aucun messageId retourné");
       }
     } catch (emailErr) {
       emailError = emailErr;
-      console.error(`❌ Erreur d'envoi d'email:`, emailErr);
     }
 
     if (emailError) {
-      console.error(`❌ Erreur d'envoi Gmail, mais on continue`);
       // Non bloquant, on ne jette pas l'erreur
     } else {
-      console.log(`✅ Email envoyé avec succès via Gmail SMTP`);
+      // Email envoyé avec succès
     }
 
   } catch (error) {
-    // ✅ Log détaillé de l'erreur
-    const err = error as Error;
-    console.error(`❌❌❌ ERREUR CRITIQUE submitContact:`);
-    console.error(`- Message: ${err.message}`);
-    console.error(`- Stack: ${err.stack || 'non disponible'}`);
-    
-    // Vérifier les propriétés supplémentaires sans utiliser 'any'
-    const supabaseError = error as SupabaseError;
-    if (supabaseError.code) {
-      console.error(`- Code: ${supabaseError.code}`);
-    }
-    if (supabaseError.details) {
-      console.error(`- Details: ${supabaseError.details}`);
-    }
-    if (supabaseError.hint) {
-      console.error(`- Hint: ${supabaseError.hint}`);
-    }
-    
     // Redirection vers une page d'erreur avec le message
+    const err = error as Error;
     const errorMessage = encodeURIComponent(err.message);
     redirect(`/contact?status=error&message=${errorMessage}`);
   }
 
-  console.log("✅ Fin - Redirection vers pending_validation");
   redirect("/contact?status=pending_validation"); 
 }
 
@@ -399,8 +311,7 @@ export async function submitReply(formData: FormData) {
     
     return { success: true };
     
-  } catch (error) {
-    console.error("Erreur submitReply:", error);
+  } catch {
     return { success: false, error: "Transmission échouée" };
   }
 }
@@ -450,8 +361,7 @@ export async function sendInvitation(email: string) {
     if (!emailResult.messageId) throw new Error("Erreur d'envoi");
     return { success: true };
 
-  } catch (error) {
-    console.error("Erreur sendInvitation:", error);
+  } catch {
     return { success: false, error: "L'envoi a échoué" };
   }
 }

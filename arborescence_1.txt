@@ -1466,6 +1466,8 @@ VAGONDYS/
 ┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT
 ┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
+┃  ┃  ┃  ┣━ restore/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ auth/                                     ✅ EXISTANT
 ┃  ┃  ┃  ┗━ signup/                                ✅ EXISTANT
@@ -1492,7 +1494,11 @@ VAGONDYS/
 ┃  ┃  ┗━ staff/                                    ✅ EXISTANT
 ┃  ┃     ┣━ dashboard/                             ✅ EXISTANT
 ┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃     ┣━ history/                               ✅ EXISTANT
+┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃     ┣━ notify-transfer/                       ✅ EXISTANT
+┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃     ┣━ pending-signals/                       ✅ EXISTANT
 ┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃     ┣━ public-data/                           ✅ EXISTANT
 ┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
@@ -1519,20 +1525,7 @@ VAGONDYS/
 ┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
 ┃  ┃  ┣━ interface/                                ✅ EXISTANT
-┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT (Les briques visuelles)
-┃  ┃  ┃  ┃  ┣━ InterfaceHeader.tsx                 ✅ EXISTANT (Titre, Recherche, Onglets)
-┃  ┃  ┃  ┃  ┣━ MessageList.tsx                     ✅ EXISTANT (Le conteneur de flux)
-┃  ┃  ┃  ┃  ┣━ MessageCard.tsx                     ✅ EXISTANT (Le détail d'un message seul)
-┃  ┃  ┃  ┃  ┗━ ReplyModal/                         ✅ EXISTANT (Dossier dédié car complexe)
-┃  ┃  ┃  ┃     ┣━ index.tsx                        ✅ EXISTANT (Point d'entrée de la modale)
-┃  ┃  ┃  ┃     ┣━ HistoryTimeline.tsx              ✅ EXISTANT (Le fil de discussion)
-┃  ┃  ┃  ┃     ┗━ ReplyForm.tsx                    ✅ EXISTANT (Le formulaire d'envoi)
-┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT (Le "Cerveau" - Logique métier)
-┃  ┃  ┃  ┃  ┗━ useStaffInterface.ts                ✅ EXISTANT (Tout ton état et tes fonctions Supabase)
-┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT (Le "Modèle" - Contrats de données)
-┃  ┃  ┃  ┃  ┗━ interface.ts                        ✅ EXISTANT
-┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT (Server Action pour récupérer la ville de l'agent)
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (L'Orchestrateur - Très léger)
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ licencies/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ live_controls/                            ✅ EXISTANT

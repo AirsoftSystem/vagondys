@@ -1,5 +1,6 @@
 
 /*
+
 -- ==========================================
 -- SCRIPT D'INITIALISATION COMPLET - VAGONDYS
 -- Version UNIQUE - Prête à exécuter

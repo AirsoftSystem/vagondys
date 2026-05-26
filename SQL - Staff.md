@@ -1,5 +1,6 @@
 
 /*
+
 -- ==========================================
 -- SCRIPT D'INITIALISATION COMPLET - BASE STAFF
 -- Version UNIQUE - Prête à exécuter
@@ -99,13 +100,12 @@ CREATE POLICY "Staff authenticated access signals" ON public.pending_signals
         AND auth.email() LIKE '%@vagondys.com'
     );
 
--- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
--- Permet au client utilisant la clé ANON de lire les signaux
--- Nécessaire pour que /staff/interface affiche les messages
-CREATE POLICY "Frontend read access signals" ON public.pending_signals
-    FOR SELECT USING (
-        auth.role() = 'anon'
-    );
+-- Suppression de l'ancienne politique si elle existe
+DROP POLICY IF EXISTS "Frontend read access signals" ON public.pending_signals;
+
+-- ✅ NOUVELLE POLITIQUE : Accès lecture ANON simplifié
+CREATE POLICY "anon read access" ON public.pending_signals
+    FOR SELECT USING (true);
 
 -- ==========================================
 -- 7. POLITIQUES RLS POUR COMMUNICATION_REPLIES
@@ -126,11 +126,12 @@ CREATE POLICY "Staff authenticated access replies" ON public.communication_repli
         AND auth.email() LIKE '%@vagondys.com'
     );
 
--- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
-CREATE POLICY "Frontend read access replies" ON public.communication_replies
-    FOR SELECT USING (
-        auth.role() = 'anon'
-    );
+-- Suppression de l'ancienne politique si elle existe
+DROP POLICY IF EXISTS "Frontend read access replies" ON public.communication_replies;
+
+-- ✅ POLITIQUE : Accès lecture ANON pour replies
+CREATE POLICY "anon read access replies" ON public.communication_replies
+    FOR SELECT USING (true);
 
 -- ==========================================
 -- 8. POLITIQUES RLS POUR GAME_LAUNCHES
@@ -147,11 +148,12 @@ CREATE POLICY "Staff authenticated manage game launches" ON public.game_launches
         AND auth.email() LIKE '%@vagondys.com'
     );
 
--- ✅ AJOUT : Politique pour le frontend (clé ANON) - CORRECTION CRITIQUE
-CREATE POLICY "Frontend read access game launches" ON public.game_launches
-    FOR SELECT USING (
-        auth.role() = 'anon'
-    );
+-- Suppression de l'ancienne politique si elle existe
+DROP POLICY IF EXISTS "Frontend read access game launches" ON public.game_launches;
+
+-- ✅ POLITIQUE : Accès lecture ANON pour game_launches
+CREATE POLICY "anon read access game launches" ON public.game_launches
+    FOR SELECT USING (true);
 
 -- ==========================================
 -- 9. TRIGGER DE MISE À JOUR AUTO (optionnel pour game_launches)
@@ -172,11 +174,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ==========================================
--- FIN DU SCRIPT
+-- 10. VÉRIFICATIONS ET TESTS
 -- ==========================================
-*/
 
-/*
 -- Vérification 1 : Compter tous les signaux
 SELECT COUNT(*) as total_signals FROM pending_signals;
 
@@ -190,11 +190,8 @@ ORDER BY created_at DESC;
 SELECT id, dossier_ref, confirmed, is_read, created_at, payload->>'email' as email
 FROM pending_signals
 WHERE dossier_ref = 'VGD-HLU2EHX3';
-*/
 
-/*
-DROP POLICY IF EXISTS "Frontend read access signals" ON public.pending_signals;
-
-CREATE POLICY "anon read access" ON public.pending_signals
-    FOR SELECT USING (true);
+-- ==========================================
+-- FIN DU SCRIPT
+-- ==========================================
 */
