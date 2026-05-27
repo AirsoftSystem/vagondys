@@ -15,9 +15,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createVagondysClient, type Athlete, fetchGitHubArchive } from "@/lib/supabase/client";
 
-// Import des nouveaux sous-composants
+// Import des sous-composants
 import ProfileForm from "./ProfileForm";
 import DocumentVault from "./DocumentVault";
+
+// Type pour les documents R2
+interface R2Document {
+  id: string;
+  document_key: string;
+  document_url: string;
+  category: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+}
 
 /**
  * INTERFACES DE TYPAGE STRICT
@@ -54,7 +66,7 @@ type DocCategory = "PI" | "JUSTIFICATIF_DOMICILE" | "CHARTE" | "INSCRIPTION_TOUR
 export default function CarteIDPage() {
   const router = useRouter();
   
-  // ✅ CORRECTION : Stocker le client de données séparément
+  // Stocker le client de données séparément
   const [supabaseData, setSupabaseData] = useState<ReturnType<typeof createVagondysClient> | null>(null);
   
   // Client par défaut pour l'AUTH (Master)
@@ -75,6 +87,31 @@ export default function CarteIDPage() {
   const [selectedCategory, setSelectedCategory] = useState<DocCategory>("PI");
   const [isUploading, setIsUploading] = useState(false);
   const [githubDocs, setGithubDocs] = useState<GitHubArchiveResponse | null>(null);
+  
+  // État pour les documents R2
+  const [r2Documents, setR2Documents] = useState<R2Document[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+
+  /**
+   * RÉCUPÉRATION DES DOCUMENTS R2
+   */
+  const fetchR2Documents = useCallback(async (playerId: string, city: string) => {
+    if (!playerId || !city) return;
+    
+    setIsLoadingDocs(true);
+    try {
+      const response = await fetch(`/api/upload-document?playerId=${playerId}&city=${city}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setR2Documents(result.data);
+      }
+    } catch (error) {
+      console.error('❌ Erreur récupération documents R2:', error);
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  }, []);
 
   /**
    * RÉCUPÉRATION DES DONNÉES (LOGIQUE DYNAMIQUE CITY-AWARE)
@@ -93,7 +130,7 @@ export default function CarteIDPage() {
       // 2. Identification de la ville cible
       const userCity = user.user_metadata?.city || "NANTES";
       
-      // 3. ✅ CORRECTION : Créer le client de données AVEC la ville
+      // 3. Créer le client de données AVEC la ville
       const dataClient = createVagondysClient(userCity);
       setSupabaseData(dataClient);
 
@@ -122,15 +159,18 @@ export default function CarteIDPage() {
             dossier_ref: data.dossier_ref ?? undefined,
             documents_urls: data.documents_urls ?? undefined
           };
+          
+          // Récupérer les documents R2
+          await fetchR2Documents(user.id, userCity);
         }
       } catch (err) {
         console.error("Exception DB Ville:", err);
         setAuthError(`Impossible de contacter la base ${userCity}`);
       }
 
-      // 5. FALLBACK : Si la table athletes de la ville n'est pas accessible, on lit depuis le MASTER
+      // 5. FALLBACK : Si la table athletes de la ville n'est pas accessible
       if (!athleteData) {
-        console.log("Fallback vers MASTER pour récupérer les infos du joueur");
+        console.log("Fallback vers MASTER");
         const { data: masterData, error: masterError } = await supabaseAuth
           .from('athletes_registry')
           .select('*')
@@ -176,7 +216,6 @@ export default function CarteIDPage() {
           }
         }
       } else {
-        // Cas critique : Aucune donnée trouvée nulle part
         setPlayer({
             id: user.id,
             email: user.email || "",
@@ -194,9 +233,11 @@ export default function CarteIDPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabaseAuth, router]);
+  }, [supabaseAuth, router, fetchR2Documents]);
 
+  // Chargement initial des données
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPlayerData();
   }, [fetchPlayerData]);
 
@@ -224,7 +265,6 @@ export default function CarteIDPage() {
 
       const userCity = user.user_metadata?.city || "NANTES";
       
-      // ✅ CORRECTION : Utiliser le client de données stocké ou en créer un nouveau
       const dataClient = supabaseData || createVagondysClient(userCity);
       
       // Essayer de mettre à jour dans la base de la ville
@@ -239,7 +279,6 @@ export default function CarteIDPage() {
 
         if (dbError) {
           console.warn("Erreur mise à jour ville, fallback MASTER:", dbError);
-          // Fallback : mettre à jour dans le MASTER
           const { error: masterUpdateError } = await supabaseAuth
             .from('athletes_registry')
             .update({ 
@@ -288,78 +327,103 @@ export default function CarteIDPage() {
   };
 
   /**
-   * GESTION DOCUMENTAIRE (Coffre-Fort GitHub de Ville)
+   * GESTION DOCUMENTAIRE AVEC R2 (remplace Supabase Storage)
    */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0] || !player) return;
     
     setIsUploading(true);
     const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${player.id}/${selectedCategory}_${Date.now()}.${fileExt}`;
 
     try {
       const { data: { user } } = await supabaseAuth.auth.getUser();
       if (!user) throw new Error("Session expirée");
 
-      const userCity = user.user_metadata?.city || "NANTES";
+      const userCity = player.city || user.user_metadata?.city || "NANTES";
       
-      // ✅ CORRECTION : Utiliser le client de données stocké ou en créer un nouveau
-      const dataClient = supabaseData || createVagondysClient(userCity);
+      // Appel à la nouvelle API R2
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedCategory);
+      formData.append('playerId', player.id);
+      formData.append('city', userCity);
+      formData.append('country', player.country || 'FR');
 
-      // 1. Upload dans le bucket de la ville
-      const { error: uploadError } = await dataClient.storage
-        .from('joueurs-documents')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = dataClient.storage
-        .from('joueurs-documents')
-        .getPublicUrl(fileName);
-
-      // 2. Update DB Ville
-      const currentDocs = player.documents_urls || [];
-      const { error: dbError } = await dataClient
-        .from('athletes')
-        .update({ documents_urls: [...currentDocs, publicUrl] })
-        .eq('id', player.id);
-
-      if (dbError) {
-        console.warn("Erreur mise à jour documents:", dbError);
-      }
-      
-      // 3. ARCHIVAGE GITHUB VILLE (Via Engine)
-      await fetch('/api/archive-external', {
+      const response = await fetch('/api/upload-document', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          city_code: userCity,
-          message: {
-            dossier_ref: player.dossier_ref,
-            payload: {
-              name: player.full_name,
-              email: player.email,
-              city: userCity,
-              last_upload: fileName
-            }
-          },
-          history: [{
-            agent_email: "SYSTEM",
-            content: `Document [${selectedCategory}] ajouté : ${fileName}`,
-            document_url: publicUrl,
-            created_at: new Date().toISOString()
-          }]
-        })
-      }).catch(console.error);
+        body: formData,
+      });
 
-      fetchPlayerData();
-      alert("DOCUMENT TRANSMIS ET ARCHIVÉ DANS VOTRE UNITÉ LOCALE.");
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Erreur upload");
+      }
+
+      // Mettre à jour la liste des documents
+      await fetchR2Documents(player.id, userCity);
+
+      // Archivage GitHub (pour traçabilité)
+      if (player.dossier_ref) {
+        await fetch('/api/archive-external', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city_code: userCity,
+            message: {
+              dossier_ref: player.dossier_ref,
+              payload: {
+                name: player.full_name,
+                email: player.email,
+                city: userCity,
+                last_upload: result.data?.key
+              }
+            },
+            history: [{
+              agent_email: "SYSTEM",
+              content: `Document [${selectedCategory}] ajouté : ${file.name}`,
+              document_url: result.data?.url,
+              created_at: new Date().toISOString()
+            }]
+          })
+        }).catch(console.error);
+      }
+
+      alert("DOCUMENT TRANSMIS ET ARCHIVÉ DANS VOTRE UNITÉ LOCALE (R2).");
+      
+      // Reset input
+      e.target.value = '';
+      
     } catch (err) {
       console.error(err);
       alert("ERREUR LORS DE L'ENVOI OU DE L'ARCHIVAGE.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  /**
+   * Suppression d'un document R2
+   */
+  const handleDeleteDocument = async (documentKey: string) => {
+    if (!confirm("Supprimer définitivement ce document ?")) return;
+    
+    try {
+      const response = await fetch(`/api/upload-document?key=${documentKey}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && player) {
+        await fetchR2Documents(player.id, player.city || "NANTES");
+        alert("Document supprimé avec succès.");
+      } else {
+        throw new Error(result.error || "Erreur suppression");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("ERREUR LORS DE LA SUPPRESSION.");
     }
   };
 
@@ -459,6 +523,7 @@ export default function CarteIDPage() {
                 updateMessage={updateMessage}
               />
 
+              {/* DocumentVault avec les documents R2 */}
               <DocumentVault 
                 player={player}
                 githubDocs={githubDocs}
@@ -466,6 +531,9 @@ export default function CarteIDPage() {
                 setSelectedCategory={(val) => setSelectedCategory(val as DocCategory)}
                 isUploading={isUploading}
                 handleFileUpload={handleFileUpload}
+                r2Documents={r2Documents}
+                isLoadingDocs={isLoadingDocs}
+                onDeleteDocument={handleDeleteDocument}
               />
             </div>
           </div>

@@ -1436,6 +1436,8 @@ VAGONDYS/
 ┃  ┃  ┣━ la-ligue/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ leaders/                                  🆕 À CRÉER
+┃  ┃  ┃  ┣━ historique/                            🆕 À CRÉER
+┃  ┃  ┃  ┃  ┗━ page.tsx                            🆕 À CRÉER
 ┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
 ┃  ┃  ┣━ maison/                                   ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
@@ -1449,20 +1451,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
 ┃  ┃  ┣━ tournois/                                 🆕 À CRÉER
 ┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
-┃  ┃  ┣━ tv.html                                   ✅ EXISTANT (point d'entrée principal)
-┃  ┃  ┣━ tv/                                       ✅ EXISTANT ← DOSSIER OPTIONNEL pour les couloirs multiples
-┃  ┃  ┃  ┣━ 0.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=0
-┃  ┃  ┃  ┣━ 1.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=1
-┃  ┃  ┃  ┣━ 2.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=2
-┃  ┃  ┃  ┣━ 3.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=3
-┃  ┃  ┃  ┣━ 4.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=4
-┃  ┃  ┃  ┣━ 5.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=5
-┃  ┃  ┃  ┣━ 6.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=6
-┃  ┃  ┃  ┣━ 7.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=7
-┃  ┃  ┃  ┗━ 8.html                                 ✅ EXISTANT ← Copie de tv.html avec paramètre lane=8
 ┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
-┃  ┃  ┣━ page.tsx                                  ✅ EXISTANT
-┃  ┃  ┗━ tv.html                                   ✅ EXISTANT (point d'entrée principal)
+┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT
 ┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
@@ -1526,19 +1516,6 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
 ┃  ┃  ┣━ interface/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ licencies/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ live_controls/                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ [laneld]/                              ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ AnimatedBackground.tsx              ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ CountdownDisplay.tsx                ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ FinGameOverlay.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameControlPanel.tsx                ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ LiveScoreCard.tsx                   ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ OfficialButton.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┗━ layout.tsx                             ✅ EXISTANT
 ┃  ┃  ┣━ login/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT

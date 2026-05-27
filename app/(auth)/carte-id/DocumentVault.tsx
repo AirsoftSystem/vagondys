@@ -1,9 +1,22 @@
+
 "use client";
 
 import React from 'react';
 import { 
-  FileCheck, RefreshCcw, Upload, ChevronDown, Download, CloudLightning, ShieldCheck 
+  FileCheck, RefreshCcw, Upload, ChevronDown, Download, CloudLightning, ShieldCheck, Trash2 
 } from "lucide-react";
+
+// Type pour les documents R2 (à aligner avec le type du parent)
+interface R2Document {
+  id: string;
+  document_key: string;
+  document_url: string;
+  category: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+}
 
 /**
  * INTERFACES DE TYPAGE STRICT
@@ -29,12 +42,16 @@ interface VaultPlayer {
 }
 
 interface DocumentVaultProps {
-  player: VaultPlayer | null; // Autorisation du null pour éviter le crash au chargement
+  player: VaultPlayer | null;
   githubDocs: GitHubArchiveResponse | null;
   selectedCategory: string;
   setSelectedCategory: (val: string) => void;
   isUploading: boolean;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  // NOUVELLES PROPS
+  r2Documents?: R2Document[];
+  isLoadingDocs?: boolean;
+  onDeleteDocument?: (documentKey: string) => Promise<void>;
 }
 
 export default function DocumentVault({
@@ -43,11 +60,13 @@ export default function DocumentVault({
   selectedCategory, 
   setSelectedCategory, 
   isUploading, 
-  handleFileUpload
+  handleFileUpload,
+  r2Documents = [],
+  isLoadingDocs = false,
+  onDeleteDocument
 }: DocumentVaultProps) {
 
-  // SÉCURITÉ ANTI-CRASH : Si le player n'est pas encore chargé, on affiche un état d'attente
-  // Cela empêche l'écran noir dû à l'accès de propriétés sur un objet nul.
+  // SÉCURITÉ ANTI-CRASH : Si le player n'est pas encore chargé
   if (!player) {
     return (
       <div className="space-y-6 bg-black/40 p-6 rounded-2xl border border-zinc-900 animate-pulse">
@@ -61,6 +80,36 @@ export default function DocumentVault({
 
   // Détermination sécurisée du tag de la ville
   const cityTag = player.city ? player.city.toUpperCase() : "STATION";
+
+  // Formatage de la taille du fichier
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Formatage de la date
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  // Nom de la catégorie en français
+  const getCategoryLabel = (category: string): string => {
+    const labels: Record<string, string> = {
+      'PI': 'Pièce d\'Identité',
+      'JUSTIFICATIF_DOMICILE': 'Justificatif Domicile',
+      'CHARTE': 'Charte',
+      'INSCRIPTION_TOURNOI': 'Inscription Tournoi',
+      'GAIN': 'Relevé de Gains',
+      'AUTRE': 'Autre'
+    };
+    return labels[category] || category;
+  };
 
   return (
     <div className="space-y-6 bg-black/40 p-6 rounded-2xl border border-zinc-900">
@@ -97,7 +146,7 @@ export default function DocumentVault({
           title="Catégorie du document à téléverser"
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-[9px] font-black uppercase tracking-widest outline-none appearance-none cursor-pointer focus:border-red-600 text-white"
-         >
+        >
           <option value="PI">Pièce d&apos;Identité</option>
           <option value="JUSTIFICATIF_DOMICILE">Justificatif de Domicile</option>
           <option value="CHARTE">Charte Vagondys</option>
@@ -109,53 +158,113 @@ export default function DocumentVault({
       </div>
 
       <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-        {/* DOCUMENTS LOCAUX (SPÉCIFIQUES À LA VILLE) */}
-        {player.documents_urls && Array.isArray(player.documents_urls) && player.documents_urls.length > 0 ? (
-          player.documents_urls.map((doc: string, index: number) => (
-            <div key={`doc-${index}`} className="flex items-center justify-between p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl group">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <FileCheck size={12} className="text-red-600" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-400 truncate">
-                  DOC_{cityTag}_{index + 1}
-                </span>
+        
+        {/* DOCUMENTS R2 (NOUVEAU STOCKAGE) */}
+        {isLoadingDocs ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCcw className="w-4 h-4 text-red-600 animate-spin" />
+            <span className="text-[8px] text-zinc-500 ml-2">Chargement des documents...</span>
+          </div>
+        ) : r2Documents.length > 0 ? (
+          r2Documents.map((doc) => (
+            <div 
+              key={doc.id} 
+              className="flex items-center justify-between p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl group"
+            >
+              <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                <FileCheck size={12} className="text-red-600 shrink-0" />
+                <div className="flex flex-col overflow-hidden min-w-0">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white truncate">
+                    {doc.original_filename || `DOC_${cityTag}`}
+                  </span>
+                  <div className="flex gap-2 text-[8px] text-zinc-500">
+                    <span>{getCategoryLabel(doc.category)}</span>
+                    <span>•</span>
+                    <span>{formatFileSize(doc.file_size)}</span>
+                    <span>•</span>
+                    <span>{formatDate(doc.created_at)}</span>
+                  </div>
+                </div>
               </div>
-              <a 
-                href={doc} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                title={`Ouvrir le document ${cityTag} ${index + 1}`} 
-                className="p-1.5 text-zinc-500 hover:text-white"
-              >
-                <Download size={12} />
-              </a>
+              <div className="flex items-center gap-1 shrink-0">
+                <a 
+                  href={doc.document_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  title={`Ouvrir ${doc.original_filename}`}
+                  className="p-1.5 text-zinc-500 hover:text-white transition-colors"
+                >
+                  <Download size={12} />
+                </a>
+                {onDeleteDocument && (
+                  <button
+                    onClick={() => onDeleteDocument(doc.document_key)}
+                    title="Supprimer le document"
+                    className="p-1.5 text-zinc-500 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           ))
-        ) : (!githubDocs || !githubDocs.files || githubDocs.files.length === 0) && (
+        ) : (
           <div className="text-center py-8 opacity-20">
             <CloudLightning className="w-6 h-6 mx-auto mb-2" />
-            <p className="text-[8px] font-black uppercase">Aucun fichier local</p>
+            <p className="text-[8px] font-black uppercase">Aucun document dans le coffre-fort</p>
+            <p className="text-[7px] text-zinc-600 mt-1">Utilisez le bouton Upload pour ajouter des documents</p>
           </div>
         )}
 
-        {/* DOCUMENTS ARCHIVÉS (GITHUB - HAUTE SÉCURITÉ) */}
-        {githubDocs && githubDocs.files && Array.isArray(githubDocs.files) && githubDocs.files.map((file: GitHubFile, idx: number) => (
-          <div key={`gh-${idx}`} className="flex items-center justify-between p-3 bg-red-600/5 border border-red-600/20 rounded-xl group">
-             <div className="flex items-center gap-3 overflow-hidden">
-                <ShieldCheck size={12} className="text-red-600" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-red-500 truncate">ARCHIVE_OFFICIELLE_{idx + 1}</span>
+        {/* SÉPARATEUR ARCHIVES (si des documents R2 ET des archives GitHub existent) */}
+        {r2Documents.length > 0 && githubDocs && githubDocs.files && githubDocs.files.length > 0 && (
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-zinc-800"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-black/40 px-2 text-[7px] text-zinc-600 uppercase tracking-wider">Archives historiques</span>
+            </div>
+          </div>
+        )}
+
+        {/* DOCUMENTS ARCHIVÉS (GITHUB - HAUTE SÉCURITÉ) - À conserver pour l'historique */}
+        {githubDocs && githubDocs.files && Array.isArray(githubDocs.files) && githubDocs.files.length > 0 && (
+          githubDocs.files.map((file: GitHubFile, idx: number) => (
+            <div key={`gh-${idx}`} className="flex items-center justify-between p-3 bg-red-600/5 border border-red-600/20 rounded-xl group">
+              <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                <ShieldCheck size={12} className="text-red-600 shrink-0" />
+                <div className="flex flex-col overflow-hidden min-w-0">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-red-500 truncate">
+                    ARCHIVE_OFFICIELLE
+                  </span>
+                  <span className="text-[7px] text-red-500/50 truncate">
+                    {file.name}
+                  </span>
+                </div>
               </div>
               <a 
                 href={file.download_url} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 title={`Télécharger l'archive GitHub ${idx + 1}`}
-                className="p-1.5 text-red-500 hover:text-white"
+                className="p-1.5 text-red-500 hover:text-white transition-colors shrink-0"
               >
                 <Download size={12} />
               </a>
-          </div>
-        ))}
+            </div>
+          ))
+        )}
       </div>
+
+      {/* Info supplémentaire sur le stockage R2 */}
+      {r2Documents.length > 0 && (
+        <div className="text-center pt-2 border-t border-zinc-900">
+          <p className="text-[6px] text-zinc-600 uppercase tracking-wider">
+            Documents sécurisés via Cloudflare R2 • Chiffrement AES-256
+          </p>
+        </div>
+      )}
     </div>
   );
 }

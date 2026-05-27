@@ -9,9 +9,7 @@ import {
   MapPin,
   Archive,
   Activity,
-  Target,
-  Clock,
-  Crosshair
+  Trophy
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -29,7 +27,8 @@ import { HistoryTable } from './components/HistoryTable';
 import { FlowerCibleCamembertWidget } from './components/cibles/FlowerCibleCamembertWidget';
 import { FleurDeCiblesWidget } from './components/cibles/FleurDeCiblesWidget';
 import { FullscreenCibles } from './components/cibles/FullscreenCibles';
-import { formatSeconds } from './utils/formatters';
+// ✅ Correction du chemin d'import - le fichier est dans components/cibles/
+import TournamentHistory from './components/TournamentHistory';
 
 // ==========================================
 // Types
@@ -133,6 +132,8 @@ const GRADES = [
   { id: 24, name: "Immortel Mythique1", icon: "/grades/immortel_1.png", stars: 24, maxStars: 12, demotionRule: "Rétro à Légende 5" },
 ];
 
+type TabType = 'stats' | 'tournaments';
+
 export default function EspaceJoueur() {
   const router = useRouter();
   
@@ -146,6 +147,11 @@ export default function EspaceJoueur() {
   const [player, setPlayer] = useState<ExtendedAthlete | null>(null);
   const [archive, setArchive] = useState<GitHubArchiveData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // ==========================================
+  // État pour l'onglet actif
+  // ==========================================
+  const [activeTab, setActiveTab] = useState<TabType>('stats');
   
   // ==========================================
   // État pour l'historique des matchs
@@ -188,10 +194,9 @@ export default function EspaceJoueur() {
   const [seuilHaut, setSeuilHaut] = useState(75);
   
   // ==========================================
-  // Temps connecté
+  // État pour le playerId (pour éviter l'accès ref pendant le render)
   // ==========================================
-  const [totalConnectedSeconds, setTotalConnectedSeconds] = useState(0);
-  const [liveSeconds, setLiveSeconds] = useState(0);
+  const [playerId, setPlayerId] = useState<string>('');
 
   // ==========================================
   // Refs pour les abonnements Realtime
@@ -277,7 +282,6 @@ export default function EspaceJoueur() {
         setPrecisionProgress(athleteData.precision_progress || 0);
         setCycleShotCount(athleteData.current_cycle_shot_count || 0);
         setCyclePrecision(athleteData.current_cycle_precision || 0);
-        setTotalConnectedSeconds((athleteData.total_connected_microseconds || 0) / 1000000);
       }
 
       // Recharger l'historique
@@ -361,6 +365,7 @@ export default function EspaceJoueur() {
       const dataClient = createVagondysClient(userCity);
       setSupabaseData(dataClient);
       userIdRef.current = user.id;
+      setPlayerId(user.id); // ✅ Stocker l'ID dans l'état pour le rendu
 
       // 4. Lecture des données dans la base de la VILLE
       const { data, error: profileError } = await dataClient
@@ -397,8 +402,6 @@ export default function EspaceJoueur() {
         setCycleShotCount(data.current_cycle_shot_count || 0);
         setCyclePrecision(data.current_cycle_precision || 0);
 
-        setTotalConnectedSeconds((data.total_connected_microseconds || 0) / 1000000);
-
         await loadMatchHistory(user.id);
 
         if (playerData.dossier_ref) {
@@ -433,24 +436,17 @@ export default function EspaceJoueur() {
   // Mise à jour des seuils
   // ==========================================
   useEffect(() => {
-    setSeuilBas(50 + (currentGradeId - 1) * 2);
-    setSeuilHaut(seuilBas + 25);
-  }, [currentGradeId, seuilBas]);
-
-  // ==========================================
-  // Timer pour le temps connecté
-  // ==========================================
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveSeconds(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const newSeuilBas = 50 + (currentGradeId - 1) * 2;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeuilBas(newSeuilBas);
+    setSeuilHaut(newSeuilBas + 25);
+  }, [currentGradeId]);
 
   // ==========================================
   // Chargement initial
   // ==========================================
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPlayerData();
     
     // Nettoyage des abonnements au démontage
@@ -586,182 +582,179 @@ export default function EspaceJoueur() {
           </div>
         </div>
 
-        {/* LIGNE 2 : 4 KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          
-          {/* Temps connecté */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <Clock className="w-4 h-4 text-red-600 mb-2" />
-            <p className="text-zinc-500 text-[8px] font-black uppercase tracking-widest mb-1">Temps connecté</p>
-            <p className="text-white text-xs font-black">
-              Cumul : {formatSeconds(totalConnectedSeconds + liveSeconds)}
-            </p>
-            <p className="text-zinc-600 text-[8px] font-mono mt-1">
-              En cours : {formatSeconds(liveSeconds)}
-            </p>
-          </div>
-
-          {/* Parties jouées */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <Activity className="w-4 h-4 text-red-600 mb-2" />
-            <p className="text-zinc-500 text-[8px] font-black uppercase tracking-widest mb-1">Parties jouées</p>
-            <p className="text-white text-xs font-black">
-              Cumul : {gameStats.totalMatches}
-            </p>
-            <p className="text-zinc-600 text-[8px] font-mono mt-1">
-              En cours : 0
-            </p>
-          </div>
-
-          {/* Temps de jeu */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <Target className="w-4 h-4 text-red-600 mb-2" />
-            <p className="text-zinc-500 text-[8px] font-black uppercase tracking-widest mb-1">Temps de jeu</p>
-            <p className="text-white text-xs font-black">
-              {matchHistory.reduce((acc, m) => acc + m.duration, 0).toFixed(3)} s
-            </p>
-            <p className="text-zinc-600 text-[8px] font-mono mt-1">
-              Historique
-            </p>
-          </div>
-
-          {/* Précision */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <Crosshair className="w-4 h-4 text-red-600 mb-2" />
-            <p className="text-zinc-500 text-[8px] font-black uppercase tracking-widest mb-1">Précision</p>
-            <p className="text-white text-xs font-black">
-              Tirs du cycle : {cycleShotCount}/100
-            </p>
-            <p className="text-white text-xs font-black">
-              Dernière partie : {matchHistory.length > 0 ? matchHistory[0].shots : 0}/20
-            </p>
-            <p className="text-zinc-600 text-[8px] font-mono mt-1">
-              Parties cycle : {Math.ceil(cycleShotCount / 20)}
-            </p>
-          </div>
+        {/* ✅ Onglets : Stats / Tournois */}
+        <div className="flex gap-2 mb-6 border-b border-zinc-800">
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeTab === 'stats'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-zinc-500 hover:text-white'
+            }`}
+            title="Statistiques de jeu"
+            aria-label="Statistiques de jeu"
+          >
+            <Activity size={14} />
+            Statistiques
+          </button>
+          <button
+            onClick={() => setActiveTab('tournaments')}
+            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeTab === 'tournaments'
+                ? 'text-red-600 border-b-2 border-red-600'
+                : 'text-zinc-500 hover:text-white'
+            }`}
+            title="Historique des tournois"
+            aria-label="Historique des tournois"
+          >
+            <Trophy size={14} />
+            Tournois
+          </button>
         </div>
 
-        {/* LIGNE 3 : Barre de précision (pleine largeur) */}
-        <div className="w-full mb-6">
-          <PrecisionBar
-            value={cyclePrecision}
-            seuilBas={seuilBas}
-            seuilHaut={seuilHaut}
-            nbTirs={cycleShotCount}
-          />
-        </div>
-
-        {/* LIGNE 4 : Barre de progression globale (pleine largeur) */}
-        <div className="w-full mb-8">
-          <GlobalProgressBar
-            grades={GRADES}
-            currentGradeId={currentGrade.id}
-            precisionProgress={precisionProgress}
-            currentGradeMaxStars={currentGrade.maxStars}
-          />
-        </div>
-
-        {/* LIGNE 5 : Deux colonnes de visualisation des cibles */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          
-          {/* Colonne 1 : Pourcentage de cibles (camembert) */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
-                Pourcentage de cibles
-              </p>
-              <button
-                onClick={() => setShowFullscreenCibles(true)}
-                className="text-[7px] font-black uppercase tracking-widest text-red-600 hover:text-white transition-colors border border-red-600/30 hover:border-red-600 px-2 py-1 rounded"
-              >
-                Voir les cibles
-              </button>
-            </div>
-            <div className="aspect-square max-w-md mx-auto">
-              <FlowerCibleCamembertWidget
-                stats={{}} // TODO: Remplacer par les données de Supabase
-                onCibleClick={(num) => console.log('Cible cliquée:', num)}
-                showWordCible={false}
+        {/* Contenu selon l'onglet actif */}
+        {activeTab === 'stats' ? (
+          <>
+            {/* LIGNE 3 : Barre de précision (pleine largeur) */}
+            <div className="w-full mb-6">
+              <PrecisionBar
+                value={cyclePrecision}
+                seuilBas={seuilBas}
+                seuilHaut={seuilHaut}
+                nbTirs={cycleShotCount}
               />
             </div>
-          </div>
 
-          {/* Colonne 2 : Zones des cibles tirés */}
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
-                Zones des cibles tirés
-              </p>
-              <button
-                onClick={() => setShowFullscreenCibles(true)}
-                className="text-[7px] font-black uppercase tracking-widest text-red-600 hover:text-white transition-colors border border-red-600/30 hover:border-red-600 px-2 py-1 rounded"
-              >
-                Voir les cibles
-              </button>
-            </div>
-            <div className="aspect-square max-w-md mx-auto">
-              <FleurDeCiblesWidget
-                stats={{}} // TODO: Remplacer par les données de Supabase
-                onCibleClick={(num) => console.log('Cible cliquée:', num)}
+            {/* LIGNE 4 : Barre de progression globale (pleine largeur) */}
+            <div className="w-full mb-8">
+              <GlobalProgressBar
+                grades={GRADES}
+                currentGradeId={currentGrade.id}
+                precisionProgress={precisionProgress}
+                currentGradeMaxStars={currentGrade.maxStars}
               />
             </div>
-          </div>
-        </div>
 
-        {/* LIGNE 6 : Dernière partie (si disponible) */}
-        {matchHistory.length > 0 && (
-          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4 mb-8">
-            <h3 className="text-[9px] font-black uppercase tracking-widest text-red-600 mb-3 flex items-center gap-2">
-              <Activity size={12} /> DERNIÈRE PARTIE
-            </h3>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div>
-                <p className="text-[6px] font-black uppercase text-zinc-500">SCORE</p>
-                <p className="text-base font-black text-white">{matchHistory[0].score}</p>
+            {/* LIGNE 5 : Deux colonnes de visualisation des cibles */}
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              
+              {/* Colonne 1 : Pourcentage de cibles (camembert) */}
+              <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                    Pourcentage de cibles
+                  </p>
+                  <button
+                    onClick={() => setShowFullscreenCibles(true)}
+                    className="text-[7px] font-black uppercase tracking-widest text-red-600 hover:text-white transition-colors border border-red-600/30 hover:border-red-600 px-2 py-1 rounded"
+                    title="Voir les cibles en plein écran"
+                    aria-label="Voir les cibles en plein écran"
+                  >
+                    Voir les cibles
+                  </button>
+                </div>
+                <div className="aspect-square max-w-md mx-auto">
+                  <FlowerCibleCamembertWidget
+                    stats={{}} // TODO: Remplacer par les données de Supabase
+                    onCibleClick={(num) => console.log('Cible cliquée:', num)}
+                    showWordCible={false}
+                  />
+                </div>
               </div>
-              <div>
-                <p className="text-[6px] font-black uppercase text-zinc-500">KILLS</p>
-                <p className="text-base font-black text-green-500">{matchHistory[0].kills}</p>
-              </div>
-              <div>
-                <p className="text-[6px] font-black uppercase text-zinc-500">DEATHS</p>
-                <p className="text-base font-black text-red-500">{matchHistory[0].deaths}</p>
-              </div>
-              <div>
-                <p className="text-[6px] font-black uppercase text-zinc-500">TIRS</p>
-                <p className="text-base font-black text-blue-500">{matchHistory[0].shots}/20</p>
+
+              {/* Colonne 2 : Zones des cibles tirés */}
+              <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                    Zones des cibles tirés
+                  </p>
+                  <button
+                    onClick={() => setShowFullscreenCibles(true)}
+                    className="text-[7px] font-black uppercase tracking-widest text-red-600 hover:text-white transition-colors border border-red-600/30 hover:border-red-600 px-2 py-1 rounded"
+                    title="Voir les cibles en plein écran"
+                    aria-label="Voir les cibles en plein écran"
+                  >
+                    Voir les cibles
+                  </button>
+                </div>
+                <div className="aspect-square max-w-md mx-auto">
+                  <FleurDeCiblesWidget
+                    stats={{}} // TODO: Remplacer par les données de Supabase
+                    onCibleClick={(num) => console.log('Cible cliquée:', num)}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* LIGNE 7 : Graphique d'évolution (pleine largeur) */}
-        <div className="w-full mb-6">
-          <ScoreChart history={matchHistory} />
-        </div>
-
-        {/* LIGNE 8 : Tableau d'historique (pleine largeur) */}
-        <div className="w-full mb-6">
-          <HistoryTable history={matchHistory} />
-        </div>
-
-        {/* Archive GitHub (si disponible) */}
-        {archive && (
-          <div className="mt-6 bg-zinc-900/30 border border-zinc-800 p-4 rounded-xl">
-            <div className="flex items-center gap-2 mb-3">
-              <Archive className="w-4 h-4 text-red-600" />
-              <h3 className="text-[9px] font-black uppercase tracking-widest text-white">Coffre-fort Numérique</h3>
-            </div>
-            <div className="flex flex-wrap gap-4 text-[8px] font-mono">
-              <div>
-                <span className="text-zinc-600 block text-[7px] uppercase">Référence</span>
-                <span className="text-white">{archive.dossier.dossier_ref}</span>
+            {/* LIGNE 6 : Dernière partie (si disponible) */}
+            {matchHistory.length > 0 && (
+              <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4 mb-8">
+                <h3 className="text-[9px] font-black uppercase tracking-widest text-red-600 mb-3 flex items-center gap-2">
+                  <Activity size={12} /> DERNIÈRE PARTIE
+                </h3>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <p className="text-[6px] font-black uppercase text-zinc-500">SCORE</p>
+                    <p className="text-base font-black text-white">{matchHistory[0].score}</p>
+                  </div>
+                  <div>
+                    <p className="text-[6px] font-black uppercase text-zinc-500">KILLS</p>
+                    <p className="text-base font-black text-green-500">{matchHistory[0].kills}</p>
+                  </div>
+                  <div>
+                    <p className="text-[6px] font-black uppercase text-zinc-500">DEATHS</p>
+                    <p className="text-base font-black text-red-500">{matchHistory[0].deaths}</p>
+                  </div>
+                  <div>
+                    <p className="text-[6px] font-black uppercase text-zinc-500">TIRS</p>
+                    <p className="text-base font-black text-blue-500">{matchHistory[0].shots}/20</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-zinc-600 block text-[7px] uppercase">Création</span>
-                <span className="text-white">{new Date(archive.dossier.created_at).toLocaleDateString()}</span>
-              </div>
+            )}
+
+            {/* LIGNE 7 : Graphique d'évolution (pleine largeur) */}
+            <div className="w-full mb-6">
+              <ScoreChart history={matchHistory} />
             </div>
+
+            {/* LIGNE 8 : Tableau d'historique (pleine largeur) */}
+            <div className="w-full mb-6">
+              <HistoryTable history={matchHistory} />
+            </div>
+
+            {/* Archive GitHub (si disponible) */}
+            {archive && (
+              <div className="mt-6 bg-zinc-900/30 border border-zinc-800 p-4 rounded-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <Archive className="w-4 h-4 text-red-600" />
+                  <h3 className="text-[9px] font-black uppercase tracking-widest text-white">Coffre-fort Numérique</h3>
+                </div>
+                <div className="flex flex-wrap gap-4 text-[8px] font-mono">
+                  <div>
+                    <span className="text-zinc-600 block text-[7px] uppercase">Référence</span>
+                    <span className="text-white">{archive.dossier.dossier_ref}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-600 block text-[7px] uppercase">Création</span>
+                    <span className="text-white">{new Date(archive.dossier.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* ✅ Onglet Tournois - Historique des tournois du joueur */
+          <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-5 h-5 text-red-600" />
+              <h2 className="text-sm font-black uppercase tracking-wider text-white">Historique des tournois</h2>
+            </div>
+            <TournamentHistory 
+              playerId={playerId}
+              city={player.city || 'NANTES'}
+              country={player.country || 'FR'}
+            />
           </div>
         )}
       </div>
