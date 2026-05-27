@@ -1397,21 +1397,18 @@ VAGONDYS/
 ┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx  ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css            ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx            ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┗━ types.tsx                       ✅ EXISTANT                  
+┃  ┃  ┃  ┃   ┃  ┗━ types.tsx                       ✅ EXISTANT
+┃  ┃  ┃  ┃   ┣━ ArchiveViewer.tsx                  ✅ EXISTANT                 
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx              ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ HistoryTable.tsx                   ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ Notification.tsx                   ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ PrecisionBar.css                   ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx                   ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ RankCard.tsx                       ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ ScoreChart.css                     ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ ScoreChart.tsx                     ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ StatsCard.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃   ┗━ WebSocketControl.tsx               ✅ EXISTANT
-┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┗━ useWebSocketStats.ts               ✅ EXISTANT
+┃  ┃  ┃  ┃   ┗━ TournamentHistory.tsx              ✅ EXISTANT
 ┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┗━ index.ts                           ✅ EXISTANT
 ┃  ┃  ┃  ┣━ utils/                                 ✅ EXISTANT
@@ -1424,33 +1421,40 @@ VAGONDYS/
 ┃  ┃  ┣━ bareme/                                   ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ classements/                              ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CORRIGER
+┃  ┃  ┃  ┣━ saison/                                ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ [year]/                             ✅ EXISTANT
+┃  ┃  ┃  ┃     ┗━ page.tsx                         🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ communication/                            ✅ EXISTANT 
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ contact/                                  ✅ EXISTANT
+┃  ┃  ┣━ competition/                              ✅ EXISTANT 
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ evenementiels/                            🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ contact/                                  ✅ EXISTANT
+┃  ┃  ┃  ┣━ actions.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┃  ┗━ SubmitButton.tsx                       ✅ EXISTANT
+┃  ┃  ┣━ evenementiels/                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ [date]/                                ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            🆕 À CRÉER
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ joueurs/                                  ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ la-ligue/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ leaders/                                  🆕 À CRÉER
-┃  ┃  ┃  ┣━ historique/                            🆕 À CRÉER
-┃  ┃  ┃  ┃  ┗━ page.tsx                            🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ leaders/                                  ✅ EXISTANT
+┃  ┃  ┃  ┣━ historique/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ maison/                                   ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ mentions-legales/                         ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ politique-de-confidentialite/             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ reservations/                             🆕 À CRÉER 
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
-┃  ┃  ┣━ sponsors/                                 🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
-┃  ┃  ┣━ tournois/                                 🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ sponsors/                                 ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ tournois/                                 ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
 ┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
@@ -1459,6 +1463,11 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ restore/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ archive-year                              ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT 
+┃  ┃  ┣━ as-eg/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ session/                               ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ auth/                                     ✅ EXISTANT
 ┃  ┃  ┃  ┗━ signup/                                ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
@@ -1481,23 +1490,30 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
-┃  ┃  ┗━ staff/                                    ✅ EXISTANT
-┃  ┃     ┣━ dashboard/                             ✅ EXISTANT
-┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃     ┣━ history/                               ✅ EXISTANT
-┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃     ┣━ notify-transfer/                       ✅ EXISTANT
-┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃     ┣━ pending-signals/                       ✅ EXISTANT
-┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃     ┣━ public-data/                           ✅ EXISTANT
-┃  ┃     ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃     ┗━ register-athlete/                      ✅ EXISTANT
-┃  ┃        ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ staff/                                    ✅ EXISTANT
+┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ history/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ notify-transfer/                       ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ pending-signals/                       ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ public-data/                           ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ register-athlete/                      ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ tournaments/                              ✅ EXISTANT
+┃  ┃  ┃  ┣━ rankings/                              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ record-result/                         ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┗━ upload-document/                          ✅ EXISTANT
+┃  ┃     ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ staff/                                       ✅ EXISTANT
-┃  ┃  ┣━ competitions/                             🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ competitions/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ components/                               ✅ EXISTANT
 ┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┣━ CityInfoCard.tsx                    ✅ EXISTANT
@@ -1510,17 +1526,15 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┣━ Card.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ LoadingSpinner.ts                   ✅ EXISTANT
 ┃  ┃  ┃  ┗━ GameHistory.tsx                        ✅ EXISTANT
-┃  ┃  ┣━ historique/                               ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
 ┃  ┃  ┣━ interface/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ licencies/                                ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ login/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ maison/                                   🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
 ┃  ┃  ┣━ mode_jeux/                                ✅ EXISTANT
 ┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┣━ GameHeader.tsx                      ✅ EXISTANT
@@ -1537,8 +1551,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┣━ index.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ websocket.types.ts                  ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (Ajout sélection couloirs)
-┃  ┃  ┣━ reservations/                             🆕 À CRÉER
-┃  ┃  ┃  ┗━ page.tsx                               🆕 À CRÉER
+┃  ┃  ┣━ reservations/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ settings/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
@@ -1560,7 +1574,9 @@ VAGONDYS/
 ┃  ┃  ┗━ StaffShell.tsx                            ✅ EXISTANT
 ┃  ┗━ Footer.tsx                                   ✅ EXISTANT
 ┃
-┣━ lib/                                            ✅ EXISTANT
+┣━ lib/                                            ✅ EXISTANT 
+┃  ┣━ archive/                                     ✅ EXISTANT
+┃  ┃  ┗━ yearly-archiver.ts                        ✅ EXISTANT
 ┃  ┣━ archive-external/                            ✅ EXISTANT
 ┃  ┃  ┣━ db-client.ts                              ✅ EXISTANT
 ┃  ┃  ┣━ engine.ts                                 ✅ EXISTANT
@@ -1573,10 +1589,13 @@ VAGONDYS/
 ┃  ┣━ hooks/                                       ✅ EXISTANT
 ┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT
 ┃  ┃  ┗━ usePhysicalButton.ts                      ✅ EXISTANT
+┃  ┣━ storage/                                     ✅ EXISTANT
+┃  ┃  ┗━ r2-client.ts                              ✅ EXISTANT
 ┃  ┣━ supabase/                                    ✅ EXISTANT
 ┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ master.ts                                 ✅ EXISTANT
-┃  ┃  ┗━ server.ts                                 ✅ EXISTANT 
+┃  ┃  ┣━ server.ts                                 ✅ EXISTANT
+┃  ┃  ┗━ unified-client.ts                         ✅ EXISTANT 
 ┃  ┣━ websocket/                                   ✅ EXISTANT
 ┃  ┃  ┗━ client.ts                                 ✅ EXISTANT   
 ┃  ┗━ rate-limit.ts                                ✅ EXISTANT
@@ -1647,8 +1666,8 @@ VAGONDYS/
 ┃  ┣━ obfuscate-build.js                           ✅ EXISTANT
 ┃  ┗━ optimize-images.js                           ✅ EXISTANT
 ┃
-┣━ types/                                          🆕 À CRÉER
-┃  ┗━ official.types.ts                            🆕 (Centralisation types officiels)
+┣━ types/                                          ✅ EXISTANT
+┃  ┗━ official.types.ts                            ✅ EXISTANT (Centralisation types officiels)
 ┃
 ┣━ VAGONDYS_TEST_DATA                              ✅ EXISTANT
 ┃

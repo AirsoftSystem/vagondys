@@ -1,10 +1,10 @@
+
 "use client";
 
 import React from 'react';
 import { Home, ArrowLeft, BarChart3, User } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import "@/app/Ranking.css";
 
 export default function ClassementPage() {
   // Liste complète du Top 16 (2 réels + 14 simulés pour le visuel)
