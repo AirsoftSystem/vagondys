@@ -46,7 +46,7 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
           .from('athletes_registry')
           .select('city, country')
           .eq('email', user.email)
-          .maybeSingle() // Utiliser maybeSingle au lieu de single pour éviter l'erreur 406
+          .maybeSingle()
 
         if (!registryError && registry) {
           city = registry.city
@@ -67,15 +67,9 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
       const email = user.email.toLowerCase()
       console.log('[getStaffCity] Fallback: extraction depuis email:', email)
       
-      // Cas: nantes@vagondys.com
-      if (email.includes('nantes')) {
+      if (email.includes('nantes') || email.includes('.nantes')) {
         city = 'NANTES'
         console.log('[getStaffCity] Ville extraite (nantes):', city)
-      }
-      // Cas: admin.nantes@vagondys.com
-      else if (email.includes('.nantes')) {
-        city = 'NANTES'
-        console.log('[getStaffCity] Ville extraite (.nantes):', city)
       }
       else if (email.includes('lyon')) {
         city = 'LYON'
@@ -86,8 +80,11 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
         country = 'ES'
         console.log('[getStaffCity] Ville extraite (madrid):', city)
       }
+      else if (email.includes('paris')) {
+        city = 'PARIS'
+        console.log('[getStaffCity] Ville extraite (paris):', city)
+      }
       else {
-        // Valeur par défaut si aucune correspondance
         city = 'NANTES'
         console.log('[getStaffCity] Ville par défaut (NANTES)')
       }

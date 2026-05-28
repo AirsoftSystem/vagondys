@@ -34,8 +34,6 @@ USING (true)
 WITH CHECK (true);
 */
 
----
-
 /*
 -- Ciblage de la table correcte : athletes_registry
 CREATE UNIQUE INDEX IF NOT EXISTS idx_athletes_registry_dossier_ref_unique 
@@ -46,8 +44,6 @@ ALTER TABLE public.athletes_registry
 ADD CONSTRAINT unique_registry_dossier_ref 
 UNIQUE USING INDEX idx_athletes_registry_dossier_ref_unique;
 */
-
----
 
 /*
 -- Table des agents (staff)
@@ -70,8 +66,6 @@ CREATE POLICY "Allow service role to read staff_registry"
     USING (true);
 */
 
----
-
 /*
 INSERT INTO public.staff_registry (email, city, role) VALUES
     ('admin@vagondys.com', 'MASTER', 'admin'),
@@ -81,14 +75,17 @@ INSERT INTO public.staff_registry (email, city, role) VALUES
     ('paris@vagondys.com', 'PARIS', 'agent');"
 */
 
----
-
 /*
 SELECT * FROM public.staff_registry;
 */
 
----
-
 /*
 SELECT * FROM staff_registry WHERE email = 'nantes@vagondys.com';
+*/
+
+/*
+SELECT email, city, country, dossier_ref, created_at
+FROM athletes_registry
+ORDER BY created_at DESC
+LIMIT 10;
 */

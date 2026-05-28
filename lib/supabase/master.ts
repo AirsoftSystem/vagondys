@@ -1,5 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ==========================================================
 // CONFIGURATION DU PROJET UNIFIÉ
@@ -127,4 +128,92 @@ export async function getAthleteCountry(email: string): Promise<string | null> {
 
   if (error || !data) return null;
   return data.country;
+}
+
+// ==========================================================
+// FONCTIONS RESTAURÉES POUR COMPATIBILITÉ AVEC LE CODE EXISTANT
+// ==========================================================
+
+/**
+ * Interface pour la configuration d'une station (virtuelle dans l'Option B)
+ */
+export interface StationConfig {
+  name: string;
+  city_code: string;
+  country_code: string;
+  public_url: string;
+  public_anon_key: string;
+  public_service_key: string;
+  staff_url: string;
+  staff_anon_key: string;
+  staff_service_key: string;
+  github_repo: string;
+  github_token: string;
+}
+
+/**
+ * Récupère la configuration d'une station (retourne la config UNIQUE pour l'Option B)
+ */
+export async function getStationConfig(cityCode: string, countryCode: string = 'FR'): Promise<StationConfig | null> {
+  const city = cityCode.toUpperCase().trim();
+  const country = countryCode.toUpperCase().trim();
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const githubRepo = process.env.GITHUB_ARCHIVE_REPO || 'vagondys/VAGONDYS_ARCHIVES';
+  const githubToken = process.env.GITHUB_ARCHIVE_TOKEN || '';
+  
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    console.error(`❌ getStationConfig: Variables manquantes pour ${country}_${city}`);
+    return null;
+  }
+  
+  return {
+    name: `VAGONDYS ${city} (${country})`,
+    city_code: city,
+    country_code: country,
+    public_url: supabaseUrl,
+    public_anon_key: supabaseAnonKey,
+    public_service_key: supabaseServiceKey,
+    staff_url: supabaseUrl,
+    staff_anon_key: supabaseAnonKey,
+    staff_service_key: supabaseServiceKey,
+    github_repo: githubRepo,
+    github_token: githubToken,
+  };
+}
+
+/**
+ * Crée un client dynamique (retourne un client basé sur la config UNIQUE)
+ */
+export async function createDynamicClient(cityCode: string, countryCode: string = 'FR', type: 'PUBLIC' | 'STAFF' = 'PUBLIC'): Promise<SupabaseClient> {
+  const config = await getStationConfig(cityCode, countryCode);
+  if (!config) {
+    throw new Error(`❌ createDynamicClient: Impossible de créer le client pour ${countryCode}_${cityCode}`);
+  }
+  
+  const url = config.public_url;
+  const key = type === 'PUBLIC' ? config.public_service_key : config.staff_service_key;
+  
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+}
+
+/**
+ * Localise la station d'un athlète via le registry
+ */
+export async function locateAthleteStation(email: string): Promise<StationConfig | null> {
+  if (!masterAdmin) return null;
+  
+  const { data: registry, error } = await masterAdmin
+    .from('athletes_registry') 
+    .select('city, country')
+    .eq('email', email.toLowerCase())
+    .single();
+
+  if (error || !registry) return null;
+  
+  return await getStationConfig(registry.city, registry.country || 'FR');
 }
