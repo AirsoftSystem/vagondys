@@ -386,3 +386,42 @@ $$;
 -- ==========================================================
 -- FIN DE LA MIGRATION
 -- ==========================================================
+
+
+
+
+
+
+
+
+
+
+
+SQL > time_slots :
+
+-- Table des créneaux horaires
+CREATE TABLE IF NOT EXISTS time_slots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  duration INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'booked', 'maintenance')),
+  booked_by UUID,
+  booked_by_name TEXT,
+  price INTEGER NOT NULL DEFAULT 25,
+  max_participants INTEGER NOT NULL DEFAULT 4,
+  current_participants INTEGER NOT NULL DEFAULT 0,
+  is_recurring BOOLEAN DEFAULT FALSE,
+  city TEXT NOT NULL,
+  country TEXT DEFAULT 'FR',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index pour les performances
+CREATE INDEX IF NOT EXISTS idx_time_slots_date ON time_slots(date);
+CREATE INDEX IF NOT EXISTS idx_time_slots_city ON time_slots(city);
+CREATE INDEX IF NOT EXISTS idx_time_slots_status ON time_slots(status);
+CREATE INDEX IF NOT EXISTS idx_time_slots_date_city ON time_slots(date, city);
+
