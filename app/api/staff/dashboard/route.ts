@@ -1,7 +1,6 @@
 
 // app/api/staff/dashboard/route.ts
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
 
 // Interface pour typer les activités
 interface Activity {
@@ -23,23 +22,45 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Ville manquante" }, { status: 400 });
     }
 
-    // ✅ Utilisation du client ADMIN avec SERVICE_ROLE (côté serveur)
-    // Cette clé n'est JAMAIS exposée au navigateur
-    const adminClient = await createAdminClient(city, country, "STAFF");
+    // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
+    const { createClient } = await import("@supabase/supabase-js");
+    
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    // ✅ VÉRIFICATION CRITIQUE : Les variables doivent exister
+    if (!supabaseUrl) {
+      console.error("❌ Dashboard API: NEXT_PUBLIC_SUPABASE_URL manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    if (!supabaseServiceKey) {
+      console.error("❌ Dashboard API: SUPABASE_SERVICE_ROLE_KEY manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    // ✅ Client ADMIN avec SERVICE_ROLE (côté serveur, créé à l'exécution)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    // Récupérer toutes les données nécessaires pour le dashboard
+    const cityUpper = city.toUpperCase().trim();
+    const countryUpper = country.toUpperCase().trim();
+
+    // Récupérer toutes les données nécessaires pour le dashboard (avec filtres city/country)
     const [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
-      adminClient.from("athletes").select("*", { count: "exact", head: true }),
-      adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-      adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("is_read", false),
-      adminClient.from("game_launches").select("*", { count: "exact", head: true }),
-      adminClient.from("pending_signals").select("*").order("created_at", { ascending: false }).limit(3),
-      adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
-      adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
-      adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
+      adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
+      adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
+      adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("is_read", false),
+      adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
+      adminClient.from("pending_signals").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
+      adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
+      adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
+      adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", countryUpper).order("points", { ascending: false }).limit(5),
     ]);
 
-    // Traitement des activités récentes - Déclaration avec type explicite
+    // Traitement des activités récentes
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
@@ -92,12 +113,16 @@ export async function GET(request: Request) {
         const { count: matchesPlayed } = await adminClient
           .from("match_history")
           .select("*", { count: "exact", head: true })
-          .eq("player_id", player.id);
+          .eq("player_id", player.id)
+          .eq("city", cityUpper)
+          .eq("country", countryUpper);
 
         const { count: wins } = await adminClient
           .from("match_history")
           .select("*", { count: "exact", head: true })
           .eq("player_id", player.id)
+          .eq("city", cityUpper)
+          .eq("country", countryUpper)
           .eq("win", true);
 
         const totalMatches = matchesPlayed || 0;
