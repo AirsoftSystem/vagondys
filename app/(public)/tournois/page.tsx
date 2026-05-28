@@ -9,7 +9,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import {
   Trophy,
   Calendar,
@@ -167,9 +167,9 @@ const CITIES = [
 const HOURS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
 
 // ============================================================
-// COMPOSANT PRINCIPAL
+// COMPOSANT INTERNE QUI UTILISE useSearchParams
 // ============================================================
-export default function TournoisPage() {
+function TournoisContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') as 'tournaments' | 'slots' | null;
@@ -780,5 +780,20 @@ export default function TournoisPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// ============================================================
+// COMPOSANT PRINCIPAL AVEC SUSPENSE BOUNDARY
+// ============================================================
+export default function TournoisPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white pt-32 pb-20 px-4 md:px-6 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+      </div>
+    }>
+      <TournoisContent />
+    </Suspense>
   );
 }
