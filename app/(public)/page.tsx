@@ -36,10 +36,7 @@ export default function HomePage() {
     { label: "Sponsors", href: "/sponsors", category: "partners" },
     { label: "Réservations", href: "/reservations", category: "booking" },
     { label: "Communication", href: "/communication", category: "contact" },
-    { label: "Contact", href: "/contact", category: "contact" },
     { label: "Espace Joueur", href: "/espace-joueur", category: "auth" },
-    { label: "Mentions légales", href: "/mentions-legales", category: "legal" },
-    { label: "Confidentialité", href: "/politique-de-confidentialite", category: "legal" }
   ];
 
   return (
