@@ -1,6 +1,6 @@
+
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
-import { getStationConfig } from './master'
 import { createClient } from '@supabase/supabase-js'
 
 /**
@@ -8,23 +8,22 @@ import { createClient } from '@supabase/supabase-js'
  * Pour les opérations critiques sur le Cerveau (Auth, Registry)
  */
 export const masterAdminClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 /**
- * CLIENT SERVEUR DYNAMIQUE : PUBLIC / JOUEURS
- * Permet d'accéder aux données d'une ville spécifique (Nantes, Lyon, etc.)
- * Adapté pour la nomenclature internationale (Pays + Ville)
+ * CLIENT SERVEUR : PUBLIC / JOUEURS
+ * Version unifiée - utilise un seul projet Supabase avec filtre city
  */
 export async function createVagondysClient(cityCode?: string, countryCode?: string) {
   const cookieStore = await cookies()
   const headerStore = await headers()
   
-  let url = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!
-  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   
-  // LOGIQUE D'AIGUILLAGE PRIORITAIRE
+  // Récupération de la ville depuis les paramètres, headers ou session
   let activeCity = cityCode || headerStore.get('x-vgd-city')
   let activeCountry = countryCode || headerStore.get('x-vgd-country')
 
@@ -44,16 +43,8 @@ export async function createVagondysClient(cityCode?: string, countryCode?: stri
     }
   }
 
-  if (activeCity) {
-    // Utilisation du duo Ville + Pays pour récupérer la config correcte (ex: FR + NANTES)
-    const config = await getStationConfig(activeCity, activeCountry || 'FR')
-    if (config) {
-      url = config.public_url
-      anonKey = config.public_anon_key
-    }
-  }
-
-  return createServerClient(url, anonKey, {
+  // Stocker la ville active dans les headers de la réponse pour les prochaines requêtes
+  const response = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) { return cookieStore.get(name)?.value },
       set(name: string, value: string, options: CookieOptions) {
@@ -64,33 +55,28 @@ export async function createVagondysClient(cityCode?: string, countryCode?: stri
       },
     },
   })
+
+  return response
 }
 
 /**
- * CLIENT SERVEUR DYNAMIQUE : STAFF (VERSION CORRIGÉE)
+ * CLIENT SERVEUR : STAFF (VERSION UNIFIÉE)
  * Connecte le membre du staff à la base de gestion de sa ville.
- * Cette version utilise désormais uniquement les paramètres cityCode/countryCode
- * pour charger la bonne config, sans dépendre des headers.
+ * Utilise désormais le même projet Supabase avec filtre city.
  */
 export async function createStaffClient(cityCode?: string, countryCode?: string) {
   const cookieStore = await cookies()
   
-  let url = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!
-  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   
   // La ville est maintenant fournie en paramètre (provenant de la Server Action)
+  // ou sera utilisée comme filtre dans les requêtes
   const activeCity = cityCode
   const activeCountry = countryCode || 'FR'
 
   if (activeCity) {
-    const config = await getStationConfig(activeCity, activeCountry)
-    if (config) {
-      // Utiliser les identifiants STAFF spécifiques
-      url = config.staff_url
-      anonKey = config.staff_anon_key
-    } else {
-      console.warn(`createStaffClient: Aucune config trouvée pour ${activeCountry}_${activeCity}. Utilisation du MASTER.`)
-    }
+    console.log(`createStaffClient: Connexion staff pour ${activeCountry}_${activeCity} (filtre city dans les requêtes)`)
   }
 
   return createServerClient(url, anonKey, {
@@ -107,15 +93,19 @@ export async function createStaffClient(cityCode?: string, countryCode?: string)
 }
 
 /**
- * CLIENT SERVEUR ADMIN DYNAMIQUE (Service Role)
- * Indispensable pour que le serveur puisse écrire/modifier les données 
+ * CLIENT SERVEUR ADMIN (Service Role)
+ * Indispensable pour que le serveur puisse écrire/modifier les données
+ * Version unifiée - utilise le même projet Supabase
  */
 export async function createAdminClient(cityCode: string, countryCode: string = 'FR', type: 'PUBLIC' | 'STAFF' = 'PUBLIC') {
-  const config = await getStationConfig(cityCode, countryCode)
-  if (!config) throw new Error(`Impossible de créer le client Admin pour ${countryCode}_${cityCode}`)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-  const url = type === 'PUBLIC' ? config.public_url : config.staff_url
-  const serviceKey = type === 'PUBLIC' ? config.public_service_key : config.staff_service_key
+  if (!url || !serviceKey) {
+    throw new Error(`Impossible de créer le client Admin: variables d'environnement manquantes`)
+  }
+
+  console.log(`createAdminClient: Connexion admin pour ${countryCode}_${cityCode} (type: ${type}) - filtre city dans les requêtes`)
 
   return createClient(url, serviceKey)
 }

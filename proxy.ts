@@ -3,12 +3,13 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { locateAthleteStation } from './lib/supabase/master'
+import { getAthleteCity, getAthleteCountry } from './lib/supabase/master'
 
 /**
  * PROXY / MIDDLEWARE - VERSION NEXT.JS 16 (VERCEL)
  * Gestion du routage entre le site Public et le sous-domaine Staff.
  * + PROTECTION RENFORCÉE DE L'ARBORESCENCE
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
@@ -114,11 +115,12 @@ export async function proxy(request: NextRequest) {
 
   /**
    * RÈGLE 3 : PROTECTION DE L'ESPACE AUTHENTIFIÉ (SUR DOMAINE PUBLIC)
+   * Version adaptée pour l'Option B (un seul projet Supabase)
    */
   if (pathname.startsWith('/espace-joueur') || pathname.startsWith('/carte-id')) {
     const supabaseDefault = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get: (name) => request.cookies.get(name)?.value,
@@ -138,11 +140,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/connexion', request.url))
     }
 
-    const station = await locateAthleteStation(user.email!)
+    // Récupération de la ville et du pays depuis le registry
+    const city = await getAthleteCity(user.email!)
+    const country = await getAthleteCountry(user.email!)
     
-    if (station) {
-      response.headers.set('x-vgd-city', station.city_code)
-      response.headers.set('x-vgd-country', station.country_code || 'FR')
+    if (city) {
+      response.headers.set('x-vgd-city', city)
+      response.headers.set('x-vgd-country', country || 'FR')
     }
   }
 
@@ -154,11 +158,12 @@ export async function proxy(request: NextRequest) {
   }
 
   /**
-   * RÈGLE 5 : INITIALISATION DU CLIENT STAFF (VIA MASTER)
+   * RÈGLE 5 : INITIALISATION DU CLIENT STAFF (VIA PROJET UNIQUE)
+   * Version adaptée pour l'Option B
    */
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get: (name) => request.cookies.get(name)?.value,
@@ -189,10 +194,11 @@ export async function proxy(request: NextRequest) {
 
   // Si c'est un staff, on injecte aussi sa localisation
   if (user) {
-    const station = await locateAthleteStation(userEmail!)
-    if (station) {
-      response.headers.set('x-vgd-city', station.city_code)
-      response.headers.set('x-vgd-country', station.country_code || 'FR')
+    const city = await getAthleteCity(userEmail!)
+    const country = await getAthleteCountry(userEmail!)
+    if (city) {
+      response.headers.set('x-vgd-city', city)
+      response.headers.set('x-vgd-country', country || 'FR')
     }
   }
 

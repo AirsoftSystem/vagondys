@@ -2,19 +2,19 @@
 // actions/staff-actions.ts
 'use server'
 
-import { masterAdminClient } from '@/lib/supabase/server'
+import { masterAdmin } from '@/lib/supabase/master'
 import { cookies } from 'next/headers'
 
 export async function getStaffCity(): Promise<{ city: string | null; country: string | null; email: string | null }> {
   try {
     const cookieStore = await cookies()
 
-    // 1. Récupérer la session depuis le projet MASTER en utilisant le cookie de session
+    // 1. Récupérer la session depuis le projet UNIQUE en utilisant le cookie de session
     const { createServerClient } = await import('@supabase/ssr')
     
-    const supabaseMaster = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!,
+    const supabaseUnique = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
@@ -26,7 +26,7 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
       }
     )
 
-    const { data: { user }, error } = await supabaseMaster.auth.getUser()
+    const { data: { user }, error } = await supabaseUnique.auth.getUser()
 
     if (error || !user?.email) {
       console.error('[getStaffCity] Erreur auth:', error)
@@ -39,22 +39,27 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
     let country: string | null = 'FR'
 
     // 2. Essayer de lire depuis athletes_registry (MASTER)
-    try {
-      const { data: registry, error: registryError } = await masterAdminClient
-        .from('athletes_registry')
-        .select('city, country')
-        .eq('email', user.email)
-        .maybeSingle() // Utiliser maybeSingle au lieu de single pour éviter l'erreur 406
+    // Vérifier que masterAdmin n'est pas null
+    if (masterAdmin) {
+      try {
+        const { data: registry, error: registryError } = await masterAdmin
+          .from('athletes_registry')
+          .select('city, country')
+          .eq('email', user.email)
+          .maybeSingle() // Utiliser maybeSingle au lieu de single pour éviter l'erreur 406
 
-      if (!registryError && registry) {
-        city = registry.city
-        country = registry.country || 'FR'
-        console.log('[getStaffCity] Ville trouvée dans registry:', city)
-      } else {
-        console.log('[getStaffCity] Aucune entrée dans registry pour cet email')
+        if (!registryError && registry) {
+          city = registry.city
+          country = registry.country || 'FR'
+          console.log('[getStaffCity] Ville trouvée dans registry:', city)
+        } else {
+          console.log('[getStaffCity] Aucune entrée dans registry pour cet email')
+        }
+      } catch (registryErr) {
+        console.error('[getStaffCity] Erreur lecture registry:', registryErr)
       }
-    } catch (registryErr) {
-      console.error('[getStaffCity] Erreur lecture registry:', registryErr)
+    } else {
+      console.log('[getStaffCity] masterAdmin non disponible, skip registry lookup')
     }
 
     // 3. FALLBACK : Extraire la ville depuis l'email si non trouvée dans registry

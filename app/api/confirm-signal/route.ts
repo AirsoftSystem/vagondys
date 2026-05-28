@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendGeneralEmail } from "@/lib/email/gmail";
-import { getStationConfig, createDynamicClient } from "@/lib/supabase/master";
+import { masterAdmin } from "@/lib/supabase/master";
 import { randomUUID } from 'crypto';
 
 // Définition de l'interface pour garantir la sécurité des données
@@ -28,13 +28,6 @@ interface SignalPayload {
   };
 }
 
-// Interface pour le typage GitHub
-interface GitHubFile {
-  name: string;
-  path: string;
-  download_url: string;
-}
-
 // Interface pour les logs forcés (sans 'any')
 interface ErrorLogData {
   event: string;
@@ -53,6 +46,7 @@ interface ErrorLog {
 
 /**
  * FONCTION DE LOG FORCÉ - Écrit dans la console ET dans Supabase
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 async function forceLog(context: string, data: ErrorLogData, level: 'info' | 'warn' | 'error' = 'info'): Promise<string> {
   const errorMessage = typeof data === 'string' ? data : data.event || 'Unknown event';
@@ -72,8 +66,8 @@ async function forceLog(context: string, data: ErrorLogData, level: 'info' | 'wa
   try {
     const { createClient } = await import("@supabase/supabase-js");
     
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (supabaseUrl && supabaseKey) {
       const supabaseLogs = createClient(supabaseUrl, supabaseKey);
@@ -88,6 +82,7 @@ async function forceLog(context: string, data: ErrorLogData, level: 'info' | 'wa
 
 /**
  * API DE CONFIRMATION : Valide le signal via le lien envoyé par email
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 export async function GET(request: NextRequest) {
   const requestId = randomUUID().substring(0, 8);
@@ -128,32 +123,19 @@ export async function GET(request: NextRequest) {
       country
     }, 'info');
 
-    const stationConfig = await getStationConfig(city, country);
+    // Version Option B : Un seul projet Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     
-    if (!stationConfig) {
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'ERREUR_CONFIG_STATION',
-        city,
-        country
-      }, 'error');
-      return NextResponse.redirect(new URL(`/contact?status=error&message=Station%20${city}%20introuvable`, request.url));
-    }
-
-    let supabaseStaff;
-    try {
-      supabaseStaff = await createDynamicClient(city, country, 'STAFF');
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'CLIENT_STAFF_CREE',
-        success: 'true'
-      }, 'info');
-    } catch (staffClientError) {
-      const error = staffClientError as Error;
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'ERREUR_CLIENT_STAFF',
-        error: error.message
-      }, 'error');
-      throw staffClientError;
-    }
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseStaff = createClient(supabaseUrl, supabaseServiceKey);
+    const supabasePublic = createClient(supabaseUrl, supabaseKey);
+    
+    await forceLog(`confirm-signal-${requestId}`, {
+      event: 'CLIENTS_SUPABASE_CREES',
+      success: 'true'
+    }, 'info');
 
     let signal;
     try {
@@ -228,47 +210,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    let supabasePublic;
-    try {
-      supabasePublic = await createDynamicClient(city, country, 'PUBLIC');
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'CLIENT_PUBLIC_CREE',
-        success: 'true'
-      }, 'info');
-    } catch (publicClientError) {
-      const error = publicClientError as Error;
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'ERREUR_CLIENT_PUBLIC',
-        error: error.message
-      }, 'error');
-      throw publicClientError;
-    }
-
     let finalDossierRef = signal.dossier_ref || '';
 
     let registryEntry;
     try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+      // Vérifier que masterAdmin n'est pas null avant de l'utiliser
+      if (!masterAdmin) {
+        await forceLog(`confirm-signal-${requestId}`, {
+          event: 'MASTER_ADMIN_NULL',
+          message: 'masterAdmin est null, impossible d\'accéder à athletes_registry'
+        }, 'error');
+        throw new Error('masterAdmin non disponible');
+      }
       
-      if (supabaseUrl && supabaseKey) {
-        const supabaseMaster = createClient(supabaseUrl, supabaseKey);
-        const { data } = await supabaseMaster
-          .from('athletes_registry')
-          .select('dossier_ref')
-          .eq('email', clientEmail)
-          .maybeSingle();
-        
-        registryEntry = data;
-        
-        if (registryEntry?.dossier_ref) {
-          finalDossierRef = registryEntry.dossier_ref;
-          await forceLog(`confirm-signal-${requestId}`, {
-            event: 'REF_TROUVEE_MASTER',
-            dossier_ref: finalDossierRef
-          }, 'info');
-        }
+      const { data } = await masterAdmin
+        .from('athletes_registry')
+        .select('dossier_ref')
+        .eq('email', clientEmail)
+        .maybeSingle();
+      
+      registryEntry = data;
+      
+      if (registryEntry?.dossier_ref) {
+        finalDossierRef = registryEntry.dossier_ref;
+        await forceLog(`confirm-signal-${requestId}`, {
+          event: 'REF_TROUVEE_MASTER',
+          dossier_ref: finalDossierRef
+        }, 'info');
       }
     } catch (registryError) {
       const error = registryError as Error;
@@ -281,18 +249,17 @@ export async function GET(request: NextRequest) {
     if (!registryEntry?.dossier_ref) {
       try {
         const GITHUB_TOKEN = process.env.GITHUB_ARCHIVE_TOKEN;
-        const REPO_OWNER = "AirsoftSystem";
-        const targetRepo = stationConfig.github_repo || "VAGONDYS_ARCHIVES_DATA";
+        const GITHUB_REPO = process.env.GITHUB_ARCHIVE_REPO;
         const emailSlug = clientEmail.replace(/[@.]/g, '_');
 
         await forceLog(`confirm-signal-${requestId}`, {
           event: 'RECHERCHE_GITHUB_DEBUT',
-          repo: targetRepo,
+          repo: GITHUB_REPO,
           emailSlug
         }, 'info');
 
         const githubRes = await fetch(
-          `https://api.github.com/repos/${REPO_OWNER}/${targetRepo}/contents/archives`,
+          `https://api.github.com/repos/${GITHUB_REPO}/contents/archives`,
           {
             headers: {
               'Authorization': `Bearer ${GITHUB_TOKEN}`,
@@ -304,7 +271,7 @@ export async function GET(request: NextRequest) {
         );
 
         if (githubRes.ok) {
-          const files: GitHubFile[] = await githubRes.json();
+          const files: Array<{name: string; path: string; download_url: string}> = await githubRes.json();
           const archivedFile = files.find((f) => f.name.toLowerCase().includes(emailSlug));
           
           if (archivedFile) {
@@ -444,7 +411,9 @@ export async function GET(request: NextRequest) {
             confirmed: true,
             is_read: true,
             is_new_athlete: signal.is_new_athlete,
-            created_at: signal.created_at
+            created_at: signal.created_at,
+            city: city,
+            country: country
           }]);
         publicError = insertPublicError;
       }

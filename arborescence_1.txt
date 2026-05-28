@@ -1180,20 +1180,18 @@ VAGONDYS/
 /*
 VAGONDYS / Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
 ┃
-VSC > Guithub > Vercel + Cloudlare + Render <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Flutter <-> Esp32 <-> Arduino < Cibles
+VSC > Guithub > Vercel + Cloudlare + Resend <-> Supabase <-> Coffre-Fort Guithub <-> Supabase <-> Raspberry Pi 5 <-> Caméra V3 Infrarouge <-> Cibles Motorisé & PP EXTRUDE GRIS 7032 < Billes Airsoft 0.25g (Blanche) < Distance (5, 10, 15m) < Tireur Airsoft (EAG & GBB)
 ┃
-Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , ino , py , dart
+Langages utilisés / pdf > md , txt , ts , tsx , js , html , sql , py
 ┃
 PROJET_VAGONDYS/
-┣━ flutter
-┃  ┗━ esp32
-┃     ┗━ arduino
-┃        ┗━ cibles
-┃           ┗━ airsoft
+┣━ Raspberry Pi 5
+┃  ┗━ cibles
+┃     ┗━ airsoft
 ┗━>
 ┣━ vsc
 ┃  ┗━ github
-┃     ┗━ vercel + cloudlare + render
+┃     ┗━ vercel + cloudlare + resend
 ┃        ┗━ supabase
 ┃           ┗━ coffre-fort github
 ┗━>

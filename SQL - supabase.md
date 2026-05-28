@@ -425,3 +425,80 @@ CREATE INDEX IF NOT EXISTS idx_time_slots_city ON time_slots(city);
 CREATE INDEX IF NOT EXISTS idx_time_slots_status ON time_slots(status);
 CREATE INDEX IF NOT EXISTS idx_time_slots_date_city ON time_slots(date, city);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Option B → PASSER à l'architecture UNIFIÉE (1 GitHub + 1 Supabase)
+Ce que vous devez changer :
+
+1. GitHub : un seul repo avec arborescence par ville
+bash
+# Créer un seul repo: vagondys/archives
+mkdir -p archives/FR/NANTES/discussions
+mkdir -p archives/FR/NANTES/profils
+mkdir -p archives/FR/NANTES/documents
+mkdir -p archives/FR/LYON/discussions
+mkdir -p archives/ES/MADRID/discussions
+2. Supabase : un seul projet avec schémas
+sql
+-- Exécuter dans UN SEUL projet Supabase
+CREATE SCHEMA IF NOT EXISTS public;
+CREATE SCHEMA IF NOT EXISTS staff;
+CREATE SCHEMA IF NOT EXISTS registry;
+
+-- Table public.athletes (avec city)
+CREATE TABLE public.athletes (
+    id UUID PRIMARY KEY,
+    email TEXT NOT NULL,
+    city TEXT NOT NULL,  -- NANTES, LYON, MADRID
+    country TEXT DEFAULT 'FR',
+    ...
+);
+
+-- Table staff.pending_signals (avec city)
+CREATE TABLE staff.pending_signals (
+    id UUID PRIMARY KEY,
+    city TEXT NOT NULL,
+    ...
+);
+
+-- Table registry.athletes_registry
+CREATE TABLE registry.athletes_registry (
+    email TEXT PRIMARY KEY,
+    city TEXT NOT NULL,
+    country TEXT DEFAULT 'FR',
+    ...
+);
+3. Modifier le code pour utiliser UN SEUL client
+Vos fichiers unified-client.ts est déjà prêt pour ça ! Il suffit de :
+
+Supprimer toutes les variables d'environnement spécifiques aux villes dans .env.local
+
+Garder uniquement :
+
+bash
+# UNIQUEMENT ces variables
+NEXT_PUBLIC_SUPABASE_URL=https://votre-projet-unique.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY= votre_clé_anon
+SUPABASE_SERVICE_ROLE_KEY=votre_clé_service
+Utiliser createUnifiedServerClient et createUnifiedBrowserClient partout

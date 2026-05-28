@@ -1,14 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
-import { getStationConfig, masterAdmin } from './master'
+import { masterAdmin } from './master'
 import { cookies, headers } from 'next/headers'
 
 // ==========================================================
-// CLIENT UNIFIÉ POUR L'ARCHITECTURE MULTI-VILLE
+// CLIENT UNIFIÉ POUR L'ARCHITECTURE UNIFIÉE
 // ==========================================================
 // Ce fichier centralise l'accès à Supabase en un seul point d'entrée
-// Il remplace les appels dispersés à createVagondysClient, createStaffClient, etc.
+// Version simplifiée pour l'Option B (un seul projet Supabase)
 // ==========================================================
 
 export type ClientType = 'PUBLIC' | 'STAFF' | 'ADMIN'
@@ -23,7 +23,7 @@ export interface UnifiedClientOptions {
 /**
  * CLIENT CÔTÉ SERVEUR UNIFIÉ
  * Utilise createServerClient de @supabase/ssr pour la gestion des cookies
- * Inspiré de la version fonctionnelle de server.ts
+ * Version simplifiée - un seul projet Supabase, filtre city dans les requêtes
  */
 export async function createUnifiedServerClient(options: UnifiedClientOptions = {}) {
   const { 
@@ -36,10 +36,18 @@ export async function createUnifiedServerClient(options: UnifiedClientOptions = 
   const cookieStore = await cookies()
   const headerStore = await headers()
   
-  let url = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!
-  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
+  // Utilisation des variables UNIQUES (plus de MASTER)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
   
-  // LOGIQUE D'AIGUILLAGE PRIORITAIRE
+  // Clé à utiliser selon le type et useServiceRole
+  let keyToUse = anonKey
+  if (useServiceRole && type !== 'ADMIN') {
+    keyToUse = serviceKey
+  }
+  
+  // LOGIQUE D'AIGUILLAGE PRIORITAIRE (pour la ville, pas pour la base)
   let activeCity = cityCode || headerStore.get('x-vgd-city')
   let activeCountry = countryCode || headerStore.get('x-vgd-country')
 
@@ -69,20 +77,12 @@ export async function createUnifiedServerClient(options: UnifiedClientOptions = 
     }
   }
 
+  // Log pour tracer la ville active (sera utilisée comme filtre dans les requêtes)
   if (activeCity) {
-    const config = await getStationConfig(activeCity, activeCountry || 'FR')
-    if (config) {
-      if (type === 'PUBLIC') {
-        url = config.public_url
-        anonKey = useServiceRole ? config.public_service_key : config.public_anon_key
-      } else if (type === 'STAFF') {
-        url = config.staff_url
-        anonKey = useServiceRole ? config.staff_service_key : config.staff_anon_key
-      }
-    }
+    console.log(`createUnifiedServerClient: Connexion pour ${activeCountry}_${activeCity} (type: ${type}, filtre city dans les requêtes)`)
   }
 
-  return createServerClient(url, anonKey, {
+  return createServerClient(url, keyToUse, {
     cookies: {
       getAll() {
         return cookieStore.getAll().map(cookie => ({
@@ -104,40 +104,18 @@ export async function createUnifiedServerClient(options: UnifiedClientOptions = 
 /**
  * CLIENT CÔTÉ NAVIGATEUR UNIFIÉ
  * Utilise createBrowserClient de @supabase/ssr
+ * Version simplifiée - un seul projet Supabase
  */
 export function createUnifiedBrowserClient(options: UnifiedClientOptions = {}) {
   const { cityCode, countryCode = 'FR', type = 'PUBLIC' } = options
 
-  const masterUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER
-  const masterKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER
+  // Utilisation des variables UNIQUES (plus de MASTER)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  let supabaseUrl = masterUrl
-  let supabaseKey = masterKey
-
+  // Log pour tracer la ville active (sera utilisée comme filtre dans les requêtes)
   if (cityCode) {
-    const city = cityCode.toUpperCase().trim()
-    const country = countryCode.toUpperCase().trim()
-    const geoKey = `${country}_${city}`
-
-    if (type === 'PUBLIC') {
-      const dynamicUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${geoKey}`] || 
-                         process.env[`NEXT_PUBLIC_SUPABASE_URL_${city}`]
-      const dynamicKey = process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${geoKey}`] || 
-                         process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${city}`]
-      if (dynamicUrl) {
-        supabaseUrl = dynamicUrl
-        supabaseKey = dynamicKey || ""
-      }
-    } else if (type === 'STAFF') {
-      const dynamicUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${geoKey}_STAFF`] ||
-                         process.env[`NEXT_PUBLIC_SUPABASE_URL_${city}_STAFF`]
-      const dynamicKey = process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${geoKey}_STAFF`] ||
-                         process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${city}_STAFF`]
-      if (dynamicUrl && dynamicKey) {
-        supabaseUrl = dynamicUrl
-        supabaseKey = dynamicKey
-      }
-    }
+    console.log(`createUnifiedBrowserClient: Connexion pour ${countryCode}_${cityCode} (type: ${type}, filtre city dans les requêtes)`)
   }
 
   if (!supabaseUrl || !supabaseKey) {
@@ -154,15 +132,17 @@ export function createUnifiedBrowserClient(options: UnifiedClientOptions = {}) {
 /**
  * CLIENT ADMIN UNIFIÉ (Service Role)
  * Pour les opérations d'écriture critiques côté serveur uniquement
+ * Version simplifiée - un seul projet Supabase
  */
 export async function createUnifiedAdminClient(cityCode: string, countryCode: string = 'FR', type: 'PUBLIC' | 'STAFF' = 'PUBLIC') {
-  const config = await getStationConfig(cityCode, countryCode)
-  if (!config) {
-    throw new Error(`Impossible de créer le client Admin pour ${countryCode}_${cityCode}`)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+  if (!url || !serviceKey) {
+    throw new Error(`Impossible de créer le client Admin: variables d'environnement manquantes`)
   }
 
-  const url = type === 'PUBLIC' ? config.public_url : config.staff_url
-  const serviceKey = type === 'PUBLIC' ? config.public_service_key : config.staff_service_key
+  console.log(`createUnifiedAdminClient: Connexion admin pour ${countryCode}_${cityCode} (type: ${type}) - filtre city dans les requêtes`)
 
   return createClient(url, serviceKey)
 }
@@ -179,10 +159,10 @@ export async function getCurrentCityFromRequest(): Promise<{ cityCode: string | 
   let countryCode = headerStore.get('x-vgd-country')
 
   if (!cityCode || !countryCode) {
-    const masterUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!
-    const masterKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     
-    const supabaseAuth = createServerClient(masterUrl, masterKey, {
+    const supabaseAuth = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll().map(cookie => ({
@@ -233,19 +213,27 @@ export async function canAccessCity(
 // ==========================================================
 // EXPORT DES CLIENTS LÉGACY POUR LA COMPATIBILITÉ
 // Ces exports permettent une transition progressive sans casser le code existant
+// Note: Les fonctions legacy ne sont plus importées depuis './server' car ce fichier
+// sera supprimé. Utilisez createUnifiedServerClient ou createUnifiedBrowserClient à la place.
 // ==========================================================
 
 /**
  * @deprecated Utilisez createUnifiedServerClient({ type: 'PUBLIC' }) à la place
  */
-export { createVagondysClient as legacyVagondysClient } from './server'
+export async function legacyVagondysClient(cityCode?: string, countryCode?: string) {
+  return createUnifiedServerClient({ cityCode, countryCode, type: 'PUBLIC' })
+}
 
 /**
  * @deprecated Utilisez createUnifiedServerClient({ type: 'STAFF' }) à la place
  */
-export { createStaffClient as legacyStaffClient } from './server'
+export async function legacyStaffClient(cityCode?: string, countryCode?: string) {
+  return createUnifiedServerClient({ cityCode, countryCode, type: 'STAFF' })
+}
 
 /**
  * @deprecated Utilisez createUnifiedAdminClient() à la place
  */
-export { createAdminClient as legacyAdminClient } from './server'
+export async function legacyAdminClient(cityCode: string, countryCode: string = 'FR', type: 'PUBLIC' | 'STAFF' = 'PUBLIC') {
+  return createUnifiedAdminClient(cityCode, countryCode, type)
+}

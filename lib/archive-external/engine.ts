@@ -1,5 +1,5 @@
 
-import { getStationConfig } from "@/lib/supabase/master";
+import { getAthleteCity, getAthleteCountry } from "@/lib/supabase/master";
 import { findFileInRepo, upsertFile, deleteFile } from "./gh-client";
 import { getHistoryFromDB, purgeDossierData } from "./db-client";
 import { normalizeForPath } from "./utils";
@@ -43,7 +43,8 @@ interface ArchiveRequestBody {
 }
 
 /**
- * ARCHIVE ENGINE
+ * ARCHIVE ENGINE - Version adaptée pour l'Option B
+ * Utilise désormais le registry central pour obtenir la ville/pays
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   const { message, history, purgeActive, city_code, country_code, fullThread: providedFullThread } = body;
@@ -54,33 +55,48 @@ export async function processArchivePost(body: ArchiveRequestBody) {
 
   const payload = message.payload;
   const ref = message.dossier_ref;
+  const newEmail = String(payload?.email || "inconnu").toLowerCase().trim();
   
   // LOGIQUE DE TRIAGE : Priorité au city_code passé explicitement
-  const rawCity = (city_code || payload?.city || "NANTES").toUpperCase().trim();
+  // Sinon, tentative de récupération depuis le registry via l'email
+  let rawCity = (city_code || payload?.city || "").toUpperCase().trim();
+  let finalCountryCode = (country_code || "").toUpperCase().trim();
+  
+  // Si la ville n'est pas fournie, on tente de la récupérer depuis le registry
+  if (!rawCity && newEmail !== "inconnu") {
+    const registryCity = await getAthleteCity(newEmail);
+    const registryCountry = await getAthleteCountry(newEmail);
+    if (registryCity) {
+      rawCity = registryCity.toUpperCase().trim();
+      finalCountryCode = finalCountryCode || (registryCountry || "FR").toUpperCase().trim();
+      console.log(`📦 Archivage: ville récupérée depuis registry: ${finalCountryCode}_${rawCity}`);
+    }
+  }
+  
+  // Fallback par défaut
+  if (!rawCity) {
+    rawCity = "NANTES";
+  }
+  
+  // Normalisation du code pays
   const rawCountryName = (payload?.country || "FRANCE").toUpperCase().trim();
-
-  // NORMALISATION DU CODE PAYS
-  const finalCountryCode = country_code || ((rawCountryName === "ESPAGNE" || rawCountryName === "ES") ? "ES" : "FR");
-
-  const config = await getStationConfig(rawCity, finalCountryCode);
-  
-  if (!config) {
-    throw new Error(`❌ CONFIGURATION INTROUVABLE : Aucune station trouvée pour ${finalCountryCode}_${rawCity}`);
+  if (!finalCountryCode) {
+    finalCountryCode = (rawCountryName === "ESPAGNE" || rawCountryName === "ES") ? "ES" : "FR";
   }
   
-  if (!config.github_repo || !config.github_token) {
-    throw new Error(`❌ CONFIGURATION GITHUB MANQUANTE pour ${finalCountryCode}_${rawCity}. github_repo: ${!!config.github_repo}, github_token: ${!!config.github_token}`);
-  }
+  // Configuration GitHub (Repo unique pour toutes les archives)
+  const targetRepo = process.env.GITHUB_ARCHIVE_REPO;
+  const customToken = process.env.GITHUB_ARCHIVE_TOKEN;
   
-  const targetRepo = config.github_repo;
-  const customToken = config.github_token;
+  if (!targetRepo || !customToken) {
+    throw new Error(`❌ CONFIGURATION GITHUB MANQUANTE: GITHUB_ARCHIVE_REPO et GITHUB_ARCHIVE_TOKEN doivent être définis`);
+  }
   
   console.log(`📦 Archivage vers: ${targetRepo} (ville ${rawCity}/${finalCountryCode})`);
 
   // Préparation du chemin et du nom de fichier
-  const normCountry = normalizeForPath(rawCountryName);
+  const normCountry = normalizeForPath(finalCountryCode === "ES" ? "ESPAGNE" : "FRANCE");
   const normCity = normalizeForPath(rawCity);
-  const newEmail = String(payload?.email || "inconnu").toLowerCase().trim();
   const emailSlug = newEmail.replace(/[@.]/g, "_");
   
   const fileName = `${emailSlug}_${ref}.json`;

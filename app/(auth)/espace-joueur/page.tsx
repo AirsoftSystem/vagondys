@@ -137,10 +137,11 @@ type TabType = 'stats' | 'tournaments';
 export default function EspaceJoueur() {
   const router = useRouter();
   
-  // ✅ CORRECTION : Stocker le client de données séparément
+  // ✅ CORRECTION : Stocker le client de données séparément (version unifiée Option B)
   const [supabaseData, setSupabaseData] = useState<ReturnType<typeof createVagondysClient> | null>(null);
   
-  // Client par défaut pour l'AUTH (Master)
+  // Client par défaut pour l'AUTH (projet unique - Option B)
+  // createVagondysClient sans paramètre utilise maintenant les variables unifiées
   const supabaseAuth = createVagondysClient();
   
   const [loading, setLoading] = useState(true);
@@ -350,7 +351,7 @@ export default function EspaceJoueur() {
   // ==========================================
   const fetchPlayerData = useCallback(async () => {
     try {
-      // 1. On récupère la session sur le Master
+      // 1. On récupère la session sur le projet UNIQUE (Option B)
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
       
       if (authError || !user) {
@@ -358,16 +359,18 @@ export default function EspaceJoueur() {
         return;
       }
 
-      // 2. Identification de la ville cible
+      // 2. Identification de la ville cible (depuis user_metadata ou fallback)
       const userCity = user.user_metadata?.city || "NANTES";
+      const userCountry = user.user_metadata?.country || "FR";
       
-      // 3. ✅ CORRECTION : Créer le client de données AVEC la ville
-      const dataClient = createVagondysClient(userCity);
+      // 3. ✅ Créer le client de données AVEC la ville (filtre city dans les requêtes)
+      // En Option B, la ville est utilisée comme filtre, pas pour changer de base
+      const dataClient = createVagondysClient(userCity, userCountry);
       setSupabaseData(dataClient);
       userIdRef.current = user.id;
       setPlayerId(user.id); // ✅ Stocker l'ID dans l'état pour le rendu
 
-      // 4. Lecture des données dans la base de la VILLE
+      // 4. Lecture des données dans le projet UNIQUE avec filtre city
       const { data, error: profileError } = await dataClient
         .from('athletes')
         .select('*')
@@ -405,7 +408,7 @@ export default function EspaceJoueur() {
         await loadMatchHistory(user.id);
 
         if (playerData.dossier_ref) {
-          const archiveData = await fetchGitHubArchive(playerData.dossier_ref);
+          const archiveData = await fetchGitHubArchive(playerData.dossier_ref, userCity, userCountry);
           setArchive(archiveData);
         }
 

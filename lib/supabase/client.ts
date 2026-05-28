@@ -2,38 +2,22 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 /**
- * CLIENT CLIENT-SIDE DYNAMIQUE : PROJET VAGONDYS (Public)
- * Adapté pour se connecter à la structure spécifique via cityCode et countryCode
- * Utilise la nouvelle nomenclature Pays_Ville (ex: FR_NANTES)
+ * CLIENT CLIENT-SIDE UNIFIÉ : PROJET VAGONDYS (Public)
+ * Version simplifiée - utilise un seul projet Supabase avec filtre city
  */
 export function createVagondysClient(cityCode?: string, countryCode?: string, cityKey?: string) {
-  // 1. Récupération des variables MASTER (Défaut)
-  const masterUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-  const masterKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER;
+  // Récupération des variables UNIQUES (plus de MASTER)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  let supabaseUrl = masterUrl;
-  let supabaseKey = masterKey;
-
-  // 2. LOGIQUE D'AIGUILLAGE AUTOMATIQUE PAYS_VILLE
+  // La ville est maintenant utilisée comme FILTRE dans les requêtes, pas pour changer de base
   if (cityCode) {
-    const city = cityCode.toUpperCase().trim();
-    const country = (countryCode || 'FR').toUpperCase().trim();
-    const geoKey = `${country}_${city}`;
+    console.log(`createVagondysClient: Connexion pour ${countryCode || 'FR'}_${cityCode} (filtre city dans les requêtes)`);
+  }
 
-    // Tentative de récupération via la nouvelle norme (ex: NEXT_PUBLIC_SUPABASE_URL_FR_NANTES)
-    // Sinon repli sur l'ancienne (ex: NEXT_PUBLIC_SUPABASE_URL_NANTES)
-    const dynamicUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${geoKey}`] || process.env[`NEXT_PUBLIC_SUPABASE_URL_${city}`];
-    const dynamicKey = process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${geoKey}`] || process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${city}`];
-
-    if (dynamicUrl) {
-      supabaseUrl = dynamicUrl;
-      supabaseKey = dynamicKey || "";
-    } 
-    // Si cityCode est en fait une URL directe (cas de secours)
-    else if (cityCode.startsWith('http')) {
-      supabaseUrl = cityCode;
-      supabaseKey = cityKey || masterKey;
-    }
+  // cityKey est conservé pour compatibilité API mais non utilisé actuellement
+  if (cityKey) {
+    console.log(`createVagondysClient: cityKey présent mais non utilisé (conservé pour compatibilité)`);
   }
 
   // Sécurité anti-crash
@@ -50,35 +34,16 @@ export function createVagondysClient(cityCode?: string, countryCode?: string, ci
 
 /**
  * CLIENT CLIENT-SIDE : PROJET STAFF (Gestion interne)
- * Version DYNAMIQUE : se connecte à la base STAFF d'une ville spécifique.
+ * Version UNIFIÉE - utilise le même projet Supabase avec filtre city
  */
 export function createStaffClient(cityCode?: string, countryCode: string = 'FR') {
-  // 1. Récupération des variables MASTER (Défaut / Fallback)
-  const masterUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-  const masterKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER;
+  // Récupération des variables UNIQUES (plus de MASTER)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  let supabaseUrl = masterUrl;
-  let supabaseKey = masterKey;
-
-  // 2. LOGIQUE D'AIGUILLAGE VERS LA BASE STAFF DE LA VILLE
+  // La ville est maintenant utilisée comme FILTRE dans les requêtes
   if (cityCode) {
-    const city = cityCode.toUpperCase().trim();
-    const country = countryCode.toUpperCase().trim();
-    const geoKey = `${country}_${city}`;
-
-    // Tentative de récupération via la nouvelle norme (ex: NEXT_PUBLIC_SUPABASE_URL_FR_NANTES_STAFF)
-    // Note: Ces variables DOIVENT être préfixées par NEXT_PUBLIC_ pour être accessibles côté client.
-    const dynamicUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${geoKey}_STAFF`] ||
-                       process.env[`NEXT_PUBLIC_SUPABASE_URL_${city}_STAFF`];
-    const dynamicKey = process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${geoKey}_STAFF`] ||
-                       process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${city}_STAFF`];
-
-    if (dynamicUrl && dynamicKey) {
-      supabaseUrl = dynamicUrl;
-      supabaseKey = dynamicKey;
-    } else {
-      console.warn(`createStaffClient: Variables NEXT_PUBLIC_..._STAFF pour ${geoKey} introuvables. Utilisation du MASTER.`);
-    }
+    console.log(`createStaffClient: Connexion staff pour ${countryCode}_${cityCode} (filtre city dans les requêtes)`);
   }
 
   // Sécurité anti-crash
