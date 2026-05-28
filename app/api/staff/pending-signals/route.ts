@@ -1,7 +1,6 @@
 
 // app/api/staff/pending-signals/route.ts
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
 import { getStaffCity } from "@/actions/staff-actions";
 
 export async function GET(request: Request) {
@@ -18,12 +17,37 @@ export async function GET(request: Request) {
 
     console.log(`🔍 API pending-signals pour ${city} (${country}) - vue: ${view}`);
 
-    // ✅ Client ADMIN dynamique pour la ville de l'agent
-    const adminClient = await createAdminClient(city, country || "FR", "STAFF");
+    // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
+    const { createClient } = await import("@supabase/supabase-js");
+    
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    // ✅ VÉRIFICATION CRITIQUE : Les variables doivent exister
+    if (!supabaseUrl) {
+      console.error("❌ pending-signals API: NEXT_PUBLIC_SUPABASE_URL manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    if (!supabaseServiceKey) {
+      console.error("❌ pending-signals API: SUPABASE_SERVICE_ROLE_KEY manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    // ✅ Client ADMIN avec SERVICE_ROLE (côté serveur, créé à l'exécution)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const cityUpper = city.toUpperCase().trim();
+    const countryUpper = (country || "FR").toUpperCase().trim();
 
     let query = adminClient
       .from("pending_signals")
       .select("*")
+      .eq("city", cityUpper)
+      .eq("country", countryUpper)
       .order("created_at", { ascending: false });
 
     // Filtrer par statut de lecture
@@ -48,7 +72,7 @@ export async function GET(request: Request) {
       else if (lowerEmail.includes("player")) keyword = "player";
       else if (lowerEmail.includes("licence")) keyword = "licence";
       else if (lowerEmail.includes("reservations")) keyword = "reservation";
-      else if (lowerEmail.includes(city.toLowerCase())) keyword = city.toLowerCase();
+      else if (lowerEmail.includes(cityUpper.toLowerCase())) keyword = cityUpper.toLowerCase();
 
       if (keyword) {
         query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
