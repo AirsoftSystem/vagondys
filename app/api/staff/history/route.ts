@@ -1,6 +1,5 @@
 
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
 import { getStaffCity } from "@/actions/staff-actions";
 
 export async function GET(request: Request) {
@@ -33,14 +32,41 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Agent non identifié" }, { status: 401 });
     }
 
-    const adminClient = await createAdminClient(city, country, "STAFF");
-    console.log(`✅ history: client ADMIN créé pour ${city}`);
+    // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
+    const { createClient } = await import("@supabase/supabase-js");
+    
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    // ✅ VÉRIFICATION CRITIQUE : Les variables doivent exister
+    if (!supabaseUrl) {
+      console.error("❌ history API: NEXT_PUBLIC_SUPABASE_URL manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    if (!supabaseServiceKey) {
+      console.error("❌ history API: SUPABASE_SERVICE_ROLE_KEY manquante");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    // ✅ Client ADMIN avec SERVICE_ROLE (côté serveur, créé à l'exécution)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    // 1. Récupérer les réponses du staff
+    const cityUpper = city.toUpperCase().trim();
+    const countryUpper = country.toUpperCase().trim();
+
+    console.log(`✅ history: client ADMIN créé pour ${cityUpper}/${countryUpper}`);
+
+    // 1. Récupérer les réponses du staff (avec filtre city)
     const { data: replies, error: repliesError } = await adminClient
       .from("communication_replies")
       .select("*")
       .eq("dossier_ref", dossierRef)
+      .eq("city", cityUpper)
+      .eq("country", countryUpper)
       .order("created_at", { ascending: false });
 
     if (repliesError) {
@@ -49,11 +75,13 @@ export async function GET(request: Request) {
       console.log(`📦 history: ${replies?.length || 0} réponses staff trouvées`);
     }
 
-    // 2. Récupérer le signal client (un seul par dossier)
+    // 2. Récupérer le signal client (un seul par dossier) (avec filtre city)
     const { data: clientSignal, error: clientError } = await adminClient
       .from("pending_signals")
       .select("*")
       .eq("dossier_ref", dossierRef)
+      .eq("city", cityUpper)
+      .eq("country", countryUpper)
       .maybeSingle();
 
     if (clientError) {
@@ -84,17 +112,12 @@ export async function GET(request: Request) {
       const payload = clientSignal.payload;
       const messagesHistory = payload.messages_history || [];
       
-      // ✅ Ajouter le message initial (premier message) s'il n'est pas déjà dans l'historique
-      // ✅ CORRECTION : Vérifier si le message initial n'est pas déjà présent dans messagesHistory
+      // ✅ Ajouter le message initial s'il n'est pas déjà dans l'historique
       if (payload.message) {
-        // Vérifier si le message initial (payload.message) est déjà dans l'historique
-        // ou si l'historique contient déjà le premier message
         const isAlreadyInHistory = messagesHistory.some(
           (m: { content: string }) => m.content === payload.message
         );
         
-        // Si l'historique est vide OU que le message n'est pas dans l'historique
-        // on ajoute le message initial avec la date du signal
         if (messagesHistory.length === 0 || !isAlreadyInHistory) {
           clientHistoryMessages.push({
             id: `${clientSignal.id}_initial`,
@@ -108,9 +131,8 @@ export async function GET(request: Request) {
         }
       }
       
-      // ✅ Ajouter tous les messages de l'historique (sauf si c'est le même que le message initial déjà ajouté)
+      // ✅ Ajouter tous les messages de l'historique
       messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
-        // Éviter d'ajouter un doublon du message initial
         const isDuplicateOfInitial = payload.message === msg.content && 
                                      clientHistoryMessages.some(m => m.content === msg.content);
         
@@ -128,7 +150,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // 5. Rechercher les dossiers liés
+    // 5. Rechercher les dossiers liés (avec filtre city)
     let linkedDossiers: string[] = [];
     if (clientEmail) {
       console.log(`🔗 history: recherche dossiers liés pour ${clientEmail}`);
@@ -137,6 +159,8 @@ export async function GET(request: Request) {
         .from("pending_signals")
         .select("dossier_ref")
         .eq("payload->>email", clientEmail)
+        .eq("city", cityUpper)
+        .eq("country", countryUpper)
         .neq("dossier_ref", dossierRef)
         .not("dossier_ref", "is", null);
 
@@ -150,6 +174,8 @@ export async function GET(request: Request) {
           .from("communication_replies")
           .select("dossier_ref")
           .eq("agent_email", clientEmail)
+          .eq("city", cityUpper)
+          .eq("country", countryUpper)
           .neq("dossier_ref", dossierRef)
           .not("dossier_ref", "is", null);
 
