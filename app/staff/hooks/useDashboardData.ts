@@ -11,7 +11,6 @@ import {
   TopPlayer,
   DashboardData 
 } from '../types/dashboard';
-import { getStationConfig } from '@/lib/supabase/master';
 
 // ✅ Interface pour typer les matchs provenant de l'API PUBLIC
 interface PublicMatchData {
@@ -20,6 +19,15 @@ interface PublicMatchData {
   score: number;
   win: boolean;
   playerName: string;
+}
+
+// ✅ Interface pour typer les données de l'API public-data
+interface PublicDataResponse {
+  totalAthletes: number;
+  activeAthletes: number;
+  newAthletesThisMonth: number;
+  topPlayers: TopPlayer[];
+  recentMatches: PublicMatchData[];
 }
 
 export function useDashboardData(
@@ -52,21 +60,24 @@ export function useDashboardData(
     setError(null);
 
     try {
-      const stationConfig = await getStationConfig(userCity, 'FR');
+      // ✅ Option B : Plus de getStationConfig
+      // Les données de la ville sont directement utilisées
+      const cityName = userCity.toUpperCase().trim();
 
       // ✅ Récupérer les données PUBLIC via l'API Route
       const publicDataResponse = await fetch(`/api/staff/public-data?city=${userCity}&country=FR`);
-      const publicData = await publicDataResponse.json();
-
+      
       if (!publicDataResponse.ok) {
-        throw new Error(publicData.error || "Erreur récupération données PUBLIC");
+        throw new Error(`Erreur récupération données PUBLIC: ${publicDataResponse.status}`);
       }
+      
+      const publicData = await publicDataResponse.json() as PublicDataResponse;
 
       const client = supabaseClient;
 
       const cityInfoData: CityInfo = {
-        name: stationConfig?.name || userCity,
-        country: stationConfig?.country_code || 'FR',
+        name: cityName,
+        country: 'FR',
         totalAthletes: publicData.totalAthletes || 0,
         activeAthletes: publicData.activeAthletes || 0
       };
@@ -75,15 +86,19 @@ export function useDashboardData(
       let totalGameLaunches = 0;
 
       if (client) {
+        // ✅ Ajout du filtre city pour les pending_signals
         const { count: msgCount } = await client
           .from('pending_signals')
           .select('*', { count: 'exact', head: true })
-          .eq('is_read', false);
+          .eq('is_read', false)
+          .eq('city', cityName);
         pendingMessages = msgCount || 0;
 
+        // ✅ Ajout du filtre city pour les game_launches
         const { count: launchesCount } = await client
           .from('game_launches')
-          .select('*', { count: 'exact', head: true });
+          .select('*', { count: 'exact', head: true })
+          .eq('city', cityName);
         totalGameLaunches = launchesCount || 0;
       }
 
@@ -106,9 +121,11 @@ export function useDashboardData(
       const activities: RecentActivity[] = [];
 
       if (client) {
+        // ✅ Ajout du filtre city pour les messages récents
         const { data: recentMessages } = await client
           .from('pending_signals')
           .select('*')
+          .eq('city', cityName)
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -125,9 +142,11 @@ export function useDashboardData(
           });
         }
 
+        // ✅ Ajout du filtre city pour les lancements de jeux récents
         const { data: recentLaunches } = await client
           .from('game_launches')
           .select('*')
+          .eq('city', cityName)
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -145,7 +164,7 @@ export function useDashboardData(
         }
       }
 
-      // ✅ CORRECTION: Typage explicite pour éviter 'any'
+      // Ajout des matchs récents depuis l'API public-data
       if (publicData.recentMatches && publicData.recentMatches.length > 0) {
         publicData.recentMatches.forEach((match: PublicMatchData) => {
           activities.push({
@@ -170,15 +189,13 @@ export function useDashboardData(
     }
   }, [supabaseClient, userCity, userEmail]);
 
-  // ✅ CORRECTION: Chargement initial avec fonction async wrapper
+  // Chargement initial
   useEffect(() => {
     const loadData = async () => {
       await fetchDashboardData();
     };
     loadData();
   }, [fetchDashboardData]);
-
-  // ✅ PAS DE REALTIME - Supprimé complètement
 
   return {
     cityInfo,
