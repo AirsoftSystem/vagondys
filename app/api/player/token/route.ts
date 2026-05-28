@@ -1,10 +1,10 @@
 
 // app/api/player/token/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getStationConfig } from "@/lib/supabase/master";
 
 /**
  * API pour le STAFF : Récupérer un access_token joueur
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  * 
  * Méthode : GET
  * Paramètres :
@@ -21,13 +21,14 @@ export async function GET(request: NextRequest) {
     // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
     const { createClient } = await import("@supabase/supabase-js");
     
-    // ✅ Récupération des variables d'environnement à l'exécution
-    const masterUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const masterAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER;
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     // ✅ Vérification des variables critiques
-    if (!masterUrl || !masterAnonKey) {
-      console.error("Variables Supabase MASTER manquantes");
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      console.error("Variables Supabase manquantes");
       return NextResponse.json(
         { error: "Configuration serveur invalide" },
         { status: 500 }
@@ -53,10 +54,10 @@ export async function GET(request: NextRequest) {
 
     console.log(`[player/token] Token reçu: ${staffToken.substring(0, 20)}... (longueur: ${staffToken.length})`);
 
-    // Vérifier que le token appartient bien à un membre du STAFF
-    const supabaseMaster = createClient(masterUrl, masterAnonKey);
+    // ✅ Vérification avec le projet UNIQUE
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { data: { user: staffUser }, error: staffAuthError } = await supabaseMaster.auth.getUser(staffToken);
+    const { data: { user: staffUser }, error: staffAuthError } = await supabaseClient.auth.getUser(staffToken);
 
     if (staffAuthError) {
       console.error(`[player/token] 401 - Erreur auth getUser: ${staffAuthError.message}`);
@@ -76,13 +77,13 @@ export async function GET(request: NextRequest) {
 
     console.log(`[player/token] Utilisateur STAFF trouvé: ${staffUser.email}`);
 
-    // Vérifier que l'utilisateur a bien un rôle STAFF (via métadata ou table)
+    // Vérifier que l'utilisateur a bien un rôle STAFF
     const isStaff = staffUser.user_metadata?.role === "staff" || 
                     staffUser.email?.includes("staff") ||
                     staffUser.email === "vagondys@gmail.com";
 
     if (!isStaff) {
-      console.error(`[player/token] 403 - Utilisateur ${staffUser.email} n'a pas les droits STAFF. Metadata: ${JSON.stringify(staffUser.user_metadata)}`);
+      console.error(`[player/token] 403 - Utilisateur ${staffUser.email} n'a pas les droits STAFF.`);
       return NextResponse.json(
         { error: "Accès réservé au personnel STAFF." },
         { status: 403 }
@@ -102,37 +103,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`[player/token] Recherche du joueur: identifier=${identifier}, city=${cityCode}, country=${countryCode}`);
 
-    // 3. Récupérer la configuration de la station
-    const stationConfig = await getStationConfig(cityCode, countryCode);
-    if (!stationConfig) {
-      console.error(`[player/token] 404 - Station ${countryCode}_${cityCode} introuvable`);
-      return NextResponse.json(
-        { error: `Station ${countryCode}_${cityCode} introuvable.` },
-        { status: 404 }
-      );
-    }
+    // 3. Connexion à la base UNIQUE (avec service_role pour lire les joueurs)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    console.log(`[player/token] Station trouvée: ${stationConfig.name}`);
-
-    // 4. Connexion à la base de la station (avec service_role pour lire les joueurs)
-    const stationAdmin = createClient(
-      stationConfig.public_url,
-      stationConfig.public_service_key,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // 5. Rechercher le joueur par email ou pseudo
-    let playerQuery = stationAdmin
+    // 4. Rechercher le joueur par email ou pseudo (avec filtre city)
+    let playerQuery = supabaseAdmin
       .from("athletes")
       .select("id, email, full_name, pseudo, city, country, dossier_ref, status")
+      .eq("city", cityCode)
+      .eq("country", countryCode)
       .or(`email.ilike.%${identifier}%,pseudo.ilike.%${identifier}%`)
       .maybeSingle();
 
     // Si l'identifier contient un @, on cherche d'abord par email exact
     if (identifier.includes("@")) {
-      playerQuery = stationAdmin
+      playerQuery = supabaseAdmin
         .from("athletes")
         .select("id, email, full_name, pseudo, city, country, dossier_ref, status")
+        .eq("city", cityCode)
+        .eq("country", countryCode)
         .eq("email", identifier.toLowerCase())
         .maybeSingle();
     }
@@ -157,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[player/token] Joueur trouvé: ${player.email} (status: ${player.status})`);
 
-    // 6. Vérifier que le joueur est actif
+    // 5. Vérifier que le joueur est actif
     if (player.status !== "ACTIF") {
       console.error(`[player/token] 403 - Joueur ${player.email} non actif. Statut: ${player.status}`);
       return NextResponse.json(
@@ -178,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[player/token] Succès - Token généré pour ${player.email}, expiration dans 1h`);
 
-    // 7. Retourner les informations + le token
+    // 6. Retourner les informations + le token
     return NextResponse.json({
       success: true,
       player: {

@@ -2,27 +2,27 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendVerificationEmail } from "@/lib/email/gmail";
-import { registerAthlete, createDynamicClient } from "@/lib/supabase/master";
+import { registerAthlete } from "@/lib/supabase/master";
 
-// ✅ PLUS DE CRÉATION DE CLIENT STATIQUE - Tout sera dynamique dans la fonction
+// ✅ PLUS DE CRÉATION DE CLIENT DYNAMIQUE - Version Option B (un seul projet)
 
 export async function POST(request: Request) {
   try {
     // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
     const { createClient } = await import("@supabase/supabase-js");
     
-    // ✅ Récupération des variables (existent à l'exécution)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+    // ✅ Récupération des variables (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    // ✅ Vérification des variables (sans valeurs en dur)
+    // ✅ Vérification des variables
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase MASTER manquantes");
+      console.error("Variables Supabase manquantes");
       return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
     }
     
-    // ✅ Client Admin pour la base MASTER (créé à l'exécution seulement)
-    const supabaseMasterAdmin = createClient(supabaseUrl, supabaseKey);
+    // ✅ Client Admin pour le projet UNIQUE (créé à l'exécution seulement)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
     const body = await request.json();
     const { 
@@ -53,12 +53,11 @@ export async function POST(request: Request) {
     const cityCode = (city || "NANTES").toUpperCase().trim();
     const cleanEmail = email.toLowerCase().trim();
     
-    // Normalisation du code pays pour le routage (ex: FRANCE -> FR, ESPAGNE -> ES)
-    // On s'assure que c'est compatible avec les clés .env (ES_MADRID)
+    // Normalisation du code pays
     const countryCode = (country === "ESPAGNE" || country === "ES") ? "ES" : "FR";
 
     // 2. Création de l'utilisateur via ADMIN
-    const { data: authData, error: authError } = await supabaseMasterAdmin.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: cleanEmail,
       password: password,
       email_confirm: false, 
@@ -78,7 +77,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message.toUpperCase() }, { status: 400 });
     }
 
-    // 3. Procédure d'inscription multi-bases
+    // 3. Procédure d'inscription - Version Option B (un seul projet)
     if (authData?.user) {
       const userId = authData.user.id;
 
@@ -86,19 +85,11 @@ export async function POST(request: Request) {
         // --- ÉTAPE A : ANNUAIRE GLOBAL (MASTER) ---
         await registerAthlete(userId, cleanEmail, cityCode, countryCode);
 
-        // --- ÉTAPE B : CONNEXION DYNAMIQUE (VILLES) ---
-        const cityPublicClient = await createDynamicClient(cityCode, countryCode, 'PUBLIC');
+        // --- ÉTAPE B : INSERTION DIRECTE DANS LE PROJET UNIQUE (Option B) ---
+        // Plus besoin de createDynamicClient - on utilise le même client admin
         
-        let cityStaffClient;
-        try {
-          cityStaffClient = await createDynamicClient(cityCode, countryCode, 'STAFF');
-        } catch {
-          console.warn(`Mode STAFF non configuré pour ${countryCode}_${cityCode}, repli sur mode PUBLIC.`);
-          cityStaffClient = cityPublicClient;
-        }
-
-        // Insertion Profil Athlète dans la base de la VILLE
-        const { error: dbError } = await cityPublicClient
+        // Insertion Profil Athlète dans la table athletes (avec city pour filtrage)
+        const { error: dbError } = await supabaseAdmin
           .from("athletes")
           .insert([{
             id: userId,
@@ -110,14 +101,32 @@ export async function POST(request: Request) {
             country: countryCode, 
             dossier_ref: dossierRef || "0",
             status: "INACTIF",
+            rank: "RECRUE",
+            points: 0,
+            total_matches: 0,
+            total_score: 0,
+            total_shots: 0,
+            total_kills: 0,
+            total_deaths: 0,
+            total_assists: 0,
+            total_hits_head: 0,
+            total_hits_body: 0,
+            total_hits_legs: 0,
+            current_grade_id: 1,
+            precision_progress: 0,
+            current_cycle_shot_count: 0,
+            current_cycle_precision: 0
           }]);
 
         if (dbError) {
           // Si l'erreur est liée au cache du schéma, on tente une seconde fois après un mini-délai
           if (dbError.message.includes("cache")) {
              await new Promise(resolve => setTimeout(resolve, 500));
-             const { error: retryError } = await cityPublicClient.from("athletes").insert([{
-                id: userId, full_name, pseudo, email: cleanEmail, phone, city: cityCode, country: countryCode, dossier_ref: dossierRef, status: "INACTIF"
+             const { error: retryError } = await supabaseAdmin.from("athletes").insert([{
+                id: userId, full_name, pseudo, email: cleanEmail, phone, city: cityCode, country: countryCode, dossier_ref: dossierRef, status: "INACTIF",
+                rank: "RECRUE", points: 0, total_matches: 0, total_score: 0, total_shots: 0, total_kills: 0, total_deaths: 0, total_assists: 0,
+                total_hits_head: 0, total_hits_body: 0, total_hits_legs: 0, current_grade_id: 1, precision_progress: 0,
+                current_cycle_shot_count: 0, current_cycle_precision: 0
              }]);
              if (retryError) throw new Error(`BASE_VILLE_ERROR: ${retryError.message}`);
           } else {
@@ -125,8 +134,8 @@ export async function POST(request: Request) {
           }
         }
 
-        // --- ÉTAPE C : SIGNALEMENT AU STAFF (BASE VILLE) ---
-        const { error: staffError } = await cityStaffClient
+        // --- ÉTAPE C : SIGNALEMENT AU STAFF (table pending_signals dans le même projet) ---
+        const { error: staffError } = await supabaseAdmin
           .from("pending_signals")
           .insert([{
             dossier_ref: dossierRef || "EN COURS...",
@@ -143,7 +152,9 @@ export async function POST(request: Request) {
             confirmed: false,
             is_read: false,
             is_new_athlete: true,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            city: cityCode,
+            country: countryCode
           }]);
           
         if (staffError) console.error("Erreur signalement staff (non bloquant):", staffError.message);
@@ -153,7 +164,7 @@ export async function POST(request: Request) {
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
 
-        const { error: tokenError } = await supabaseMasterAdmin
+        const { error: tokenError } = await supabaseAdmin
           .from("email_confirmations")
           .insert([{
             user_id: userId,
@@ -187,7 +198,7 @@ export async function POST(request: Request) {
       } catch (subStepError: unknown) {
         // ROLLBACK : On supprime l'utilisateur Auth si une étape critique échoue
         const errorMessage = subStepError instanceof Error ? subStepError.message : "Erreur inconnue";
-        await supabaseMasterAdmin.auth.admin.deleteUser(userId);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
         
         console.error("ÉCHEC PROCÉDURE INSCRIPTION (ROLLBACK EFFECTUÉ):", errorMessage);
         return NextResponse.json(

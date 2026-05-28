@@ -1,17 +1,22 @@
 
 import { GitHubFile, HistoryRow } from "./types";
-import { createDynamicClient } from "@/lib/supabase/master";
 import { createClient } from "@supabase/supabase-js";
 
 // Propriétaire par défaut mis à jour selon .env.local (MASTER)
 const DEFAULT_OWNER = "vagondys";
 const BRANCH = "main";
 
-// Client MASTER pour les opérations par défaut
-export const supabaseMaster = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER!
-);
+// ✅ Option B : Client UNIQUE pour les opérations par défaut
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+export const supabaseMaster = (supabaseUrl && supabaseServiceKey) 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
+
+if (!supabaseMaster) {
+  console.warn("⚠️ db-client.ts: Supabase client non initialisé (variables manquantes)");
+}
 
 /**
  * Helper pour construire l'URL GitHub API
@@ -71,7 +76,7 @@ export async function findFileInRepo(
       const found = await findFileInRepo(ref, token, repoName, item.path, countryCode);
       if (found) return found;
     } else if (item.type === "file") {
-      // ✅ AJOUT : Deuxième méthode de comparaison (match direct avec la référence complète)
+      // ✅ Deuxième méthode de comparaison (match direct avec la référence complète)
       const itemNameClean = item.name.replace(/-/g, "").toLowerCase();
       if (itemNameClean.includes(cleanRef) || item.name.includes(ref)) {
         return item;
@@ -158,72 +163,70 @@ export async function deleteFile(
 }
 
 // ============================================================
-// ✅ AJOUT : FONCTION RECHERCHE PAR EMAIL (pour route.ts)
+// ✅ FONCTION RECHERCHE PAR EMAIL (pour route.ts)
+// Version adaptée pour l'Option B (un seul projet Supabase)
 // ============================================================
 
 /**
  * Recherche un signal actif par email
  * @param email - Email du client
- * @param cityCode - Code de la ville (optionnel, pour cibler une base STAFF spécifique)
+ * @param cityCode - Code de la ville (optionnel, pour filtrer)
  * @returns Le signal trouvé (ou null)
  */
 export async function findActiveSignalByEmail(
   email: string, 
   cityCode?: string
 ): Promise<{ dossier_ref: string } | null> {
-  console.log(`🔍 findActiveSignalByEmail: recherche pour ${email}${cityCode ? ` sur ${cityCode}` : ' (MASTER)'}`);
+  console.log(`🔍 findActiveSignalByEmail: recherche pour ${email}${cityCode ? ` sur ${cityCode}` : ' (toutes villes)'}`);
+  
+  if (!supabaseMaster) {
+    console.error("❌ findActiveSignalByEmail: supabaseMaster non initialisé");
+    return null;
+  }
   
   try {
-    let client;
+    // ✅ Option B : Recherche directe dans pending_signals (avec filtre city optionnel)
+    let query = supabaseMaster
+      .from("pending_signals")
+      .select("dossier_ref")
+      .eq("payload->>email", email.toLowerCase())
+      .not("dossier_ref", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
     
+    // Ajouter le filtre city si fourni
     if (cityCode) {
-      // Recherche dans la base STAFF de la ville spécifique
-      client = await createDynamicClient(cityCode, 'FR', 'STAFF');
-      console.log(`🔍 findActiveSignalByEmail: recherche dans STAFF de ${cityCode}`);
-    } else {
-      // Recherche dans MASTER (athletes_registry)
-      client = supabaseMaster;
-      console.log(`🔍 findActiveSignalByEmail: recherche dans MASTER`);
+      query = query.eq("city", cityCode.toUpperCase());
+      console.log(`🔍 findActiveSignalByEmail: recherche avec filtre city=${cityCode}`);
     }
     
-    // Déterminer la table et la condition selon le type de client
-    if (cityCode) {
-      // Dans STAFF, chercher dans pending_signals
-      const { data, error } = await client
-        .from("pending_signals")
-        .select("dossier_ref")
-        .eq("payload->>email", email.toLowerCase())
-        .not("dossier_ref", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) {
-        console.error(`❌ findActiveSignalByEmail: erreur STAFF pour ${cityCode}:`, error);
-        return null;
-      }
-      
-      if (data?.dossier_ref) {
-        console.log(`✅ findActiveSignalByEmail: trouvé dans STAFF ${cityCode}: ${data.dossier_ref}`);
-        return { dossier_ref: data.dossier_ref };
-      }
-    } else {
-      // Dans MASTER, chercher dans athletes_registry
-      const { data, error } = await client
-        .from("athletes_registry")
-        .select("dossier_ref")
-        .eq("email", email.toLowerCase())
-        .maybeSingle();
-      
-      if (error) {
-        console.error(`❌ findActiveSignalByEmail: erreur MASTER:`, error);
-        return null;
-      }
-      
-      if (data?.dossier_ref) {
-        console.log(`✅ findActiveSignalByEmail: trouvé dans MASTER: ${data.dossier_ref}`);
-        return { dossier_ref: data.dossier_ref };
-      }
+    const { data, error } = await query.maybeSingle();
+    
+    if (error) {
+      console.error(`❌ findActiveSignalByEmail: erreur:`, error);
+      return null;
+    }
+    
+    if (data?.dossier_ref) {
+      console.log(`✅ findActiveSignalByEmail: trouvé: ${data.dossier_ref}`);
+      return { dossier_ref: data.dossier_ref };
+    }
+    
+    // Fallback: recherche dans athletes_registry
+    const { data: registryData, error: registryError } = await supabaseMaster
+      .from("athletes_registry")
+      .select("dossier_ref")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+    
+    if (registryError) {
+      console.error(`❌ findActiveSignalByEmail: erreur registry:`, registryError);
+      return null;
+    }
+    
+    if (registryData?.dossier_ref) {
+      console.log(`✅ findActiveSignalByEmail: trouvé dans registry: ${registryData.dossier_ref}`);
+      return { dossier_ref: registryData.dossier_ref };
     }
     
     console.log(`ℹ️ findActiveSignalByEmail: aucun dossier trouvé pour ${email}`);
@@ -236,38 +239,42 @@ export async function findActiveSignalByEmail(
 }
 
 // ============================================================
-// ✅ AJOUT : FONCTIONS MANQUANTES POUR engine.ts
+// ✅ FONCTIONS MANQUANTES POUR engine.ts
+// Version adaptée pour l'Option B (un seul projet Supabase)
 // ============================================================
 
 /**
  * Récupère l'historique des échanges depuis la table communication_replies
  * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
- * @param cityCode - Code de la ville (ex: NANTES)
- * @param countryCode - Code du pays (ex: FR)
+ * @param cityCode - Code de la ville (optionnel, pour filtrer)
+ * @param countryCode - Code du pays (optionnel, pour filtrer)
  */
 export async function getHistoryFromDB(
   ref: string, 
   cityCode?: string,
   countryCode: string = 'FR'
 ): Promise<HistoryRow[]> {
-  console.log(`📜 getHistoryFromDB: recherche historique pour ${ref} sur ${cityCode || 'MASTER'}`);
+  console.log(`📜 getHistoryFromDB: recherche historique pour ${ref}${cityCode ? ` sur ${cityCode}` : ''} (pays: ${countryCode})`);
+  
+  if (!supabaseMaster) {
+    console.error("❌ getHistoryFromDB: supabaseMaster non initialisé");
+    return [];
+  }
   
   try {
-    let client;
-    
-    if (cityCode) {
-      client = await createDynamicClient(cityCode, countryCode, 'STAFF');
-      console.log(`📜 getHistoryFromDB: client STAFF créé pour ${cityCode}/${countryCode}`);
-    } else {
-      client = supabaseMaster;
-      console.log(`📜 getHistoryFromDB: utilisation du MASTER`);
-    }
-    
-    const { data, error } = await client
+    // ✅ Option B : Recherche directe dans communication_replies
+    let query = supabaseMaster
       .from("communication_replies")
       .select("*")
       .eq("dossier_ref", ref)
       .order("created_at", { ascending: true });
+    
+    // Ajouter le filtre city si fourni
+    if (cityCode) {
+      query = query.eq("city", cityCode.toUpperCase());
+    }
+    
+    const { data, error } = await query;
     
     if (error) {
       console.error(`❌ getHistoryFromDB: erreur pour ${ref}:`, error);
@@ -286,32 +293,35 @@ export async function getHistoryFromDB(
 /**
  * Purge les données d'un dossier dans les tables actives
  * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
- * @param cityCode - Code de la ville (ex: NANTES)
- * @param countryCode - Code du pays (ex: FR)
+ * @param cityCode - Code de la ville (optionnel, pour filtrer)
+ * @param countryCode - Code du pays (optionnel, pour filtrer)
  */
 export async function purgeDossierData(
   ref: string, 
   cityCode?: string,
   countryCode: string = 'FR'
 ): Promise<{ purged: boolean; error?: string }> {
-  console.log(`🗑️ purgeDossierData: purge pour ${ref} sur ${cityCode || 'MASTER'} (${countryCode})`);
+  console.log(`🗑️ purgeDossierData: purge pour ${ref}${cityCode ? ` sur ${cityCode}` : ''} (${countryCode})`);
+  
+  if (!supabaseMaster) {
+    console.error("❌ purgeDossierData: supabaseMaster non initialisé");
+    return { purged: false, error: "Supabase client non initialisé" };
+  }
   
   try {
-    let client;
-    
-    if (cityCode) {
-      client = await createDynamicClient(cityCode, countryCode, 'STAFF');
-      console.log(`🗑️ purgeDossierData: client STAFF créé pour ${cityCode}/${countryCode}`);
-    } else {
-      client = supabaseMaster;
-      console.log(`🗑️ purgeDossierData: utilisation du MASTER`);
-    }
+    // ✅ Option B : Suppression directe dans les tables UNIQUES
     
     // Supprimer les réponses
-    const { error: repliesError } = await client
+    let repliesQuery = supabaseMaster
       .from("communication_replies")
       .delete()
       .eq("dossier_ref", ref);
+    
+    if (cityCode) {
+      repliesQuery = repliesQuery.eq("city", cityCode.toUpperCase());
+    }
+    
+    const { error: repliesError } = await repliesQuery;
     
     if (repliesError) {
       console.error(`❌ purgeDossierData: erreur suppression replies:`, repliesError);
@@ -319,10 +329,16 @@ export async function purgeDossierData(
     }
     
     // Supprimer le signal
-    const { error: signalsError } = await client
+    let signalsQuery = supabaseMaster
       .from("pending_signals")
       .delete()
       .eq("dossier_ref", ref);
+    
+    if (cityCode) {
+      signalsQuery = signalsQuery.eq("city", cityCode.toUpperCase());
+    }
+    
+    const { error: signalsError } = await signalsQuery;
     
     if (signalsError) {
       console.error(`❌ purgeDossierData: erreur suppression signals:`, signalsError);

@@ -2,11 +2,12 @@
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import type { Transporter, SentMessageInfo, SendMailOptions } from "nodemailer";
-import { getStationConfig, getAthleteCountry } from "../supabase/master";
+// getAthleteCountry est importé pour compatibilité future mais non utilisé actuellement
+// import { getAthleteCountry } from "../supabase/master";
 
 /**
  * Utilitaire d'envoi d'e-mails via Gmail SMTP (App Password).
- * Adapté pour l'envoi via alias et supporte désormais la logique "City-Aware".
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 
 /** Crée et retourne le transporter nodemailer configuré pour Gmail SMTP */
@@ -31,8 +32,7 @@ function createTransporter(): Transporter<SentMessageInfo> {
       ciphers: 'SSLv3',
       rejectUnauthorized: false
     },
-    // ✅ AJOUTÉ : Timeout pour éviter les blocages
-    connectionTimeout: 10000,      // 10 secondes
+    connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
   });
@@ -73,33 +73,28 @@ export async function sendGeneralEmail(
 }
 
 /**
- * ENVOI DE CONFIRMATION (Spécifique Inscription) - CITY AWARE
+ * ENVOI DE CONFIRMATION (Spécifique Inscription)
+ * Version adaptée pour l'Option B (plus de getStationConfig)
  * @param cityCode Code de la ville (ex: NANTES)
- * @param countryCode Code pays (ex: FR) - Ajouté pour la nomenclature Geo
  */
 export async function sendVerificationEmail(
   to: string,
   confirmUrl: string,
   userName: string,
   cityCode: string,
-  sectorName: string = "CELLULE D'ENRÔLEMENT",
-  countryCode: string = "FR"
+  sectorName: string = "CELLULE D'ENRÔLEMENT"
 ): Promise<SentMessageInfo> {
   console.log(`[EMAIL] sendVerificationEmail début - ${to} pour ${cityCode}`);
   
   try {
     const transporter = createTransporter();
     
-    console.log(`[EMAIL] Récupération config station pour ${cityCode}/${countryCode}`);
-    const config = await getStationConfig(cityCode, countryCode);
-    
-    // NETTOYAGE NOM VILLE POUR ÉVITER DOUBLON VAGONDYS
-    const rawName = config?.name || cityCode;
-    const cityName = rawName.replace(/VAGONDYS/gi, "").trim();
+    // ✅ Option B : Plus de getStationConfig, utilisation directe du cityCode
+    const cityName = cityCode.toUpperCase().trim();
     
     const fromEmail = process.env.GMAIL_SMTP_USER || "vagondys@gmail.com";
     const noReplyEmail = process.env.GMAIL_NOREPLY || "no-reply@vagondys.com";
-    const fromName = `Staff VAGONDYS ${cityName.toUpperCase()} (${sectorName})`;
+    const fromName = `Staff VAGONDYS ${cityName} (${sectorName})`;
     const senderFull = `"${fromName}" <${fromEmail}>`;
 
     // FIX ANTI-LOCALHOST : On force l'usage du domaine de production
@@ -112,12 +107,12 @@ export async function sendVerificationEmail(
     
     console.log(`[EMAIL] URL confirmation finale: ${finalConfirmUrl}`);
 
-    const subject = `[ACTION REQUISE] Confirmation Inscription ${cityName.toUpperCase()} — ${userName}`;
+    const subject = `[ACTION REQUISE] Confirmation Inscription ${cityName} — ${userName}`;
 
     const html = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center; max-width: 600px; margin: 0 auto; border-radius: 12px;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic; color:white;">
-          <span style="color:#dc2626;">VAGONDYS</span> ${cityName.toUpperCase()}
+          <span style="color:#dc2626;">VAGONDYS</span> ${cityName}
         </h1>
         
         <p style="font-size:12px; color:#a1a1aa; margin: 30px 0;">
@@ -133,7 +128,7 @@ export async function sendVerificationEmail(
 
         <div style="margin-top:40px; padding-top:20px; border-top:1px solid #18181b;">
           <p style="font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px; line-height:1.5;">
-            SÉCURITÉ : CET EMAIL EST GÉNÉRÉ PAR LA STATION ${cityName.toUpperCase()}.<br/>
+            SÉCURITÉ : CET EMAIL EST GÉNÉRÉ PAR LA STATION ${cityName}.<br/>
             TOUTE RÉPONSE DIRECTE EST BLOQUÉE PAR LE SERVEUR.<br/>
             TOUTE QUESTION : WWW.VAGONDYS.COM/CONTACT
           </p>
@@ -163,7 +158,8 @@ export async function sendVerificationEmail(
 }
 
 /**
- * ENVOI DE BIENVENUE (Après confirmation du compte) - CITY AWARE
+ * ENVOI DE BIENVENUE (Après confirmation du compte)
+ * Version adaptée pour l'Option B (plus de getStationConfig)
  * @param dossierRef Le matricule unique généré (ex: VGD-A1AA11)
  */
 export async function sendWelcomeAthleteEmail(
@@ -177,16 +173,11 @@ export async function sendWelcomeAthleteEmail(
   try {
     const transporter = createTransporter();
     
-    // Récupération du pays pour l'aiguillage correct du config
-    const countryCode = await getAthleteCountry(to) || "FR";
-    const config = await getStationConfig(cityCode, countryCode);
-    
-    // NETTOYAGE NOM VILLE POUR ÉVITER DOUBLON VAGONDYS
-    const rawName = config?.name || cityCode;
-    const cityName = rawName.replace(/VAGONDYS/gi, "").trim();
+    // ✅ Option B : Utilisation directe du cityCode
+    const cityName = cityCode.toUpperCase().trim();
     
     const fromEmail = process.env.GMAIL_SMTP_USER || "vagondys@gmail.com";
-    const subject = `[CONFIRMATION] Compte Activé ${cityName.toUpperCase()} — Bienvenue chez VAGONDYS`;
+    const subject = `[CONFIRMATION] Compte Activé ${cityName} — Bienvenue chez VAGONDYS`;
     
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
     let finalLoginUrl = `${frontendUrl}/connexion`;
@@ -198,7 +189,7 @@ export async function sendWelcomeAthleteEmail(
     const html = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center; max-width: 600px; margin: 0 auto; border-radius: 12px; border: 1px solid #22c55e;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic; color:white;">
-          <span style="color:#22c55e;">VAGONDYS</span> ${cityName.toUpperCase()}
+          <span style="color:#22c55e;">VAGONDYS</span> ${cityName}
         </h1>
         <p style="font-size:12px; color:#a1a1aa; margin: 30px 0; line-height:1.6;">
           Bonjour ${userName}, <br/><br/>
@@ -223,7 +214,7 @@ export async function sendWelcomeAthleteEmail(
 
         <div style="margin-top:40px; padding-top:20px; border-top:1px solid #18181b;">
           <p style="font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
-            ÉMIS PAR : DÉPARTEMENT ATHLÈTES | VAGONDYS AUTO-SYSTEM (${cityName.toUpperCase()})
+            ÉMIS PAR : DÉPARTEMENT ATHLÈTES | VAGONDYS AUTO-SYSTEM (${cityName})
           </p>
         </div>
       </div>
@@ -231,7 +222,7 @@ export async function sendWelcomeAthleteEmail(
 
     console.log(`[EMAIL] Envoi de l'email de bienvenue à ${to}`);
     const result = await transporter.sendMail({
-      from: `"VAGONDYS ${cityName.toUpperCase()}" <${fromEmail}>`,
+      from: `"VAGONDYS ${cityName}" <${fromEmail}>`,
       to,
       subject,
       html,
@@ -247,7 +238,8 @@ export async function sendWelcomeAthleteEmail(
 }
 
 /**
- * NOTIFICATION STAFF (Nouvelle inscription validée) - CITY AWARE
+ * NOTIFICATION STAFF (Nouvelle inscription validée)
+ * Version adaptée pour l'Option B (plus de getStationConfig)
  */
 export async function sendStaffNotificationEmail(
   athleteEmail: string,
@@ -258,20 +250,15 @@ export async function sendStaffNotificationEmail(
   try {
     const transporter = createTransporter();
     
-    // On récupère le pays de l'athlète pour identifier la station correcte
-    const countryCode = await getAthleteCountry(athleteEmail) || "FR";
-    const config = await getStationConfig(cityCode, countryCode);
-    
-    // NETTOYAGE NOM VILLE POUR ÉVITER DOUBLON VAGONDYS
-    const rawName = config?.name || cityCode;
-    const cityName = rawName.replace(/VAGONDYS/gi, "").trim();
+    // ✅ Option B : Utilisation directe du cityCode
+    const cityName = cityCode.toUpperCase().trim();
     
     const staffEmail = "vagondys@gmail.com"; 
     const fromEmail = process.env.GMAIL_SMTP_USER || "vagondys@gmail.com";
 
     const html = `
       <div style="background:#18181b; color:white; padding:20px; font-family:monospace; border-left: 4px solid #dc2626;">
-        <p style="font-size:10px; font-weight:bold; color:#dc2626; text-transform:uppercase;">[ALERTE INSCRIPTION - ${cityName.toUpperCase()}]</p>
+        <p style="font-size:10px; font-weight:bold; color:#dc2626; text-transform:uppercase;">[ALERTE INSCRIPTION - ${cityName}]</p>
         <p style="font-size:12px;">Un nouveau compte athlète vient d'être activé pour la ville : ${cityName}.</p>
         <p style="font-size:12px; color:#facc15;">EMAIL : ${athleteEmail}</p>
         <p style="font-size:10px; color:#52525b; margin-top:20px;">VAGONDYS AUTO-MONITORING | STATION: ${cityCode}</p>
@@ -280,7 +267,7 @@ export async function sendStaffNotificationEmail(
 
     console.log(`[EMAIL] Envoi de la notification staff pour ${athleteEmail}`);
     const result = await transporter.sendMail({
-      from: `"VAGONDYS SYSTEM ${cityName.toUpperCase()}" <${fromEmail}>`,
+      from: `"VAGONDYS SYSTEM ${cityName}" <${fromEmail}>`,
       to: staffEmail,
       subject: `[STAFF ${cityCode}] Nouveau compte créé : ${athleteEmail}`,
       html,
@@ -296,7 +283,8 @@ export async function sendStaffNotificationEmail(
 }
 
 /**
- * ENVOI DE NOTIFICATION DE TRANSFERT D'IDENTITÉ - CITY AWARE
+ * ENVOI DE NOTIFICATION DE TRANSFERT D'IDENTITÉ
+ * Version adaptée pour l'Option B (plus de getStationConfig)
  */
 export async function sendIdentityTransferEmail(
   to: string,
@@ -309,17 +297,14 @@ export async function sendIdentityTransferEmail(
   
   try {
     const transporter = createTransporter();
-    const countryCode = await getAthleteCountry(to) || "FR";
-    const config = await getStationConfig(cityCode, countryCode);
     
-    // NETTOYAGE NOM VILLE POUR ÉVITER DOUBLON VAGONDYS
-    const rawName = config?.name || cityCode;
-    const cityName = rawName.replace(/VAGONDYS/gi, "").trim();
+    // ✅ Option B : Utilisation directe du cityCode
+    const cityName = cityCode.toUpperCase().trim();
 
     const fromEmail = process.env.GMAIL_SMTP_USER || "vagondys@gmail.com";
     const noReplyEmail = process.env.GMAIL_NOREPLY || "no-reply@vagondys.com";
     
-    const subject = `[ALERTE] Transfert d'Identité ${cityName.toUpperCase()} — ${userName}`;
+    const subject = `[ALERTE] Transfert d'Identité ${cityName} — ${userName}`;
 
     // FIX ANTI-LOCALHOST : On force l'usage du domaine de production
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -332,7 +317,7 @@ export async function sendIdentityTransferEmail(
     const html = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center; max-width: 600px; margin: 0 auto; border-radius: 12px; border: 1px solid #dc2626;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic; color:white;">
-          <span style="color:#dc2626;">VAGONDYS</span> SÉCURITÉ ${cityName.toUpperCase()}
+          <span style="color:#dc2626;">VAGONDYS</span> SÉCURITÉ ${cityName}
         </h1>
         
         <p style="font-size:12px; color:#a1a1aa; margin: 30px 0; line-height: 1.6;">
@@ -350,7 +335,7 @@ export async function sendIdentityTransferEmail(
 
         <div style="margin-top:40px; padding-top:20px; border-top:1px solid #18181b;">
           <p style="font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px; line-height:1.5;">
-            INFO : CE MESSAGE CONFIRME LA VALIDATION DE VOTRE NOUVELLE IDENTITÉ POUR ${cityName.toUpperCase()}.<br/>
+            INFO : CE MESSAGE CONFIRME LA VALIDATION DE VOTRE NOUVELLE IDENTITÉ POUR ${cityName}.<br/>
             ÉMIS PAR : ${sectorName}.<br/>
             TOUTE CONNEXION AVEC L'ANCIEN MAIL EST DÉSORMAIS IMPOSSIBLE.
           </p>
@@ -359,7 +344,7 @@ export async function sendIdentityTransferEmail(
     `;
 
     const mailOptions: SendMailOptions = {
-      from: `"VAGONDYS SECURITY ${cityName.toUpperCase()}" <${fromEmail}>`,
+      from: `"VAGONDYS SECURITY ${cityName}" <${fromEmail}>`,
       to,
       replyTo: noReplyEmail,
       subject,

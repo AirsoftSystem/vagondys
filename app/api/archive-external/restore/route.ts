@@ -1,11 +1,11 @@
 
 import { NextResponse } from "next/server";
-import { getStationConfig, createDynamicClient } from "@/lib/supabase/master";
 
 /**
  * API RESTORE : Restaure un dossier depuis GitHub vers la base STAFF
  * POST /api/archive-external/restore
  * Body: { dossier_ref: string, city_code: string, country_code?: string }
+ * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
  */
 export async function POST(req: Request) {
   try {
@@ -24,20 +24,21 @@ export async function POST(req: Request) {
 
     console.log(`🔄 RESTORE: début restauration pour ${dossier_ref} (${effectiveCity}/${effectiveCountry})`);
 
-    // 1. Récupérer la configuration de la ville
-    const config = await getStationConfig(effectiveCity, effectiveCountry);
-    if (!config) {
-      console.error(`❌ RESTORE: configuration introuvable pour ${effectiveCity}/${effectiveCountry}`);
-      return NextResponse.json({ error: "Configuration ville introuvable" }, { status: 404 });
+    // ✅ Option B : Un seul repo GitHub
+    const targetRepo = process.env.GITHUB_ARCHIVE_REPO;
+    const customToken = process.env.GITHUB_ARCHIVE_TOKEN;
+
+    if (!targetRepo) {
+      console.error(`❌ RESTORE: GITHUB_ARCHIVE_REPO manquant`);
+      return NextResponse.json({ error: "Configuration GitHub manquante (repo)" }, { status: 500 });
     }
 
-    const targetRepo = config.github_repo;
-    const customToken = config.github_token;
-
-    if (!targetRepo || !customToken) {
-      console.error(`❌ RESTORE: configuration GitHub manquante pour ${effectiveCity}/${effectiveCountry}`);
-      return NextResponse.json({ error: "Configuration GitHub manquante" }, { status: 500 });
+    if (!customToken) {
+      console.error(`❌ RESTORE: GITHUB_ARCHIVE_TOKEN manquant`);
+      return NextResponse.json({ error: "Configuration GitHub manquante (token)" }, { status: 500 });
     }
+
+    console.log(`🔍 RESTORE: utilisation du repo unique: ${targetRepo}`);
 
     // 2. Importer les fonctions nécessaires
     const { findFileInRepo } = await import("@/lib/archive-external/gh-client");
@@ -67,11 +68,20 @@ export async function POST(req: Request) {
 
     console.log(`📦 RESTORE: archive lue, ${historyData.length} échanges trouvés`);
 
-    // 5. Client STAFF pour la ville
-    const staffClient = await createDynamicClient(effectiveCity, effectiveCountry, 'STAFF');
+    // 5. Client UNIQUE (Option B)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error(`❌ RESTORE: configuration Supabase manquante`);
+      return NextResponse.json({ error: "Configuration Supabase manquante" }, { status: 500 });
+    }
+    
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // 6. Vérifier si le dossier existe déjà en base
-    const { data: existingSignal, error: checkError } = await staffClient
+    const { data: existingSignal, error: checkError } = await supabaseClient
       .from("pending_signals")
       .select("dossier_ref")
       .eq("dossier_ref", dossier_ref)
@@ -84,7 +94,7 @@ export async function POST(req: Request) {
     if (existingSignal) {
       console.log(`ℹ️ RESTORE: le dossier ${dossier_ref} existe déjà en base, mise à jour uniquement de l'historique`);
     } else {
-      // ✅ CORRECTION : is_new_athlete retiré du payload et mis à false par défaut
+      // ✅ Insertion du signal restauré
       const insertData = {
         id: signalData.id,
         dossier_ref: dossier_ref,
@@ -92,10 +102,12 @@ export async function POST(req: Request) {
         confirmed: signalData.confirmed,
         is_read: true, // Important : apparaît dans l'onglet ARCHIVES
         is_new_athlete: false,
-        created_at: signalData.created_at
+        created_at: signalData.created_at,
+        city: effectiveCity,
+        country: effectiveCountry
       };
 
-      const { error: insertError } = await staffClient
+      const { error: insertError } = await supabaseClient
         .from("pending_signals")
         .insert([insertData]);
 
@@ -115,10 +127,12 @@ export async function POST(req: Request) {
         agent_email: h.agent_email,
         content: h.content,
         document_url: h.document_url || null,
-        created_at: h.created_at
+        created_at: h.created_at,
+        city: effectiveCity,
+        country: effectiveCountry
       }));
 
-      const { error: historyError } = await staffClient
+      const { error: historyError } = await supabaseClient
         .from("communication_replies")
         .insert(historyToInsert);
 

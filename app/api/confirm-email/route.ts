@@ -1,16 +1,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { sendWelcomeAthleteEmail, sendStaffNotificationEmail } from "@/lib/email/gmail";
-import { locateAthleteStation, createDynamicClient, consumeEmailToken, syncAthleteReference } from "@/lib/supabase/master";
+import { getAthleteCity, getAthleteCountry, consumeEmailToken, syncAthleteReference, masterAdmin } from "@/lib/supabase/master";
 
 /**
  * Route GET /api/confirm-email?token=...
  * - Vérifie token dans email_confirmations (MASTER)
- * - Identifie la station (VILLE) via l'email
+ * - Identifie la station (VILLE) via l'email (getAthleteCity)
  * - Si valide : marque token used (MASTER)
- * - GÉNÈRE LE MATRICULE VGD-XXXXXXXX (100% Aléatoire) dans la base de la VILLE
- * - RÉCUPÈRE LE SIGNALEMENT (PENDING_SIGNALS) dans la base STAFF de la VILLE
- * - Envoie l'archive sur le GITHUB de la VILLE (via city_code)
+ * - GÉNÈRE LE MATRICULE VGD-XXXXXXXX (100% Aléatoire) dans la base UNIQUE
+ * - RÉCUPÈRE LE SIGNALEMENT (PENDING_SIGNALS) dans la base UNIQUE
+ * - Envoie l'archive sur le GITHUB UNIQUE (via city_code)
  * - Active la confirmation d'email côté Supabase Auth via Admin API (MASTER)
  * - SYNCHRONISE le dossier_ref dans athletes_registry (MASTER)
  */
@@ -57,26 +57,26 @@ export async function GET(request: NextRequest) {
     // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
     const { createClient } = await import("@supabase/supabase-js");
     
-    // ✅ Récupération des variables (existent à l'exécution)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+    // ✅ Récupération des variables (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    // ✅ Vérification des variables (sans valeurs en dur)
+    // ✅ Vérification des variables
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase MASTER manquantes");
+      console.error("Variables Supabase manquantes");
       return NextResponse.redirect(new URL("/inscription?status=error&reason=config_error", frontendUrl));
     }
     
-    // Client Admin pour la base centrale MASTER (Auth & Tokens) - créé à l'exécution
-    const supabaseMasterAdmin = createClient(supabaseUrl, supabaseKey, { 
+    // Client Admin pour le projet UNIQUE - créé à l'exécution
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, { 
       auth: { 
         autoRefreshToken: false, 
         persistSession: false 
       } 
     });
 
-    // 1. Récupérer l'enregistrement du token sur le MASTER
-    const { data, error: fetchErr } = await supabaseMasterAdmin
+    // 1. Récupérer l'enregistrement du token
+    const { data, error: fetchErr } = await supabaseAdmin
       .from("email_confirmations")
       .select("*")
       .eq("token", token)
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     const record = data as EmailConfirmationRecord | null;
 
     if (fetchErr || !record) {
-      console.error("Token non trouvé sur Master ou erreur:", fetchErr);
+      console.error("Token non trouvé ou erreur:", fetchErr);
       return NextResponse.redirect(new URL("/inscription?status=error&reason=invalid_token", frontendUrl));
     }
 
@@ -98,26 +98,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/inscription?status=error&reason=expired", frontendUrl));
     }
 
-    // --- IDENTIFICATION DE LA STATION VIA LE MASTER (City-Aware) ---
+    // --- IDENTIFICATION DE LA STATION VIA LE MASTER (Version Option B) ---
     const userEmail = record.email.toLowerCase();
-    const station = await locateAthleteStation(userEmail);
     
-    if (!station) {
-       console.error("Impossible de localiser la station pour:", userEmail);
-       return NextResponse.redirect(new URL("/inscription?status=error&reason=station_not_found", frontendUrl));
+    // Vérifier que masterAdmin n'est pas null avant de l'utiliser
+    if (!masterAdmin) {
+      console.error("masterAdmin non disponible");
+      return NextResponse.redirect(new URL("/inscription?status=error&reason=master_admin_unavailable", frontendUrl));
     }
+    
+    const athleteCity = await getAthleteCity(userEmail);
+    const athleteCountry = await getAthleteCountry(userEmail);
+    
+    if (!athleteCity) {
+       console.error("Impossible de localiser la ville pour:", userEmail);
+       return NextResponse.redirect(new URL("/inscription?status=error&reason=city_not_found", frontendUrl));
+    }
+    
+    const stationCityCode = athleteCity;
+    const stationCountryCode = athleteCountry || "FR";
 
-    // --- SOLUTION PRIORITAIRE : MARQUAGE DU TOKEN COMME UTILISÉ ---
+    // --- MARQUAGE DU TOKEN COMME UTILISÉ ---
     const consumed = await consumeEmailToken(token);
     if (!consumed) {
       console.error("Erreur critique lors du marquage used: true du token");
     }
 
-    // Création des clients dynamiques sécurisés avec le Country Code
-    const cityPublicAdmin = await createDynamicClient(station.city_code, station.country_code, 'PUBLIC');
-    const cityStaffAdmin = await createDynamicClient(station.city_code, station.country_code, 'STAFF');
-
-    // 3. Traitement dans la base de la VILLE
+    // 3. Traitement dans la base UNIQUE (Option B)
     const userId = record.user_id;
     if (userId) {
       
@@ -128,7 +135,7 @@ export async function GET(request: NextRequest) {
 
       while (!isRefUnique && attempts < 5) {
         newDossierRef = generateVGDReference();
-        const { data: existingRef } = await cityPublicAdmin
+        const { data: existingRef } = await supabaseAdmin
           .from("athletes")
           .select("dossier_ref")
           .eq("dossier_ref", newDossierRef)
@@ -141,20 +148,20 @@ export async function GET(request: NextRequest) {
       }
 
       // Récupération sécurisée des infos de l'athlète
-      const { data: athleteData, error: athleteErr } = await cityPublicAdmin
+      const { data: athleteData, error: athleteErr } = await supabaseAdmin
         .from("athletes")
         .select("*")
         .eq("id", userId)
         .single();
 
       if (athleteErr) {
-        console.error("Erreur récupération athlète local:", athleteErr.message);
+        console.error("Erreur récupération athlète:", athleteErr.message);
       }
 
-      // Récupération du signalement dans la base Staff (avec gestion d'erreur JSON)
+      // Récupération du signalement (avec gestion d'erreur)
       let pendingSignal = null;
       try {
-        const { data: signal } = await cityStaffAdmin
+        const { data: signal } = await supabaseAdmin
           .from("pending_signals")
           .select("*")
           .eq("payload->>email", userEmail)
@@ -163,11 +170,11 @@ export async function GET(request: NextRequest) {
           .maybeSingle();
         pendingSignal = signal;
       } catch (err) {
-        console.warn("Table pending_signals absente ou inaccessible pour cette ville.", err);
+        console.warn("Table pending_signals absente ou inaccessible.", err);
       }
 
       if (athleteData) {
-        // --- ARCHIVAGE GITHUB (Envoi vers la Gare de Triage / Engine) ---
+        // --- ARCHIVAGE GITHUB (Vers le repo UNIQUE) ---
         const archivePayload = {
           message: {
             dossier_ref: newDossierRef,
@@ -177,16 +184,16 @@ export async function GET(request: NextRequest) {
               pseudo: athleteData.pseudo,
               email: userEmail,
               phone: athleteData.phone,
-              city: athleteData.city || station.city_code,
-              country: athleteData.country || station.country_code || "FR",
+              city: athleteData.city || stationCityCode,
+              country: athleteData.country || stationCountryCode,
               subject: "ENRÔLEMENT ATHLÈTE",
-              message: `FÉLICITATIONS : COMPTE ACTIF POUR LA STATION ${station.name.toUpperCase()}. BIENVENUE.`
+              message: `FÉLICITATIONS : COMPTE ACTIF POUR LA STATION ${stationCityCode.toUpperCase()}. BIENVENUE.`
             }
           },
           history: [], 
           purgeActive: false,
-          city_code: station.city_code,
-          country_code: station.country_code
+          city_code: stationCityCode,
+          country_code: stationCountryCode
         };
 
         try {
@@ -197,11 +204,11 @@ export async function GET(request: NextRequest) {
           });
           if (!archiveRes.ok) throw new Error(`Status ${archiveRes.status}`);
         } catch (gitErr) {
-          console.error("Erreur archive GitHub spécifique ville:", gitErr);
+          console.error("Erreur archive GitHub:", gitErr);
         }
 
-        // 4. Mise à jour de la base ville (Activation du profil local)
-        const { error: updAth } = await cityPublicAdmin
+        // 4. Mise à jour de la base (Activation du profil)
+        const { error: updAth } = await supabaseAdmin
           .from("athletes")
           .update({ 
             status: "ACTIF",
@@ -214,24 +221,24 @@ export async function GET(request: NextRequest) {
             // --- SYNCHRONISATION MASTER REGISTRY ---
             await syncAthleteReference(userEmail, newDossierRef);
 
-            // ENVOIS D'EMAILS CITY-AWARE
+            // ENVOIS D'EMAILS
             await sendWelcomeAthleteEmail(
               userEmail, 
               athleteData.pseudo || athleteData.full_name, 
-              station.city_code,
+              stationCityCode,
               newDossierRef
             );
-            await sendStaffNotificationEmail(userEmail, station.city_code);
+            await sendStaffNotificationEmail(userEmail, stationCityCode);
           } catch (mailErr) {
             console.error("Erreur emails / synchro master:", mailErr);
           }
         } else {
-            console.error("Erreur lors de l'update de l'athlète local:", updAth.message);
+            console.error("Erreur lors de l'update de l'athlète:", updAth.message);
         }
 
         // Mise à jour du signalement si trouvé
         if (pendingSignal) {
-           await cityStaffAdmin
+           await supabaseAdmin
             .from("pending_signals")
             .update({ 
               confirmed: true, 
@@ -243,25 +250,25 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 5. Activation finale de l'utilisateur côté Auth (Base MASTER uniquement)
+      // 5. Activation finale de l'utilisateur côté Auth
       try {
-        await supabaseMasterAdmin.auth.admin.updateUserById(userId, { 
+        await supabaseAdmin.auth.admin.updateUserById(userId, { 
           email_confirm: true,
           user_metadata: { 
-            city: station.city_code,
-            country: station.country_code 
+            city: stationCityCode,
+            country: stationCountryCode 
           },
           app_metadata: { 
-            city: station.city_code,
-            country: station.country_code
+            city: stationCityCode,
+            country: stationCountryCode
           }
         });
       } catch (authErr) {
-        console.error("Erreur finale Auth Master:", authErr);
+        console.error("Erreur finale Auth:", authErr);
       }
     }
 
-    const cleanCityName = station.name.replace(/VAGONDYS/gi, "").trim().toUpperCase();
+    const cleanCityName = stationCityCode;
     const successUrl = new URL("/activation-reussie", url.origin);
     successUrl.searchParams.set("city", cleanCityName);
     

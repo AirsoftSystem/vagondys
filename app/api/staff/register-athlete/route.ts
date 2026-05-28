@@ -1,16 +1,18 @@
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { generateVerificationToken, sendVerificationEmail } from '@/lib/email/gmail'
-import { getStationConfig, createDynamicClient, registerAthlete } from '@/lib/supabase/master'
+import { registerAthlete } from '@/lib/supabase/master'
 
 /**
  * Route serveur sécurisée :
  * - Vérifie le token Cloudflare Turnstile
  * - Inscrit l'athlète dans l'annuaire central (MASTER)
- * - Crée l'utilisateur (email_confirm: false) sur la DB de la ville concernée
+ * - Crée l'utilisateur (email_confirm: false) sur la DB UNIQUE
  * - Génère un token de confirmation et l'envoie par email
  * - Insère dans 'athletes' local avec status: "EN_ATTENTE"
- * - Archive le dossier sur le repo GitHub de la ville
+ * - Archive le dossier sur le repo GitHub UNIQUE
+ * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
  */
 
 interface SupabaseAuthResponse {
@@ -122,8 +124,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Échec validation anti-bot (Turnstile).' }, { status: 400 });
     }
 
-    // --- LOGIQUE DE FRAGMENTATION ---
+    // --- LOGIQUE OPTION B (Un seul projet Supabase) ---
     
+    // Récupération des variables d'environnement
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Variables Supabase manquantes");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    // Client Admin UNIQUE (Option B)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
     // A. Inscription obligatoire dans l'annuaire central (MASTER)
     try {
       await registerAthlete(email.toLowerCase(), city, full_name);
@@ -132,30 +148,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Erreur Annuaire Central: ${msg}` }, { status: 400 });
     }
 
-    // B. Détermination de la base de données cible selon la ville
-    const stationConfig = await getStationConfig(city);
-    
-    // Client Admin MASTER (utilisé pour les tokens de confirmation)
-    const supabaseMasterAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    let supabaseAdmin = supabaseMasterAdmin;
-
-    if (stationConfig) {
-      supabaseAdmin = await createDynamicClient(city, 'PUBLIC');
-    }
-
-    // 3. Création du user Auth dans la DB cible
+    // 3. Création du user Auth dans la base UNIQUE
     const createUserRes = await supabaseAdmin.auth.admin.createUser({
       email: email.toLowerCase(),
       password,
       user_metadata: {
         full_name,
         pseudo: pseudo || null,
-        city
+        city: city.toUpperCase()
       },
       email_confirm: false 
     }) as unknown as SupabaseAuthResponse;
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
       throw new Error(String(msg));
     }
 
-    // 4. Insertion table 'athletes' dans la DB cible
+    // 4. Insertion table 'athletes' dans la base UNIQUE
     const { error: dbError } = await supabaseAdmin
       .from('athletes')
       .insert([{
@@ -180,9 +180,24 @@ export async function POST(request: Request) {
         full_name,
         pseudo: pseudo || null,
         phone: phone || null,
-        city: city,
+        city: city.toUpperCase(),
+        country: "FR",
         status: "EN_ATTENTE",
         rank: "RECRUE",
+        points: 0,
+        total_matches: 0,
+        total_score: 0,
+        total_shots: 0,
+        total_kills: 0,
+        total_deaths: 0,
+        total_assists: 0,
+        total_hits_head: 0,
+        total_hits_body: 0,
+        total_hits_legs: 0,
+        current_grade_id: 1,
+        precision_progress: 0,
+        current_cycle_shot_count: 0,
+        current_cycle_precision: 0,
         documents_urls: []
       }]);
 
@@ -192,12 +207,12 @@ export async function POST(request: Request) {
       throw dbError;
     }
 
-    // 5. Gestion du Token de Confirmation Email DANS LE MASTER
+    // 5. Gestion du Token de Confirmation Email
     const verificationToken = generateVerificationToken();
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    const { error: tokenError } = await supabaseMasterAdmin
+    const { error: tokenError } = await supabaseAdmin
       .from('email_confirmations')
       .insert([{
         user_id: userId,
@@ -208,7 +223,7 @@ export async function POST(request: Request) {
       }]);
 
     if (tokenError) {
-      console.error("Erreur stockage token confirmation sur MASTER:", tokenError.message);
+      console.error("Erreur stockage token confirmation:", tokenError.message);
     }
 
     // 6. Préparation des références
@@ -229,7 +244,7 @@ export async function POST(request: Request) {
       console.error("Erreur envoi email de vérification:", mailErr);
     }
 
-    // 8. Archivage GitHub sur le repo spécifique de la ville via l'Engine
+    // 8. Archivage GitHub sur le repo UNIQUE
     const dossierMessage = {
       id: userId,
       created_at: new Date().toISOString(),
@@ -241,7 +256,7 @@ export async function POST(request: Request) {
           first_contact: true,
           is_resurrected: false,
           is_returning_client: false,
-          city: city
+          city: city.toUpperCase()
         },
         name: full_name,
         pseudo: pseudo || null,
@@ -249,7 +264,9 @@ export async function POST(request: Request) {
         phone: phone || null,
         message: `Inscription Joueur - Station: ${city.toUpperCase()} (En attente confirmation email)`,
         subject: "inscription",
-        original_subject: "INSCRIPTION"
+        original_subject: "INSCRIPTION",
+        city: city.toUpperCase(),
+        country: "FR"
       },
       is_read: false
     };
@@ -263,7 +280,8 @@ export async function POST(request: Request) {
           message: dossierMessage,
           history: [],
           purgeActive: false,
-          city_code: city 
+          city_code: city.toUpperCase(),
+          country_code: "FR"
         })
       });
     } catch (archErr) {

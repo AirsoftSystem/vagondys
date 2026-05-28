@@ -1,9 +1,8 @@
 
 import { NextResponse } from 'next/server';
-import { getStationConfig, createDynamicClient } from '@/lib/supabase/master';
 
 /**
- * API NOTIFY-READ : "City-Aware"
+ * API NOTIFY-READ : Version Option B (un seul projet Supabase)
  * Marque un signal comme lu et envoie l'avis de lecture.
  */
 export async function POST(req: Request) {
@@ -12,10 +11,10 @@ export async function POST(req: Request) {
     const { createClient } = await import("@supabase/supabase-js");
     const { Resend } = await import('resend');
     
-    // ✅ Récupération des variables (existent à l'exécution)
+    // ✅ Récupération des variables (Version Option B - un seul projet)
     const resendApiKey = process.env.RESEND_API_KEY;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const gmailNoReply = process.env.GMAIL_NOREPLY || 'no-reply@vagondys.com';
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://www.vagondys.com';
     
@@ -24,13 +23,13 @@ export async function POST(req: Request) {
       console.error("RESEND_API_KEY manquante");
     }
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase MASTER manquantes");
+      console.error("Variables Supabase manquantes");
     }
     
     const resend = new Resend(resendApiKey || '');
 
     const body = await req.json();
-    // ✅ AJOUT 1 : Récupération de countryCode
+    // ✅ Récupération des paramètres
     const { dossierRef, email, cityCode, countryCode } = body;
 
     if (!dossierRef) {
@@ -43,34 +42,18 @@ export async function POST(req: Request) {
     
     console.log(`🔍 notify-read: recherche dossier ${cleanDossierRef} pour ville ${activeCity || 'MASTER'} (pays ${activeCountry})`);
 
-    // --- INITIALISATION DYNAMIQUE DES CLIENTS ---
-    // Par défaut, on pointe sur le MASTER
-    let targetStaff = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-    let targetPublic = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-
-    // ✅ AJOUT 2 : Si cityCode est présent, on bascule sur la station locale avec le pays
-    if (activeCity) {
-      console.log(`🔍 notify-read: recherche config pour ${activeCity}/${activeCountry}`);
-      const config = await getStationConfig(activeCity, activeCountry);
-      if (config) {
-        console.log(`✅ notify-read: config trouvée, staff_url: ${config.staff_url?.substring(0, 30)}...`);
-        targetStaff = await createDynamicClient(activeCity, activeCountry, 'STAFF');
-        targetPublic = await createDynamicClient(activeCity, activeCountry, 'PUBLIC');
-      } else {
-        console.warn(`⚠️ notify-read: AUCUNE CONFIG trouvée pour ${activeCity}/${activeCountry}, utilisation du MASTER`);
-      }
-    }
-
-    // Vérification que les clients sont valides
-    if (!targetStaff || !targetPublic) {
-      console.error("Impossible d'initialiser les clients Supabase");
+    // --- INITIALISATION DU CLIENT UNIQUE (Option B) ---
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Configuration Supabase manquante");
       return NextResponse.json({ error: "Configuration base de données invalide" }, { status: 500 });
     }
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    // 1. RÉCUPÉRATION DU SIGNAL DANS LA BASE CIBLE
+    // 1. RÉCUPÉRATION DU SIGNAL
     let activeSignal = null;
     
-    const { data: signalByRef, error: fetchError } = await targetStaff
+    const { data: signalByRef, error: fetchError } = await supabaseClient
       .from('pending_signals')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
@@ -88,7 +71,7 @@ export async function POST(req: Request) {
     // Fallback par email si non trouvé par Ref
     if (!activeSignal && email) {
       console.log(`🔍 notify-read: recherche par email ${email}`);
-      const { data: fallbackSignal } = await targetStaff
+      const { data: fallbackSignal } = await supabaseClient
         .from('pending_signals')
         .select('*')
         .eq('payload->>email', email.toLowerCase())
@@ -103,7 +86,7 @@ export async function POST(req: Request) {
 
     if (!activeSignal) {
       console.error(`❌ notify-read: aucun signal trouvé pour ref ${cleanDossierRef} ou email ${email}`);
-      return NextResponse.json({ error: `Dossier introuvable dans la base ${activeCity || 'MASTER'}` }, { status: 404 });
+      return NextResponse.json({ error: `Dossier introuvable` }, { status: 404 });
     }
 
     const finalDossierRef = activeSignal.dossier_ref;
@@ -117,21 +100,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Déjà marqué comme lu" });
     }
 
-    // 2. MISE À JOUR SYNCHRONISÉE (STAFF & PUBLIC)
+    // 2. MISE À JOUR (un seul client - Option B)
     console.log(`📝 notify-read: mise à jour is_read=true pour ${finalDossierRef}`);
     
-    const [staffUpdate, publicUpdate] = await Promise.all([
-      targetStaff.from('pending_signals').update({ is_read: true }).eq('dossier_ref', finalDossierRef),
-      targetPublic.from('pending_signals').update({ is_read: true }).eq('dossier_ref', finalDossierRef)
-    ]);
+    const { error: updateError } = await supabaseClient
+      .from('pending_signals')
+      .update({ is_read: true })
+      .eq('dossier_ref', finalDossierRef);
 
-    if (staffUpdate.error) {
-      console.error("❌ Erreur mise à jour STAFF:", staffUpdate.error);
-      throw staffUpdate.error;
-    }
-    
-    if (publicUpdate.error) {
-      console.warn("⚠️ Erreur mise à jour PUBLIC:", publicUpdate.error);
+    if (updateError) {
+      console.error("❌ Erreur mise à jour:", updateError);
+      throw updateError;
     }
 
     console.log(`✅ notify-read: mise à jour réussie pour ${finalDossierRef}`);
@@ -176,7 +155,6 @@ export async function POST(req: Request) {
       console.warn(`Avis de lecture non envoyé à ${contactEmail}: RESEND_API_KEY manquante`);
     }
 
-    // ✅ AJOUT 3 : Retourner également le pays utilisé
     return NextResponse.json({ success: true, city: activeCity || 'MASTER', country: activeCountry });
 
   } catch (error: unknown) {

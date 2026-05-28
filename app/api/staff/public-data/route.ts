@@ -1,10 +1,12 @@
 
 // app/api/staff/public-data/route.ts
 import { NextResponse } from "next/server";
-import { createDynamicClient } from "@/lib/supabase/master";
 
 export async function GET(request: Request) {
   try {
+    // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
+    const { createClient } = await import("@supabase/supabase-js");
+    
     const { searchParams } = new URL(request.url);
     const city = searchParams.get("city");
     const country = searchParams.get("country") || "FR";
@@ -13,31 +15,46 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Ville manquante" }, { status: 400 });
     }
 
-    // ✅ Client PUBLIC avec service_role pour lire athletes et match_history
-    const publicClient = await createDynamicClient(city, country, "PUBLIC");
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Variables Supabase manquantes");
+      return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
+    }
+    
+    // ✅ Client UNIQUE avec service_role (Option B)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    // Récupérer les données PUBLIC
+    // Récupérer les données avec filtres city et country
     const [athletesResult, activeAthletesResult, newAthletesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
-      publicClient.from("athletes").select("*", { count: "exact", head: true }),
-      publicClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-      publicClient.from("athletes").select("*", { count: "exact", head: true }).gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-      publicClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
-      publicClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
+      supabaseAdmin.from("athletes").select("*", { count: "exact", head: true }).eq("city", city).eq("country", country),
+      supabaseAdmin.from("athletes").select("*", { count: "exact", head: true }).eq("city", city).eq("country", country).eq("status", "ACTIF"),
+      supabaseAdmin.from("athletes").select("*", { count: "exact", head: true }).eq("city", city).eq("country", country).gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+      supabaseAdmin.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", city).eq("country", country).order("date", { ascending: false }).limit(3),
+      supabaseAdmin.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", city).eq("country", country).order("points", { ascending: false }).limit(5),
     ]);
 
     // Traitement des top joueurs avec leurs stats
     const topPlayers = [];
     if (topPlayersResult.data) {
       for (const player of topPlayersResult.data) {
-        const { count: matchesPlayed } = await publicClient
-          .from("match_history")
-          .select("*", { count: "exact", head: true })
-          .eq("player_id", player.id);
-
-        const { count: wins } = await publicClient
+        const { count: matchesPlayed } = await supabaseAdmin
           .from("match_history")
           .select("*", { count: "exact", head: true })
           .eq("player_id", player.id)
+          .eq("city", city)
+          .eq("country", country);
+
+        const { count: wins } = await supabaseAdmin
+          .from("match_history")
+          .select("*", { count: "exact", head: true })
+          .eq("player_id", player.id)
+          .eq("city", city)
+          .eq("country", country)
           .eq("win", true);
 
         const totalMatches = matchesPlayed || 0;

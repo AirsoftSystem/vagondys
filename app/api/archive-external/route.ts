@@ -1,12 +1,11 @@
 
 import { NextResponse } from "next/server";
-import { getStationConfig } from "@/lib/supabase/master";
 
 const DEFAULT_REPO_NAME = "VAGONDYS_ARCHIVES_DATA";
 
 /**
  * GET : Récupération ou Recherche
- * ✅ IMPORTS DYNAMIQUES (plus d'imports statiques qui plantent au build)
+ * Version adaptée pour l'Option B (un seul repo GitHub)
  */
 export async function GET(req: Request) {
   try {
@@ -20,7 +19,7 @@ export async function GET(req: Request) {
       getPathString 
     } = await import("@/lib/archive-external/utils");
     
-    // ✅ AJOUT 1 : Import de db-client pour la recherche en base
+    // ✅ Import de db-client pour la recherche en base
     const { findActiveSignalByEmail } = await import("@/lib/archive-external/db-client");
 
     const { searchParams } = new URL(req.url);
@@ -28,31 +27,19 @@ export async function GET(req: Request) {
     const searchEmail = searchParams.get("search");
     const filterCity = searchParams.get("city");
     const cityCode = searchParams.get("city_code");
-    const countryCode = searchParams.get("country_code");
+    const countryCode = searchParams.get("country_code") || 'FR';
 
-    let targetRepo = DEFAULT_REPO_NAME;
-    let customToken = process.env.GITHUB_ARCHIVE_TOKEN;
+    // ✅ Option B : Un seul repo GitHub pour toutes les archives
+    const targetRepo = process.env.GITHUB_ARCHIVE_REPO || DEFAULT_REPO_NAME;
+    const customToken = process.env.GITHUB_ARCHIVE_TOKEN;
 
     const effectiveCity = cityCode || filterCity;
-    const effectiveCountry = countryCode || 'FR';
     
-    console.log(`🔍 GET archive-external: ref=${ref}, search=${searchEmail}, city=${effectiveCity}, country=${effectiveCountry}`);
-    
-    if (effectiveCity) {
-      const config = await getStationConfig(effectiveCity, effectiveCountry);
-      if (config) {
-        targetRepo = config.github_repo;
-        customToken = config.github_token || process.env.GITHUB_ARCHIVE_TOKEN;
-        console.log(`✅ GET archive-external: config trouvée pour ${effectiveCity}/${effectiveCountry}, repo=${targetRepo}`);
-      } else {
-        console.warn(`⚠️ GET archive-external: AUCUNE CONFIG pour ${effectiveCity}/${effectiveCountry}`);
-      }
-    }
-
-    // ✅ AJOUT : Log pour tracer le dépôt et le token utilisés
-    console.log(`🔍 GET archive-external: utilisation du repo="${targetRepo}", token="${customToken ? customToken.substring(0, 15) + '...' : 'MANQUANT'}"`);
+    console.log(`🔍 GET archive-external: ref=${ref}, search=${searchEmail}, city=${effectiveCity}, country=${countryCode}`);
+    console.log(`🔍 GET archive-external: utilisation du repo unique="${targetRepo}"`);
 
     if (!customToken) {
+      console.error("❌ GITHUB_ARCHIVE_TOKEN manquant");
       return NextResponse.json({ error: "Configuration GitHub manquante" }, { status: 500 });
     }
 
@@ -87,7 +74,7 @@ export async function GET(req: Request) {
 
     // --- RECHERCHE PAR EMAIL ---
     if (searchEmail) {
-      // ✅ AJOUT 2 : Recherche en base MASTER/STAFF avant GitHub
+      // ✅ Recherche en base avant GitHub
       console.log(`🔍 GET archive-external: recherche en base pour ${searchEmail}`);
       
       try {
@@ -100,7 +87,7 @@ export async function GET(req: Request) {
         console.warn(`⚠️ GET archive-external: erreur recherche base:`, dbErr);
       }
       
-      // Recherche GitHub (inchangée)
+      // Recherche GitHub
       const files = await listAllArchiveFiles(customToken, targetRepo);
       const searchSlug = String(searchEmail).toLowerCase().replace(/[@.]/g, "_");
       const emailToMatch = String(searchEmail).replace(/_/g, ".").replace(/\.([^.]+)$/, "@$1");
@@ -142,7 +129,7 @@ export async function GET(req: Request) {
 
     console.log(`🔍 GET archive-external: recherche fichier pour ref=${ref} dans repo=${targetRepo}`);
     
-    const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", effectiveCountry);
+    const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", countryCode);
     
     if (!targetFile) {
       console.warn(`❌ GET archive-external: fichier non trouvé pour ref=${ref}`);
@@ -163,7 +150,7 @@ export async function GET(req: Request) {
 
 /**
  * POST : Archivage et Synchronisation
- * ✅ IMPORTS DYNAMIQUES
+ * Version adaptée pour l'Option B (un seul repo GitHub)
  */
 export async function POST(req: Request) {
   try {
@@ -200,7 +187,7 @@ export async function POST(req: Request) {
 
 /**
  * DELETE : Suppression définitive
- * ✅ IMPORTS DYNAMIQUES
+ * Version adaptée pour l'Option B (un seul repo GitHub)
  */
 export async function DELETE(req: Request) {
   try {
@@ -208,25 +195,20 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const ref = searchParams.get("ref");
-    const cityCode = searchParams.get("city_code");
     const countryCode = searchParams.get("country_code") || 'FR';
 
     if (!ref) return NextResponse.json({ error: "Référence manquante" }, { status: 400 });
 
-    let targetRepo = DEFAULT_REPO_NAME;
-    let customToken = process.env.GITHUB_ARCHIVE_TOKEN;
-
-    if (cityCode) {
-      const config = await getStationConfig(cityCode, countryCode);
-      if (config) {
-        targetRepo = config.github_repo;
-        customToken = config.github_token || process.env.GITHUB_ARCHIVE_TOKEN;
-      }
-    }
+    // ✅ Option B : Un seul repo GitHub
+    const targetRepo = process.env.GITHUB_ARCHIVE_REPO || DEFAULT_REPO_NAME;
+    const customToken = process.env.GITHUB_ARCHIVE_TOKEN;
 
     if (!customToken) {
+      console.error("❌ GITHUB_ARCHIVE_TOKEN manquant");
       return NextResponse.json({ error: "Token de configuration manquant" }, { status: 500 });
     }
+
+    console.log(`🗑️ DELETE archive-external: suppression ref=${ref} dans repo=${targetRepo}`);
 
     const targetFile = await findFileInRepo(ref, customToken, targetRepo, "archives", countryCode);
     if (!targetFile) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });

@@ -1,6 +1,5 @@
 
 import { NextResponse } from 'next/server';
-import { getStationConfig, createDynamicClient } from '@/lib/supabase/master';
 
 interface HistoryMessage {
   id: string;
@@ -17,10 +16,10 @@ export async function POST(req: Request) {
     const { Resend } = await import('resend');
     const { createClient } = await import('@supabase/supabase-js');
     
-    // ✅ Récupération des variables d'environnement à l'exécution
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
     const resendApiKey = process.env.RESEND_API_KEY;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const gmailNoReply = process.env.GMAIL_NOREPLY || 'staff@vagondys.com';
     
     // ✅ Vérification des variables critiques
@@ -28,20 +27,14 @@ export async function POST(req: Request) {
       console.error("RESEND_API_KEY manquante");
     }
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase MASTER manquantes");
+      console.error("Variables Supabase manquantes");
+      return NextResponse.json({ error: "Configuration base de données invalide" }, { status: 500 });
     }
     
     const resend = new Resend(resendApiKey || '');
     
-    // CLIENT PUBLIC PAR DÉFAUT (MASTER) - créé à l'exécution
-    const supabasePublicMaster = supabaseUrl && supabaseKey 
-      ? createClient(supabaseUrl, supabaseKey) 
-      : null;
-    
-    // CLIENT STAFF PAR DÉFAUT (MASTER)
-    const supabaseStaffMaster = supabaseUrl && supabaseKey 
-      ? createClient(supabaseUrl, supabaseKey) 
-      : null;
+    // ✅ CLIENT UNIQUE (Option B)
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
     const {
@@ -53,15 +46,15 @@ export async function POST(req: Request) {
       agentEmail,
       docLink,
       dossierRef,
-      cityCode,      // Paramètre d'aiguillage vers la station
-      countryCode    // ✅ AJOUT 1 : Récupération du pays
+      cityCode,
+      countryCode
     } = body;
 
     if (!messageId || !to) {
       return NextResponse.json({ error: "ID ou Destinataire manquant" }, { status: 400 });
     }
 
-    // ✅ CORRECTION : Vérifier que dossierRef est fourni
+    // ✅ Vérifier que dossierRef est fourni
     if (!dossierRef) {
       console.error("❌ send-reply: dossierRef manquant");
       return NextResponse.json({ error: "Référence dossier manquante" }, { status: 400 });
@@ -76,33 +69,10 @@ export async function POST(req: Request) {
     
     console.log(`📧 send-reply: début pour dossier ${cleanDossierRef}, ville ${activeCity || 'MASTER'} (pays ${activeCountry})`);
 
-    // --- LOGIQUE DYNAMIQUE PAR VILLE ---
-    let targetStaffClient = supabaseStaffMaster;
-    let targetPublicClient = supabasePublicMaster;
     let stationName = activeCity;
 
-    // ✅ AJOUT 2 : AIGUILLAGE avec countryCode
-    if (activeCity) {
-      console.log(`📍 send-reply: aiguillage vers ${activeCity}/${activeCountry}`);
-      const config = await getStationConfig(activeCity, activeCountry);
-      if (config) {
-        console.log(`✅ send-reply: config trouvée pour ${activeCity}/${activeCountry}`);
-        // ✅ AJOUT 3 : Utilisation de countryCode dans createDynamicClient
-        targetStaffClient = await createDynamicClient(activeCity, activeCountry, 'STAFF');
-        targetPublicClient = await createDynamicClient(activeCity, activeCountry, 'PUBLIC');
-      } else {
-        console.warn(`⚠️ send-reply: configuration introuvable pour ${activeCity}/${activeCountry}`);
-      }
-    }
-
-    // Vérification que les clients sont valides
-    if (!targetStaffClient || !targetPublicClient) {
-      console.error("Impossible d'initialiser les clients Supabase");
-      return NextResponse.json({ error: "Configuration base de données invalide" }, { status: 500 });
-    }
-
-    // 1. RÉCUPÉRATION DU DOSSIER DANS LA BASE CIBLE (Ville ou Master)
-    const { data: signalInfo, error: signalError } = await targetStaffClient
+    // 1. RÉCUPÉRATION DU DOSSIER
+    const { data: signalInfo, error: signalError } = await supabaseClient
       .from('pending_signals')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
@@ -119,8 +89,8 @@ export async function POST(req: Request) {
       if (!stationName) stationName = signalInfo.payload?.city;
     }
 
-    // 2. RÉCUPÉRATION DES ÉCHANGES DANS LA BASE CIBLE (pour l'historique dans l'email)
-    const { data: historyData } = await targetStaffClient
+    // 2. RÉCUPÉRATION DES ÉCHANGES (pour l'historique dans l'email)
+    const { data: historyData } = await supabaseClient
       .from('communication_replies')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
@@ -157,7 +127,7 @@ export async function POST(req: Request) {
     const now = new Date();
     const uniqueSalt = now.getTime().toString(36);
 
-    // 3. ENVOI DE L'EMAIL VIA RESEND (uniquement si RESEND_API_KEY est présente)
+    // 3. ENVOI DE L'EMAIL VIA RESEND
     let mailError = null;
     if (resendApiKey) {
       const { error } = await resend.emails.send({
@@ -235,35 +205,32 @@ export async function POST(req: Request) {
       agent_email: cleanAgentEmail,
       content: message,
       document_url: docLink || null,
-      dossier_ref: cleanDossierRef
+      dossier_ref: cleanDossierRef,
+      city: stationName || activeCity || 'NANTES',
+      country: activeCountry
     };
 
-    // 4. MISE À JOUR DES BASES DE DONNÉES CIBLES (Insertion de la réponse et marquage comme lu)
+    // 4. MISE À JOUR DE LA BASE UNIQUE (Insertion de la réponse et marquage comme lu)
     console.log(`📝 send-reply: insertion dans communication_replies pour ${cleanDossierRef}`);
     
-    const [publicReplyInsert, staffReplyInsert, staffUpdate] = await Promise.all([
-      targetPublicClient.from('communication_replies').insert([replyData]),
-      targetStaffClient.from('communication_replies').insert([replyData]),
-      targetStaffClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef)
+    const [replyInsert, staffUpdate] = await Promise.all([
+      supabaseClient.from('communication_replies').insert([replyData]),
+      supabaseClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef)
     ]);
 
-    if (staffReplyInsert.error) {
-      console.error("❌ send-reply: erreur insertion STAFF dans communication_replies:", staffReplyInsert.error);
+    if (replyInsert.error) {
+      console.error("❌ send-reply: erreur insertion communication_replies:", replyInsert.error);
     } else {
-      console.log(`✅ send-reply: insertion STAFF OK`);
-    }
-    
-    if (publicReplyInsert.error) {
-      console.warn("⚠️ send-reply: erreur insertion PUBLIC dans communication_replies:", publicReplyInsert.error);
+      console.log(`✅ send-reply: insertion OK`);
     }
 
     if (staffUpdate.error) {
-      console.error("❌ send-reply: erreur mise à jour STAFF is_read:", staffUpdate.error);
+      console.error("❌ send-reply: erreur mise à jour is_read:", staffUpdate.error);
     } else {
-      console.log(`✅ send-reply: mise à jour is_read STAFF OK`);
+      console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
-    // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB VERS LE REPO DE LA VILLE
+    // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB
     if (signalInfo) {
         const origin = new URL(req.url).origin;
         console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
@@ -275,7 +242,8 @@ export async function POST(req: Request) {
                     message: signalInfo,
                     history: [],
                     purgeActive: false,
-                    city_code: stationName || activeCity
+                    city_code: stationName || activeCity,
+                    country_code: activeCountry
                 })
             });
             console.log(`✅ send-reply: archivage GitHub déclenché`);

@@ -5,11 +5,11 @@
  * ==========================================================
  * Ce fichier gère l'archivage des données de l'année N-1
  * vers Cloudflare R2 pour libérer de l'espace sur Supabase
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { R2Client } from '@/lib/storage/r2-client';
-import { getStationConfig } from '@/lib/supabase/master';
 
 // ==========================================================
 // TYPES
@@ -132,39 +132,31 @@ export interface ArchiveResult {
 const BATCH_SIZE = 1000; // Nombre d'enregistrements par lot
 
 /**
- * Crée un client Supabase pour une ville spécifique
+ * ✅ Option B : Crée un client Supabase UNIQUE (projet unique)
  */
-async function createCityClient(city: string, country: string = 'FR'): Promise<SupabaseClient> {
-  let url = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER!;
-  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_MASTER!;
+async function createSupabaseClient(): Promise<SupabaseClient> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
-  const cityUpper = city.toUpperCase().trim();
-  const countryUpper = country.toUpperCase().trim();
-  const geoKey = `${countryUpper}_${cityUpper}`;
-  
-  const cityUrl = process.env[`NEXT_PUBLIC_SUPABASE_URL_${geoKey}`] || 
-                  process.env[`NEXT_PUBLIC_SUPABASE_URL_${cityUpper}`];
-  const cityKey = process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${geoKey}`] || 
-                  process.env[`NEXT_PUBLIC_SUPABASE_ANON_KEY_${cityUpper}`];
-  
-  if (cityUrl && cityKey) {
-    url = cityUrl;
-    anonKey = cityKey;
+  if (!url || !anonKey) {
+    throw new Error('Variables Supabase manquantes');
   }
   
   return createClient(url, anonKey);
 }
 
 /**
- * Crée un client admin (service role) pour la ville
+ * ✅ Option B : Crée un client admin (service role) UNIQUE
  */
-async function createCityAdminClient(city: string, country: string = 'FR'): Promise<SupabaseClient> {
-  const config = await getStationConfig(city, country);
-  if (!config) {
-    throw new Error(`Configuration introuvable pour ${country}_${city}`);
+async function createSupabaseAdminClient(): Promise<SupabaseClient> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !serviceKey) {
+    throw new Error('Variables Supabase manquantes');
   }
   
-  return createClient(config.public_url, config.public_service_key);
+  return createClient(url, serviceKey);
 }
 
 /**
@@ -188,7 +180,7 @@ function getYearDateRange(year: number): { start: string; end: string } {
 }
 
 /**
- * Archive les joueurs d'une année
+ * Archive les joueurs d'une année (avec filtre city)
  */
 async function archivePlayers(
   client: SupabaseClient,
@@ -206,6 +198,8 @@ async function archivePlayers(
     const { data, error } = await client
       .from('athletes')
       .select('*')
+      .eq('city', city.toUpperCase())
+      .eq('country', country.toUpperCase())
       .gte('created_at', start)
       .lte('created_at', end)
       .range(offset, offset + BATCH_SIZE - 1);
@@ -245,7 +239,7 @@ async function archivePlayers(
 }
 
 /**
- * Archive les matchs d'une année
+ * Archive les matchs d'une année (avec filtre city)
  */
 async function archiveMatches(
   client: SupabaseClient,
@@ -263,6 +257,8 @@ async function archiveMatches(
     const { data, error } = await client
       .from('match_history')
       .select('*')
+      .eq('city', city.toUpperCase())
+      .eq('country', country.toUpperCase())
       .gte('date', start)
       .lte('date', end)
       .range(offset, offset + BATCH_SIZE - 1);
@@ -303,7 +299,7 @@ async function archiveMatches(
 }
 
 /**
- * Archive les résultats de tournois d'une année
+ * Archive les résultats de tournois d'une année (avec filtre city)
  */
 async function archiveTournaments(
   client: SupabaseClient,
@@ -321,6 +317,8 @@ async function archiveTournaments(
     const { data, error } = await client
       .from('tournament_results')
       .select('*')
+      .eq('city', city.toUpperCase())
+      .eq('country', country.toUpperCase())
       .gte('tournament_date', start)
       .lte('tournament_date', end)
       .range(offset, offset + BATCH_SIZE - 1);
@@ -354,7 +352,7 @@ async function archiveTournaments(
 }
 
 /**
- * Archive les classements d'une année
+ * Archive les classements d'une année (avec filtre city)
  */
 async function archiveRankings(
   client: SupabaseClient,
@@ -372,6 +370,8 @@ async function archiveRankings(
     const { data, error } = await client
       .from('rankings_history')
       .select('*')
+      .eq('city', city.toUpperCase())
+      .eq('country', country.toUpperCase())
       .gte('week_start', start)
       .lte('week_end', end)
       .range(offset, offset + BATCH_SIZE - 1);
@@ -405,7 +405,7 @@ async function archiveRankings(
 }
 
 /**
- * Archive les sessions AS-EG d'une année
+ * Archive les sessions AS-EG d'une année (avec filtre city)
  */
 async function archiveASEGSessions(
   client: SupabaseClient,
@@ -423,6 +423,8 @@ async function archiveASEGSessions(
     const { data, error } = await client
       .from('as_eg_sessions')
       .select('*')
+      .eq('city', city.toUpperCase())
+      .eq('country', country.toUpperCase())
       .gte('created_at', start)
       .lte('created_at', end)
       .range(offset, offset + BATCH_SIZE - 1);
@@ -527,8 +529,9 @@ export async function archiveYearForCity(
   console.log(`📦 Début archivage ${targetYear} pour ${city}/${country}`);
   
   try {
-    const client = await createCityClient(city, country);
-    const adminClient = await createCityAdminClient(city, country);
+    // ✅ Option B : Client UNIQUE
+    const client = await createSupabaseClient();
+    const adminClient = await createSupabaseAdminClient();
     
     // 1. Récupérer toutes les données
     console.log(`📥 Récupération des données...`);
@@ -646,7 +649,7 @@ export async function archiveExists(
   country: string = 'FR'
 ): Promise<boolean> {
   try {
-    const client = await createCityClient(city, country);
+    const client = await createSupabaseClient();
     const { data, error } = await client
       .from('player_archives')
       .select('id')
@@ -675,7 +678,7 @@ export async function getArchiveMetadata(
   country: string = 'FR'
 ): Promise<{ key: string; size: number; recordsCount: Record<string, number> } | null> {
   try {
-    const client = await createCityClient(city, country);
+    const client = await createSupabaseClient();
     const { data, error } = await client
       .from('player_archives')
       .select('archive_key, archive_size, records_count')

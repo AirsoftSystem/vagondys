@@ -1,10 +1,10 @@
 
 // app/api/record-match/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getStationConfig } from "@/lib/supabase/master";
 
 /**
  * API pour le serveur Python : Enregistrer les scores d'une partie
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  * 
  * Méthode : POST
  * Body (JSON) :
@@ -126,29 +126,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Récupérer la configuration de la station
-    const stationConfig = await getStationConfig(playerCity || "NANTES", playerCountry || "FR");
-    if (!stationConfig) {
+    // 3. Connexion à la base UNIQUE (service_role pour écrire)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Variables Supabase manquantes");
       return NextResponse.json(
-        { error: `Station ${playerCountry}_${playerCity} introuvable` },
-        { status: 404 }
+        { error: "Configuration serveur invalide" },
+        { status: 500 }
       );
     }
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
-    // 4. Connexion à la base de la station (service_role pour écrire)
-    const stationAdmin = createClient(
-      stationConfig.public_url,
-      stationConfig.public_service_key,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // 5. Récupérer l'ID du joueur si on a seulement l'email
+    // 4. Récupérer l'ID du joueur si on a seulement l'email (avec filtre city)
     let finalPlayerId = playerId;
     if (!finalPlayerId && playerEmail) {
-      const { data: player, error: playerError } = await stationAdmin
+      const { data: player, error: playerError } = await supabaseAdmin
         .from("athletes")
         .select("id")
         .eq("email", playerEmail.toLowerCase())
+        .eq("city", playerCity || "NANTES")
+        .eq("country", playerCountry || "FR")
         .maybeSingle();
 
       if (playerError || !player) {
@@ -167,8 +169,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Insérer dans match_history
-    const { error: insertError } = await stationAdmin
+    // 5. Insérer dans match_history (avec city et country)
+    const { error: insertError } = await supabaseAdmin
       .from("match_history")
       .insert({
         player_id: finalPlayerId,
@@ -184,7 +186,9 @@ export async function POST(request: NextRequest) {
         hits_legs: hits_legs,
         win: true, // Par défaut, on considère que c'est une victoire
         game_group: game_group,
-        shot_distribution: shot_distribution
+        shot_distribution: shot_distribution,
+        city: playerCity || "NANTES",
+        country: playerCountry || "FR"
       });
 
     if (insertError) {
@@ -195,9 +199,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Mettre à jour les totaux dans la table athletes
-    // Récupérer les totaux actuels
-    const { data: currentAthlete, error: fetchError } = await stationAdmin
+    // 6. Mettre à jour les totaux dans la table athletes
+    const { data: currentAthlete, error: fetchError } = await supabaseAdmin
       .from("athletes")
       .select("total_matches, total_score, total_shots, total_kills, total_deaths, total_assists, total_hits_head, total_hits_body, total_hits_legs")
       .eq("id", finalPlayerId)
@@ -214,8 +217,7 @@ export async function POST(request: NextRequest) {
       const newTotalHitsBody = (currentAthlete.total_hits_body || 0) + hits_body;
       const newTotalHitsLegs = (currentAthlete.total_hits_legs || 0) + hits_legs;
 
-      // Mettre à jour les totaux
-      await stationAdmin
+      await supabaseAdmin
         .from("athletes")
         .update({
           total_matches: newTotalMatches,
@@ -232,7 +234,7 @@ export async function POST(request: NextRequest) {
         .eq("id", finalPlayerId);
     }
 
-    // 8. Retourner la confirmation
+    // 7. Retourner la confirmation
     return NextResponse.json({
       success: true,
       message: "Scores enregistrés avec succès",

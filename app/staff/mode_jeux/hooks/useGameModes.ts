@@ -12,7 +12,6 @@ import {
 } from '../types/game.types';
 import { useWebSocketManager } from './useWebSocketManager';
 import { createStaffClient } from '@/lib/supabase/client';
-import { getStationConfig, createDynamicClient, type StationConfig } from '@/lib/supabase/master';
 
 // Clé pour le stockage local des IPs
 const LANES_IPS_STORAGE_KEY = 'vagondys_lanes_ips';
@@ -188,7 +187,6 @@ export function useGameModes() {
   const [agentCity, setAgentCity] = useState<string | null>(null);
   const [agentCountry, setAgentCountry] = useState<string>('FR');
   const [agentEmail, setAgentEmail] = useState<string | null>(null);
-  const [stationConfig, setStationConfig] = useState<StationConfig | null>(null);
   
   // États pour le jeu
   const [selectedGameMode, setSelectedGameMode] = useState<GameModeCode | null>(null);
@@ -264,7 +262,7 @@ export function useGameModes() {
     // Force la mise à jour
   }, [lanesConfigVersion]);
 
-  // ✅ CORRECTION MAJEURE : Effet pour la reconnexion automatique (après que le manager soit prêt)
+  // ✅ Effet pour la reconnexion automatique (après que le manager soit prêt)
   useEffect(() => {
     // Ne rien faire si le manager n'est pas prêt
     if (!isWebSocketManagerReady) return;
@@ -299,7 +297,7 @@ export function useGameModes() {
     reconnectSequentially();
   }, [isWebSocketManagerReady, connectLane, getLaneIp]);
 
-  // Récupérer l'agent connecté et sa configuration
+  // ✅ Récupérer l'agent connecté (Version Option B - plus de getStationConfig)
   useEffect(() => {
     const fetchAgentAndConfig = async () => {
       try {
@@ -336,21 +334,24 @@ export function useGameModes() {
         
         setAgentCity(city);
         setAgentCountry(country);
-
-        const config = await getStationConfig(city, country);
-        setStationConfig(config);
         
       } catch (error) {
-        console.error('Erreur récupération agent/config:', error);
+        console.error('Erreur récupération agent:', error);
       }
     };
     
     fetchAgentAndConfig();
   }, []);
 
-  // ✅ CORRECTION TOTALE DU NO-UNUSED-VARS : Désactivation ESLint explicite pour cette ligne
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // ✅ lookupPlayer (version simplifiée sans stationConfig)
+  // Le paramètre playerIndex est conservé pour compatibilité API mais non utilisé actuellement
   const lookupPlayer = useCallback(async (identifier: string, playerIndex: number) => {
+    // playerIndex est conservé pour compatibilité mais non utilisé dans cette version
+    if (playerIndex !== undefined) {
+      // Log optionnel pour debug (pas d'impact fonctionnel)
+      console.log(`🔍 lookupPlayer pour le joueur index ${playerIndex}`);
+    }
+    
     if (!identifier.trim()) {
       return { success: false, error: "Identifiant requis" };
     }
@@ -454,19 +455,20 @@ export function useGameModes() {
     };
   }, [addMessageHandler, sendCommand]);
 
-  // Logger le lancement dans la base STAFF
+  // ✅ Logger le lancement dans la base STAFF (Version Option B - client direct)
   const logGameLaunch = useCallback(async (
     gameMode: GameModeCode, 
     pseudos: PlayerPseudo[], 
     laneId: number
   ) => {
-    if (!stationConfig || !agentEmail || !agentCity) {
-      console.warn('Configuration station ou email agent manquant');
+    if (!agentEmail || !agentCity) {
+      console.warn('Email agent ou ville manquant');
       return;
     }
     
     try {
-      const supabase = await createDynamicClient(agentCity, agentCountry, 'STAFF');
+      // ✅ Option B : Utilisation directe de createStaffClient (client unique)
+      const supabase = createStaffClient(agentCity, agentCountry);
       
       await supabase.from('game_launches').insert({
         agent_email: agentEmail,
@@ -482,7 +484,7 @@ export function useGameModes() {
     } catch (error) {
       console.error('Erreur sauvegarde lancement:', error);
     }
-  }, [stationConfig, agentEmail, agentCity, agentCountry]);
+  }, [agentEmail, agentCity, agentCountry]);
 
   // Fonction pour lancer un mode de jeu
   const launchGameMode = useCallback((gameMode: GameModeCode, laneId?: number) => {
@@ -508,11 +510,11 @@ export function useGameModes() {
     setIsPseudoModalOpen(true);
   }, [selectedLaneId, getLaneStatus, activeGames]);
 
-  // ✅ CORRECTION : Fonction pour extraire la distance d'un mode
+  // ✅ Fonction pour extraire la distance d'un mode
   const extractDistance = (mode: GameModeCode): string => {
     if (mode.startsWith('P-')) {
       // P-5m, P-10m, P-15m
-      return mode.substring(2); // retourne "5m", "10m", "15m"
+      return mode.substring(2);
     }
     if (mode.startsWith('L')) {
       // L5m-1J, L10m-2J, etc.
@@ -522,41 +524,30 @@ export function useGameModes() {
     return '';
   };
 
-  // ✅ CORRECTION : Fonction pour extraire le nombre de joueurs d'un mode
+  // ✅ Fonction pour extraire le nombre de joueurs d'un mode
   const extractPlayerCount = (mode: GameModeCode): PlayerCount => {
-    // PERSO: P-5m, P-10m, P-15m → 1 joueur
     if (mode.startsWith('P-')) return 1;
-    
-    // LOISIRS: L5m-1J, L10m-2J, L15m-3J, etc.
     if (mode.startsWith('L')) {
       const match = mode.match(/-(\d)J$/);
       return match ? parseInt(match[1]) as PlayerCount : 1;
     }
-    
-    // COMPETITION: C-2J → 2 joueurs
     if (mode === 'C-2J') return 2;
-    
-    // NOTORIETE: N-4J → 4 joueurs
     if (mode === 'N-4J') return 4;
-    
-    // ULTIMATE: U-1J → 1 joueur
     if (mode === 'U-1J') return 1;
-    
     return 1;
   };
 
-  // ✅ MODIFIÉ : Mise à jour d'un pseudo avec token et playerId
+  // ✅ Mise à jour d'un pseudo avec token et playerId
   const updatePlayerPseudo = useCallback((playerIndex: number, pseudo: string, accessToken?: string, playerId?: string) => {
     setPlayerPseudos(prev => 
       prev.map(p => p.index === playerIndex ? { ...p, pseudo, accessToken, playerId, isAuthenticated: !!accessToken } : p)
     );
   }, []);
 
-  // ✅ MODIFIÉ : Fonction pour confirmer le lancement de la partie (avec envoi du token auth)
+  // ✅ Fonction pour confirmer le lancement de la partie
   const confirmGameLaunch = useCallback(async () => {
     if (!selectedGameMode || selectedLaneId === null) return;
 
-    // ✅ CORRECTION : Utiliser la nouvelle fonction d'extraction
     const playerCount = extractPlayerCount(selectedGameMode);
     const distance = extractDistance(selectedGameMode);
 
@@ -567,7 +558,7 @@ export function useGameModes() {
       return;
     }
 
-    // ✅ NOUVEAU : Envoyer les tokens d'authentification pour chaque joueur (si disponibles)
+    // Envoyer les tokens d'authentification pour chaque joueur
     for (let i = 0; i < validPseudos.length; i++) {
       const player = validPseudos[i];
       if (player.accessToken) {
@@ -582,7 +573,6 @@ export function useGameModes() {
         } else {
           console.log(`🔐 Auth envoyé pour ${player.pseudo}`);
         }
-        // Petit délai entre chaque envoi pour éviter les conflits
         await new Promise(resolve => setTimeout(resolve, 100));
       } else {
         console.warn(`⚠️ Aucun token pour ${player.pseudo} - partie non authentifiée`);
@@ -592,14 +582,11 @@ export function useGameModes() {
     const pseudosForServer = validPseudos.map(p => p.pseudo).join(',');
     let modeForServer = '';
     
-    // ✅ CORRECTION : Construction des commandes avec distance
     if (selectedGameMode.startsWith('L')) {
-      // LOISIRS: L5m-2J → LOISIR_5m_2
       const nbJoueurs = extractPlayerCount(selectedGameMode);
       modeForServer = `LOISIR_${distance}_${nbJoueurs}`;
     } 
     else if (selectedGameMode.startsWith('P-')) {
-      // PERSO: P-5m → PERSO_5m
       modeForServer = `PERSO_${distance}`;
     }
     else if (selectedGameMode === 'C-2J') {
@@ -609,7 +596,6 @@ export function useGameModes() {
       modeForServer = 'NOTORIETE';
     }
     else {
-      // ULTIMATE ou autre (ne devrait pas arriver car désactivé)
       alert('Mode non disponible');
       return;
     }
@@ -649,7 +635,7 @@ export function useGameModes() {
       return newMap;
     });
 
-    if (stationConfig && agentEmail && agentCity) {
+    if (agentEmail && agentCity) {
       logGameLaunch(selectedGameMode, validPseudos, selectedLaneId).catch(console.error);
     }
 
@@ -658,7 +644,7 @@ export function useGameModes() {
   
     alert(`✅ Couloir ${selectedLaneId + 1} armé ! Le joueur doit maintenant cliquer sur le bouton physique pour commencer la partie.`);
     
-  }, [selectedGameMode, selectedLaneId, playerPseudos, sendCommand, stationConfig, agentEmail, agentCity, logGameLaunch]);
+  }, [selectedGameMode, selectedLaneId, playerPseudos, sendCommand, agentEmail, agentCity, logGameLaunch]);
 
   // Réinitialisation des pseudos
   const resetAllPseudos = useCallback(() => {
@@ -670,7 +656,7 @@ export function useGameModes() {
     ]);
   }, []);
 
-  // ✅ CORRECTION : Obtenir le nombre de joueurs pour un mode (utilise la nouvelle fonction)
+  // ✅ Obtenir le nombre de joueurs pour un mode
   const getPlayerCountFromMode = useCallback((mode: GameModeCode): PlayerCount => {
     return extractPlayerCount(mode);
   }, []);
@@ -701,7 +687,6 @@ export function useGameModes() {
     agentCity,
     agentCountry,
     agentEmail,
-    stationConfig,
     
     // WebSockets (avec persistance)
     lanes,
@@ -735,7 +720,7 @@ export function useGameModes() {
     resetAllPseudos,
     getPlayerCountFromMode,
     
-    // ✅ NOUVEAU : Exposer lookupPlayer pour la modale
+    // lookupPlayer pour la modale
     lookupPlayer,
   };
 }

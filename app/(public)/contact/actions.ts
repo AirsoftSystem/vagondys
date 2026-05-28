@@ -4,7 +4,6 @@
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
-import { createDynamicClient } from "@/lib/supabase/master";
 
 // --- DÉFINITION DES TYPES ---
 interface SignalPayload {
@@ -23,11 +22,13 @@ interface SignalPayload {
 
 /**
  * ACTION 1 : Envoi du formulaire initial (calqué sur l'inscription)
+ * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 export async function submitContact(formData: FormData) {
   
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL_MASTER;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY_MASTER;
+  // Version Option B : Un seul projet Supabase
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
   
   if (!supabaseUrl || !supabaseKey) {
@@ -60,11 +61,11 @@ export async function submitContact(formData: FormData) {
 
     let existingDossierRef: string | null = registryEntry?.dossier_ref || null;
     
-    // 2. RECHERCHE DANS PENDING_SIGNALS (STAFF)
+    // 2. RECHERCHE DANS PENDING_SIGNALS (STAFF) - Version directe sans createDynamicClient
     if (!existingDossierRef) {
       try {
-        const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-        const { data: existingSignal } = await cityStaffClient
+        // Utilisation directe du client avec le projet unique
+        const { data: existingSignal } = await supabaseMaster
           .from('pending_signals')
           .select('dossier_ref')
           .eq('payload->>email', email)
@@ -115,25 +116,13 @@ export async function submitContact(formData: FormData) {
       isNewDossier = true;
     }
 
-    // 4. CRÉATION DU CLIENT STAFF
-    let cityStaffClient;
-    try {
-      cityStaffClient = await createDynamicClient(city, country, 'STAFF');
-      const { error: testError } = await cityStaffClient
-        .from('pending_signals')
-        .select('count', { count: 'exact', head: true });
-      
-      if (testError) {
-        throw new Error(`Client STAFF invalide: ${testError.message}`);
-      }
-    } catch (clientErr) {
-      throw new Error(`Erreur client STAFF: ${clientErr instanceof Error ? clientErr.message : String(clientErr)}`);
-    }
+    // 4. UTILISATION DIRECTE DU CLIENT MASTER (Option B)
+    // Plus besoin de createDynamicClient - un seul projet
     
     let insertData;
     
     // 5. VÉRIFICATION SI SIGNAL EXISTE DÉJÀ
-    const { data: existingSignal, error: checkError } = await cityStaffClient
+    const { data: existingSignal, error: checkError } = await supabaseMaster
       .from('pending_signals')
       .select('id, dossier_ref, payload, confirmed, created_at')
       .eq('payload->>email', email)
@@ -172,11 +161,13 @@ export async function submitContact(formData: FormData) {
       const updatedPayload: SignalPayload = {
         ...currentPayload,
         message: message,
-        messages_history: messagesHistory
+        messages_history: messagesHistory,
+        city: registryEntry?.city || city,
+        country: registryEntry?.country || country
       };
       
       // ✅ Mise à jour : is_read = false, confirmed = false, payload enrichi
-      const { data: updatedData, error: updateError } = await cityStaffClient
+      const { data: updatedData, error: updateError } = await supabaseMaster
         .from('pending_signals')
         .update({
           is_read: false,
@@ -201,7 +192,7 @@ export async function submitContact(formData: FormData) {
         messages_history: []
       };
       
-      const { data: newData, error: dbError } = await cityStaffClient
+      const { data: newData, error: dbError } = await supabaseMaster
         .from('pending_signals')
         .insert([{
           id: randomUUID(), 
@@ -209,7 +200,9 @@ export async function submitContact(formData: FormData) {
           confirmed: false,
           payload: insertPayload,
           is_new_athlete: !registryEntry && isNewDossier,
-          is_read: false
+          is_read: false,
+          city: registryEntry?.city || city,
+          country: registryEntry?.country || country
         }])
         .select()
         .single();
@@ -269,6 +262,7 @@ export async function submitContact(formData: FormData) {
 
 /**
  * ACTION 2 : Envoi d'une réponse (Espace Client/Discussion)
+ * Version adaptée pour l'Option B
  */
 export async function submitReply(formData: FormData) {
   const dossier_ref = String(formData.get("dossier_ref") || "").trim();
@@ -279,7 +273,16 @@ export async function submitReply(formData: FormData) {
   if (!dossier_ref || !content) throw new Error("Données manquantes.");
 
   try {
-    const cityStaffClient = await createDynamicClient(city, country, 'STAFF');
+    // Version Option B : Un seul projet Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Configuration Supabase manquante");
+    }
+    
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
     
     const sharedId = randomUUID(); 
     const replyData = {
@@ -287,9 +290,11 @@ export async function submitReply(formData: FormData) {
       dossier_ref,
       content,
       agent_email: "CLIENT",
+      city: city,
+      country: country
     };
     
-    const { error } = await cityStaffClient
+    const { error } = await supabaseClient
       .from("communication_replies")
       .insert([replyData]);
     
@@ -304,6 +309,7 @@ export async function submitReply(formData: FormData) {
 
 /**
  * ACTION 3 : Envoi du formulaire d'inscription (Staff vers Joueur)
+ * Version adaptée pour l'Option B (inchangée car pas de dépendance à createDynamicClient)
  */
 export async function sendInvitation(email: string) {
   if (!email) throw new Error("Email requis.");
