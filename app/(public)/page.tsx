@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import Link from "next/link";
 import { User } from "lucide-react";
@@ -23,14 +24,30 @@ export default function HomePage() {
     { id: 16, slug: "blade-m", name: "BLADE-M", rank: "OR" }
   ];
 
+  // Liste des liens institutionnels (triée par ordre alphabétique ou logique)
+  const institutionalLinks = [
+    { label: "Maison VAGONDYS", href: "/maison", category: "institution" },
+    { label: "La Ligue", href: "/la-ligue", category: "institution", highlight: true },
+    { label: "Classements", href: "/classements", category: "ranking" },
+    { label: "Joueurs", href: "/joueurs", category: "ranking" },
+    { label: "Leaders", href: "/leaders", category: "ranking" },
+    { label: "Tournois", href: "/tournois", category: "events" },
+    { label: "Événementiels", href: "/evenementiels", category: "events" },
+    { label: "Sponsors", href: "/sponsors", category: "partners" },
+    { label: "Réservations", href: "/reservations", category: "booking" },
+    { label: "Communication", href: "/communication", category: "contact" },
+    { label: "Contact", href: "/contact", category: "contact" },
+    { label: "Espace Joueur", href: "/espace-joueur", category: "auth" },
+    { label: "Mentions légales", href: "/mentions-legales", category: "legal" },
+    { label: "Confidentialité", href: "/politique-de-confidentialite", category: "legal" }
+  ];
+
   return (
-    // On utilise un conteneur div car le <main> est déjà fourni par le layout public
     <div className="flex flex-col items-center bg-black text-neutral-100">
 
       {/* ===================== */}
       {/* HERO — LA MAISON      */}
       {/* ===================== */}
-      {/* Ajout d'une min-height pour réserver l'espace du Hero avant le chargement du logo */}
       <header className="w-full max-w-6xl px-6 pt-24 pb-28 text-center min-h-[500px] flex flex-col items-center justify-center">
         <div className="flex justify-center mb-10 h-[180px] w-[180px] relative">
           <Image
@@ -38,7 +55,7 @@ export default function HomePage() {
             alt="VAGONDYS"
             width={180}
             height={180}
-            priority // Charge l'image immédiatement pour le LCP
+            priority
             className="object-contain"
           />
         </div>
@@ -48,7 +65,7 @@ export default function HomePage() {
         </h1>
 
         <p className="mt-6 text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto">
-          Maison d’élite d’airsoft. Discipline, compétition et maîtrise du chaos.
+          Maison d&apos;élite d&apos;airsoft. Discipline, compétition et maîtrise du chaos.
         </p>
 
         <p className="mt-10 text-xs uppercase tracking-[0.4em] text-neutral-400">
@@ -59,7 +76,6 @@ export default function HomePage() {
       {/* ===================== */}
       {/* ÉTAT DE LA SAISON     */}
       {/* ===================== */}
-      {/* min-h pour stabiliser cette section lors du scroll */}
       <section className="w-full border-t border-neutral-800 bg-neutral-950 min-h-[180px]">
         <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
           <div className="flex flex-col justify-center">
@@ -102,7 +118,6 @@ export default function HomePage() {
           Les 16 Leaders — Saison 2025
         </h2>
 
-        {/* Grille stabilisée avec aspect-square */}
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-6">
           {Array.from({ length: 16 }).map((_, i) => {
             const player = leaders[i];
@@ -156,25 +171,29 @@ export default function HomePage() {
           Accès institutionnels
         </h2>
 
-        <nav className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { label: "Maison VAGONDYS", href: "/maison" },
-            { label: "La Ligue", href: "/la-ligue" , sub: "Barèmes & Calendrier" },       
-            { label: "Classements", href: "/classements" },
-            { label: "Joueurs", href: "/joueurs" },
-            { label: "Communication", href: "/communication" },
-            { label: "Espace-Joueur", href: "/espace-joueur" },
-          ].map((item) => (
+        <nav className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          {institutionalLinks.map((item) => (
             <Link
               key={item.label}
               href={item.href}
-              className={`group border rounded-xl p-8 hover:border-neutral-500 transition min-h-[120px] flex flex-col justify-center ${item.label === "La Ligue" ? "border-red-900/50 bg-neutral-950" : "border-neutral-800"}`}
+              className={`group border rounded-xl p-8 hover:border-neutral-500 transition min-h-[120px] flex flex-col justify-center ${
+                item.highlight ? "border-red-900/50 bg-neutral-950" : "border-neutral-800"
+              }`}
             >
-              <p className={`text-lg font-medium group-hover:text-white transition ${item.label === "La Ligue" ? "text-red-500" : ""}`}>
+              <p className={`text-lg font-medium group-hover:text-white transition ${
+                item.highlight ? "text-red-500" : ""
+              }`}>
                 {item.label}
               </p>
               <p className="text-sm text-neutral-500 mt-2">
-                Accès officiel
+                {item.category === "institution" && "Accès officiel"}
+                {item.category === "ranking" && "Classements & palmarès"}
+                {item.category === "events" && "Programme & inscriptions"}
+                {item.category === "partners" && "Partenaires officiels"}
+                {item.category === "booking" && "Réservation en ligne"}
+                {item.category === "contact" && "Nous contacter"}
+                {item.category === "auth" && "Espace sécurisé"}
+                {item.category === "legal" && "Informations légales"}
               </p>
             </Link>
           ))}
@@ -208,7 +227,7 @@ export default function HomePage() {
             <div className="flex flex-col items-center">
               <p className="text-xl font-semibold mb-4">Temporalité</p>
               <p className="text-neutral-500">
-                Rien n’est éternel. Tout se mérite.
+                Rien n&apos;est éternel. Tout se mérite.
               </p>
             </div>
           </div>
