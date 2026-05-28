@@ -1,7 +1,8 @@
+
 "use client";
 
 import React from 'react';
-import { Home, ArrowLeft, BarChart3, User } from "lucide-react";
+import { Home, ArrowLeft, BarChart3, User, Calendar, Archive } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import "@/app/Ranking.css";
@@ -28,8 +29,10 @@ export default function ClassementPage() {
     { id: "vacant-16", name: "VACANT", score: "20", status: "UMS", avatar: null },
   ];
 
+  // Saisons disponibles (à connecter à l'API plus tard)
+  const availableSeasons = [2025, 2024, 2023];
+
   return (
-    // Utilisation d'une div car le <main> est déjà géré par PublicLayout pour éviter la redondance
     <div className="min-h-screen bg-black text-white px-6 py-24 relative font-sans selection:bg-red-600">
       
       {/* NAVIGATION UP - Stabilisée en hauteur */}
@@ -116,16 +119,53 @@ export default function ClassementPage() {
         </section>
 
         {/* LIENS SAISONNIERS - Grille stable */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-px bg-zinc-900 border border-zinc-900 min-h-[200px]">
-          <Link href="/classements/saison2025" className="bg-black p-12 hover:bg-zinc-900 transition-all group overflow-hidden relative block h-full">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-px bg-zinc-900 border border-zinc-900 mb-12 min-h-[200px]">
+          <Link href="/classements/saison/2025" className="bg-black p-12 hover:bg-zinc-900 transition-all group overflow-hidden relative block h-full">
             <span className="block text-[10px] font-black text-red-600 mb-2 italic tracking-widest uppercase h-3">Cycle Actif</span>
             <h4 className="text-4xl font-black italic uppercase text-white group-hover:translate-x-2 transition-transform">Saison 2025</h4>
           </Link>
-          <Link href="/classements" className="bg-black p-12 hover:bg-zinc-900 transition-all group border-l border-zinc-900 overflow-hidden relative block h-full">
+          <Link href="/classements/archives" className="bg-black p-12 hover:bg-zinc-900 transition-all group border-l border-zinc-900 overflow-hidden relative block h-full">
             <span className="block text-[10px] font-black text-zinc-600 mb-2 italic tracking-widest uppercase h-3">Consultation</span>
             <h4 className="text-4xl font-black italic uppercase text-zinc-500 group-hover:translate-x-2 transition-transform">Archives</h4>
           </Link>
         </section>
+
+        {/* SECTION ARCHIVES - Saisons passées */}
+        <section className="mt-12">
+          <div className="flex items-center gap-3 mb-8 pb-2 border-b border-zinc-800">
+            <Archive className="w-4 h-4 text-red-600" />
+            <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500">
+              ARCHIVES
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {availableSeasons.map((season) => (
+              <Link
+                key={season}
+                href={`/classements/saison/${season}`}
+                className="group bg-zinc-950 border border-zinc-800 rounded-xl p-6 text-center hover:border-red-600/50 transition-all hover:scale-[1.02] duration-300"
+              >
+                <Calendar className="w-6 h-6 text-zinc-600 mx-auto mb-3 group-hover:text-red-600 transition-colors" />
+                <p className="text-lg font-black italic uppercase tracking-tighter text-white">
+                  Saison {season}
+                </p>
+                <p className="text-[7px] text-zinc-500 uppercase tracking-widest mt-1">
+                  Consulter l&apos;archive
+                </p>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <Link
+              href="/classements/archives"
+              className="inline-flex items-center gap-2 text-[8px] text-zinc-600 hover:text-red-600 transition-colors uppercase tracking-widest font-black"
+            >
+              <Archive size={10} />
+              Voir toutes les archives
+            </Link>
+          </div>
+        </section>
+
       </div>
     </div>
   );

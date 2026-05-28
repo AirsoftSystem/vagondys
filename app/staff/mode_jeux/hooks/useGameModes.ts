@@ -253,6 +253,7 @@ export function useGameModes() {
   // ✅ Surveiller la disponibilité des lanes pour savoir quand le manager est prêt
   useEffect(() => {
     if (lanes.size === FIXED_LANE_COUNT) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsWebSocketManagerReady(true);
       console.log('✅ WebSocket Manager prêt');
     }

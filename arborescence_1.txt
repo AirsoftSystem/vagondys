@@ -1421,9 +1421,11 @@ VAGONDYS/
 ┃  ┃  ┣━ bareme/                                   ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ classements/                              ✅ EXISTANT
+┃  ┃  ┃  ┣━ archives/                              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ saison/                                ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ [year]/                             ✅ EXISTANT
-┃  ┃  ┃  ┃     ┗━ page.tsx                         🆕 À CRÉER
+┃  ┃  ┃  ┃     ┗━ page.tsx                         ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ communication/                            ✅ EXISTANT 
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
@@ -1434,8 +1436,6 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┃  ┗━ SubmitButton.tsx                       ✅ EXISTANT
 ┃  ┃  ┣━ evenementiels/                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ [date]/                                ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            🆕 À CRÉER
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ joueurs/                                  ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
