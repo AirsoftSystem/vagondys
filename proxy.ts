@@ -1,6 +1,7 @@
 
 // proxy.ts
 
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getAthleteCity, getAthleteCountry } from './lib/supabase/master'
 
@@ -72,17 +73,22 @@ export async function proxy(request: NextRequest) {
   // RÈGLE 3 : ESPACE JOUEUR / CARTE ID
   // ============================================================
   if (pathname.startsWith('/espace-joueur') || pathname.startsWith('/carte-id')) {
-    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name) => request.cookies.get(name)?.value,
+          set: (name, value, options) => {
+            response.cookies.set({ name, value, ...options })
+          },
+          remove: (name, options) => {
+            response.cookies.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
     
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('❌ proxy: Variables Supabase manquantes')
-      return NextResponse.redirect(new URL('/connexion', request.url))
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -110,17 +116,22 @@ export async function proxy(request: NextRequest) {
   // ============================================================
   // RÈGLE 5 & 6 : AUTHENTIFICATION STAFF
   // ============================================================
-  const { createClient } = await import('@supabase/supabase-js')
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => request.cookies.get(name)?.value,
+        set: (name, value, options) => {
+          response.cookies.set({ name, value, ...options })
+        },
+        remove: (name, options) => {
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
   
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('❌ proxy: Variables Supabase manquantes pour staff')
-    return NextResponse.redirect(new URL('/staff/login', request.url))
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
   const { data: { user } } = await supabase.auth.getUser()
   
   const userEmail = user?.email?.toLowerCase() || null
