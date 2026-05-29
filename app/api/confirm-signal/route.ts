@@ -321,8 +321,20 @@ export async function GET(request: NextRequest) {
     const serviceNameRaw = rawSubject.split('_')[0] || "CONTACT"; 
     const cleanServiceName = serviceNameRaw.toLowerCase(); 
 
-    // ✅ Conserver l'historique des messages existant (typé sans 'any')
+    // ✅ CORRECTION : Conserver et enrichir l'historique des messages
     const existingMessagesHistory = p.messages_history || [];
+    
+    // ✅ S'assurer que le message actuel est dans l'historique
+    const currentMessageExists = existingMessagesHistory.some(
+      (msg) => msg.content === currentMessageForEmail
+    );
+    
+    const updatedMessagesHistory = currentMessageExists
+      ? existingMessagesHistory
+      : [...existingMessagesHistory, {
+          content: currentMessageForEmail,
+          created_at: new Date().toISOString()
+        }];
 
     const cleanPayload: SignalPayload = {
       ...p,
@@ -332,7 +344,7 @@ export async function GET(request: NextRequest) {
       confirmed_at: new Date().toISOString(),
       city: p.city,
       country: p.country,
-      messages_history: existingMessagesHistory,
+      messages_history: updatedMessagesHistory,
       meta: {
         ...p.meta,
         is_returning_client: !!(registryEntry?.dossier_ref) || finalDossierRef !== signal.dossier_ref,
@@ -371,7 +383,7 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // ✅ MISE À JOUR DANS PUBLIC (au lieu d'INSERT)
+    // ✅ MISE À JOUR DANS PUBLIC
     try {
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'TENTATIVE_UPDATE_PUBLIC',
@@ -380,7 +392,6 @@ export async function GET(request: NextRequest) {
         dossier_ref: finalDossierRef
       }, 'info');
 
-      // Vérifier si le signal existe déjà dans PUBLIC
       const { data: existingPublicSignal } = await supabasePublic
         .from('pending_signals')
         .select('id')
@@ -389,7 +400,6 @@ export async function GET(request: NextRequest) {
 
       let publicError;
       if (existingPublicSignal) {
-        // ✅ UPDATE existant
         const { error: updatePublicError } = await supabasePublic
           .from('pending_signals')
           .update({
@@ -401,7 +411,6 @@ export async function GET(request: NextRequest) {
           .eq('dossier_ref', finalDossierRef);
         publicError = updatePublicError;
       } else {
-        // ✅ INSERT nouveau (premier message seulement)
         const { error: insertPublicError } = await supabasePublic
           .from('pending_signals')
           .insert([{
@@ -421,10 +430,7 @@ export async function GET(request: NextRequest) {
       if (publicError) {
         await forceLog(`confirm-signal-${requestId}`, {
           event: 'ERREUR_PUBLIC',
-          error: publicError.message,
-          code: publicError.code || 'unknown',
-          details: publicError.details || '',
-          hint: publicError.hint || ''
+          error: publicError.message
         }, 'error');
       } else {
         await forceLog(`confirm-signal-${requestId}`, {
@@ -470,7 +476,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ✅ NOTIFICATIONS EMAIL
+    // ✅ NOTIFICATIONS EMAIL (inchangé)
     let serviceEmail = "contact@vagondys.com";
     const s = serviceNameRaw; 
     if (s === "NANTES") serviceEmail = process.env.EMAIL_NANTES || "nantes@vagondys.com";
@@ -511,20 +517,11 @@ export async function GET(request: NextRequest) {
           `
         });
         await forceLog(`confirm-signal-${requestId}`, {
-          event: 'EMAIL_STAFF_OK',
-          to: JSON.stringify(staffDestinataires)
+          event: 'EMAIL_STAFF_OK'
         }, 'info');
-      } else {
-        await forceLog(`confirm-signal-${requestId}`, {
-          event: 'RESEND_API_KEY_MANQUANTE'
-        }, 'warn');
       }
     } catch (emailErr) {
-      const error = emailErr as Error;
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'ERREUR_EMAIL_STAFF',
-        error: error.message
-      }, 'error');
+      console.error("Erreur email staff:", emailErr);
     }
 
     // Email au client
@@ -559,14 +556,10 @@ export async function GET(request: NextRequest) {
         to: clientEmail
       }, 'info');
     } catch (emailErr) {
-      const error = emailErr as Error;
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'ERREUR_EMAIL_CLIENT',
-        error: error.message
-      }, 'error');
+      console.error("Erreur email client:", emailErr);
     }
 
-    // ✅ ARCHIVAGE GITHUB À CHAQUE CONFIRMATION
+    // ✅ ARCHIVAGE GITHUB AVEC HISTORIQUE COMPLET
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
       await forceLog(`confirm-signal-${requestId}`, {
@@ -575,33 +568,7 @@ export async function GET(request: NextRequest) {
         country
       }, 'info');
       
-      // ✅ Récupérer l'historique existant
-      const existingHistory = cleanPayload.messages_history || [];
-      
-      // ✅ Vérifier si le message actuel n'est pas déjà dans l'historique
-      const alreadyExists = existingHistory.some(
-        (msg) => msg.content === currentMessageForEmail
-      );
-      
-      let updatedMessagesHistory;
-      if (!alreadyExists) {
-        updatedMessagesHistory = [
-          ...existingHistory,
-          {
-            content: currentMessageForEmail,
-            created_at: new Date().toISOString()
-          }
-        ];
-      } else {
-        // Ne pas ajouter de doublon
-        updatedMessagesHistory = existingHistory;
-        await forceLog(`confirm-signal-${requestId}`, {
-          event: 'DOUBLON_IGNORE',
-          content: currentMessageForEmail
-        }, 'warn');
-      }
-      
-      // ✅ Construire le fil de discussion complet pour GitHub avec tous les messages
+      // ✅ Utiliser l'historique mis à jour
       const fullThread = [
         {
           role: "CLIENT_CONTACT_INFO",

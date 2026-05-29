@@ -1,5 +1,6 @@
 
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 
 interface HistoryMessage {
   id: string;
@@ -111,13 +112,28 @@ export async function POST(req: Request) {
       `).join('');
     }
 
-    if (signalInfo && signalInfo.payload) {
+    // ✅ CORRECTION : Récupérer l'historique des messages du client depuis le payload
+    const clientMessagesHistory = signalInfo?.payload?.messages_history || [];
+    
+    // Ajouter l'historique des messages client dans l'email
+    if (clientMessagesHistory.length > 0) {
+      historyHtml += clientMessagesHistory.map((msg: { content: string; created_at: string }, index: number) => `
+        <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
+          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
+            ${index === 0 ? 'MESSAGE INITIAL' : 'MESSAGE CLIENT'} — ${new Date(msg.created_at).toLocaleString('fr-FR')}
+          </p>
+          <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${msg.content.replace(/\n/g, '<br>')}</div>
+        </div>
+      `).join('');
+    }
+
+    if (signalInfo && signalInfo.payload && clientMessagesHistory.length === 0) {
       const firstMsg = signalInfo.payload.message;
       const firstDate = signalInfo.created_at;
       historyHtml += `
         <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
           <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-            VOTRE MESSAGE INITIAL — ${new Date(firstDate).toLocaleString('fr-FR')}
+            MESSAGE INITIAL — ${new Date(firstDate).toLocaleString('fr-FR')}
           </p>
           <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${firstMsg.replace(/\n/g, '<br>')}</div>
         </div>
@@ -200,8 +216,9 @@ export async function POST(req: Request) {
 
     if (mailError) return NextResponse.json({ error: "Échec envoi" }, { status: 400 });
 
+    const replyId = id || randomUUID();
     const replyData = {
-      id: id || crypto.randomUUID(),
+      id: replyId,
       agent_email: cleanAgentEmail,
       content: message,
       document_url: docLink || null,
@@ -230,16 +247,58 @@ export async function POST(req: Request) {
       console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
+    // ✅ CORRECTION : Mettre à jour le payload du signal avec le nouveau message dans l'historique
+    if (signalInfo && signalInfo.payload) {
+      const existingMessagesHistory = signalInfo.payload.messages_history || [];
+      const currentMessageExists = existingMessagesHistory.some(
+        (msg: { content: string }) => msg.content === message
+      );
+      
+      const updatedMessagesHistory = currentMessageExists
+        ? existingMessagesHistory
+        : [...existingMessagesHistory, {
+            content: message,
+            created_at: new Date().toISOString()
+          }];
+      
+      const updatedPayload = {
+        ...signalInfo.payload,
+        message: message,
+        messages_history: updatedMessagesHistory
+      };
+      
+      const { error: updatePayloadError } = await supabaseClient
+        .from('pending_signals')
+        .update({ payload: updatedPayload })
+        .eq('dossier_ref', cleanDossierRef);
+      
+      if (updatePayloadError) {
+        console.error("❌ send-reply: erreur mise à jour payload:", updatePayloadError);
+      } else {
+        console.log(`✅ send-reply: payload mis à jour avec historique (${updatedMessagesHistory.length} messages)`);
+      }
+    }
+
     // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB
     if (signalInfo) {
         const origin = new URL(req.url).origin;
         console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
+        
+        // ✅ Récupérer le payload mis à jour
+        const { data: updatedSignal } = await supabaseClient
+          .from('pending_signals')
+          .select('*')
+          .eq('dossier_ref', cleanDossierRef)
+          .maybeSingle();
+        
+        const signalToArchive = updatedSignal || signalInfo;
+        
         try {
             await fetch(`${origin}/api/archive-external`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: signalInfo,
+                    message: signalToArchive,
                     history: [],
                     purgeActive: false,
                     city_code: stationName || activeCity,

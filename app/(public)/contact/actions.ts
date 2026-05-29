@@ -179,17 +179,20 @@ export async function submitContact(formData: FormData) {
     }
     
     if (existingSignal) {
-      // ✅ Enrichir le payload existant avec l'historique
-      const currentPayload = existingSignal.payload as SignalPayload;
-      const messagesHistory = currentPayload.messages_history || [];
+      // ✅ CORRECTION : Enrichir l'historique sans écraser
+      const existingPayload = existingSignal.payload as SignalPayload;
+      const messagesHistory = [...(existingPayload.messages_history || [])];
       
-      if (currentPayload.message && messagesHistory.length === 0) {
+      // Ajouter le message actuel à l'historique s'il n'y est pas déjà
+      const currentMessage = existingPayload.message;
+      if (currentMessage && messagesHistory.length === 0) {
         messagesHistory.push({
-          content: currentPayload.message,
+          content: currentMessage,
           created_at: existingSignal.created_at || new Date().toISOString()
         });
       }
       
+      // Vérifier si le nouveau message n'est pas déjà dans l'historique
       const alreadyExists = messagesHistory.some(
         (msg) => msg.content === message
       );
@@ -201,13 +204,16 @@ export async function submitContact(formData: FormData) {
         });
       }
       
+      // ✅ CORRECTION : Mise à jour complète du payload
       const updatedPayload: SignalPayload = {
-        ...currentPayload,
-        message: message,
-        messages_history: messagesHistory,
+        name: existingPayload.name || name,
+        email: email,
+        phone: existingPayload.phone || phone,
+        subject: subject,
+        message: message, // Dernier message reçu
         city: registryEntry?.city || targetCity,
         country: registryEntry?.country || targetCountry,
-        subject: subject
+        messages_history: messagesHistory
       };
       
       const { data: updatedData, error: updateError } = await supabaseMaster
@@ -227,7 +233,7 @@ export async function submitContact(formData: FormData) {
       insertData = updatedData;
       
     } else {
-      // Création d'un nouveau signal
+      // Création d'un nouveau signal (premier message)
       const insertPayload: SignalPayload = { 
         name, email, phone, subject, message,
         city: registryEntry?.city || targetCity,
