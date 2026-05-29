@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { masterAdmin } from "@/lib/supabase/master";
 import { randomUUID } from 'crypto';
-import { gzipSync } from 'zlib';
 
 // Définition de l'interface pour garantir la sécurité des données
 interface SignalPayload {
@@ -445,11 +444,7 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // ✅ CORRECTION SUPPRIMÉE : Plus d'insertion dans communication_replies pour les messages client
-    // Les messages client sont déjà dans messages_history, pas besoin de dupliquer
-    // Le bloc "if (!signal.is_new_athlete)" a été SUPPRIMÉ pour éviter les doublons
-
-    // ✅ NOTIFICATIONS EMAIL (inchangé)
+    // ✅ NOTIFICATIONS EMAIL
     let serviceEmail = "contact@vagondys.com";
     const s = serviceNameRaw; 
     if (s === "NANTES") serviceEmail = process.env.EMAIL_NANTES || "nantes@vagondys.com";
@@ -532,7 +527,10 @@ export async function GET(request: NextRequest) {
       console.error("Erreur email client:", emailErr);
     }
 
-    // ✅ ARCHIVAGE GITHUB AVEC HISTORIQUE COMPLET ET COMPRESSION GZIP
+    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE À CHAQUE CONFIRMATION
+    let archiveSuccess = false;
+    let archiveError: string | null = null;
+    
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
       await forceLog(`confirm-signal-${requestId}`, {
@@ -541,8 +539,18 @@ export async function GET(request: NextRequest) {
         country
       }, 'info');
       
+      // ✅ Utiliser la VRAIE ville du payload pour l'archivage (pas city_code)
+      const archiveCity = p.city || city;
+      const archiveCountry = p.country || country;
+      
+      await forceLog(`confirm-signal-${requestId}`, {
+        event: 'ARCHIVAGE_VILLE_UTILISEE',
+        ville: archiveCity,
+        pays: archiveCountry
+      }, 'info');
+      
       // ✅ CONSTRUCTION DU FULLTHREAD SANS DOUBLONS
-      const uniqueMessages = new Map();
+      const uniqueMessages = new Map<string, { role: string; sender: string; content: string; created_at: string; is_initial: boolean }>();
       
       updatedMessagesHistory.forEach((msg, idx) => {
         const key = `${msg.content}_${msg.created_at}`;
@@ -573,7 +581,8 @@ export async function GET(request: NextRequest) {
         ...Array.from(uniqueMessages.values())
       ];
       
-      const archiveData = {
+      // ✅ Format correct pour processArchivePost
+      const archivePayload = {
         message: {
           dossier_ref: finalDossierRef,
           created_at: signal.created_at,
@@ -581,8 +590,8 @@ export async function GET(request: NextRequest) {
             name: p.name,
             email: clientEmail,
             phone: p.phone || null,
-            city: city,
-            country: country,
+            city: archiveCity,
+            country: archiveCountry,
             subject: rawSubject,
             message: currentMessageForEmail,
             messages_history: updatedMessagesHistory
@@ -590,46 +599,29 @@ export async function GET(request: NextRequest) {
         },
         history: [],
         purgeActive: false,
-        city_code: city,
-        country_code: country,
+        city_code: archiveCity,
+        country_code: archiveCountry,
         fullThread: fullThread
       };
       
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'PAYLOAD_ARCHIVAGE',
         dossier_ref: finalDossierRef,
-        city,
-        country,
+        archiveCity,
+        archiveCountry,
         messages_count: updatedMessagesHistory.length
       }, 'info');
       
-      // ✅ COMPRESSION GZIP avant envoi
-      const jsonData = JSON.stringify(archiveData);
-      const compressedData = gzipSync(jsonData);
-      const compressedBase64 = compressedData.toString('base64');
-      
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'COMPRESSION_GZIP',
-        originalSize: jsonData.length,
-        compressedSize: compressedData.length,
-        ratio: `${((compressedData.length / jsonData.length) * 100).toFixed(1)}%`
-      }, 'info');
-      
+      // ✅ Appel à l'API d'archivage
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-Content-Encoding': 'gzip'
-        },
-        body: JSON.stringify({
-          ...archiveData,
-          _compressed: compressedBase64,
-          _compressedFormat: 'gzip'
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(archivePayload)
       });
 
       if (!archiveRes.ok) {
         const errorText = await archiveRes.text();
+        archiveError = `Status ${archiveRes.status}: ${errorText.substring(0, 500)}`;
         await forceLog(`confirm-signal-${requestId}`, {
           event: 'ERREUR_ARCHIVAGE_GITHUB',
           status: String(archiveRes.status),
@@ -637,22 +629,32 @@ export async function GET(request: NextRequest) {
         }, 'error');
       } else {
         const archiveResult = await archiveRes.json();
+        archiveSuccess = true;
         await forceLog(`confirm-signal-${requestId}`, {
           event: 'ARCHIVAGE_GITHUB_OK',
           result: JSON.stringify(archiveResult)
         }, 'info');
       }
     } catch (archiveErr) {
-      const error = archiveErr as Error;
+      archiveError = archiveErr instanceof Error ? archiveErr.message : String(archiveErr);
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'EXCEPTION_ARCHIVAGE_GITHUB',
-        error: error.message
+        error: archiveError
       }, 'error');
+    }
+    
+    // ✅ Si l'archivage a échoué, on le signale mais on continue
+    if (!archiveSuccess) {
+      await forceLog(`confirm-signal-${requestId}`, {
+        event: 'ARCHIVAGE_ECHEC_MAIS_CONTINUE',
+        error: archiveError || 'Erreur inconnue'
+      }, 'warn');
     }
 
     await forceLog(`confirm-signal-${requestId}`, {
       event: 'FIN_SUCCES',
-      duration: String(Date.now() - startTime)
+      duration: String(Date.now() - startTime),
+      archiveSuccess
     }, 'info');
 
     return NextResponse.redirect(new URL('/contact?status=confirmed', request.url));
