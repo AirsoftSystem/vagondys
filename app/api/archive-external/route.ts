@@ -1,5 +1,6 @@
 
 import { NextResponse } from "next/server";
+import { gunzipSync } from 'zlib';
 
 const DEFAULT_REPO_NAME = "VAGONDYS_ARCHIVES_DATA";
 
@@ -52,7 +53,18 @@ export async function GET(req: Request) {
         try {
           const fileRes = await fetch(file.download_url);
           if (!fileRes.ok) continue;
-          const contentJson = await fileRes.json();
+          
+          // ✅ Vérifier si le fichier est compressé (.gz)
+          let contentJson;
+          const isGzipped = file.name.endsWith('.gz');
+          
+          if (isGzipped) {
+            const arrayBuffer = await fileRes.arrayBuffer();
+            const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+            contentJson = JSON.parse(decompressed.toString('utf8'));
+          } else {
+            contentJson = await fileRes.json();
+          }
           
           const city = getPathString(contentJson, ["dossier_complet", "payload", "city"]) || 
                        getPathString(contentJson, ["dossier", "payload", "city"]);
@@ -74,7 +86,6 @@ export async function GET(req: Request) {
 
     // --- RECHERCHE PAR EMAIL ---
     if (searchEmail) {
-      // ✅ Recherche en base avant GitHub
       console.log(`🔍 GET archive-external: recherche en base pour ${searchEmail}`);
       
       try {
@@ -87,7 +98,6 @@ export async function GET(req: Request) {
         console.warn(`⚠️ GET archive-external: erreur recherche base:`, dbErr);
       }
       
-      // Recherche GitHub
       const files = await listAllArchiveFiles(customToken, targetRepo);
       const searchSlug = String(searchEmail).toLowerCase().replace(/[@.]/g, "_");
       const emailToMatch = String(searchEmail).replace(/_/g, ".").replace(/\.([^.]+)$/, "@$1");
@@ -102,7 +112,18 @@ export async function GET(req: Request) {
           
           const fileRes = await fetch(file.download_url);
           if (!fileRes.ok) continue;
-          const contentJson = await fileRes.json();
+          
+          // ✅ Vérifier si le fichier est compressé (.gz)
+          let contentJson;
+          const isGzipped = file.name.endsWith('.gz');
+          
+          if (isGzipped) {
+            const arrayBuffer = await fileRes.arrayBuffer();
+            const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+            contentJson = JSON.parse(decompressed.toString('utf8'));
+          } else {
+            contentJson = await fileRes.json();
+          }
 
           const fileEmail = getPathString(contentJson, ["dossier_complet", "payload", "email"]) ||
                             getPathString(contentJson, ["client_identity", "email"]) ||
@@ -139,7 +160,20 @@ export async function GET(req: Request) {
     console.log(`✅ GET archive-external: fichier trouvé: ${targetFile.path}`);
 
     const fileRes = await fetch(targetFile.download_url);
-    const contentJson = await fileRes.json();
+    
+    // ✅ Vérifier si le fichier est compressé (.gz)
+    let contentJson;
+    const isGzipped = targetFile.name.endsWith('.gz');
+    
+    if (isGzipped) {
+      const arrayBuffer = await fileRes.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+      contentJson = JSON.parse(decompressed.toString('utf8'));
+      console.log(`📦 GET archive-external: fichier GZIP décompressé`);
+    } else {
+      contentJson = await fileRes.json();
+    }
+    
     return NextResponse.json(mapArchiveToFrontendShape(contentJson));
 
   } catch (err: unknown) {
@@ -151,13 +185,25 @@ export async function GET(req: Request) {
 /**
  * POST : Archivage et Synchronisation
  * Version adaptée pour l'Option B (un seul repo GitHub)
+ * ✅ AJOUT : Support de la compression GZIP
  */
 export async function POST(req: Request) {
   try {
     const { processArchivePost } = await import("@/lib/archive-external/engine");
     const { validateArchiveBody } = await import("@/lib/archive-external/validator");
 
-    const body = await req.json();
+    let body;
+    const contentEncoding = req.headers.get('x-content-encoding');
+    
+    // ✅ DÉCOMPRESSION GZIP si le header est présent
+    if (contentEncoding === 'gzip') {
+      const arrayBuffer = await req.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+      body = JSON.parse(decompressed.toString('utf8'));
+      console.log(`📦 POST archive-external: données GZIP décompressées`);
+    } else {
+      body = await req.json();
+    }
     
     const { country_code } = body;
     console.log(`📦 POST archive-external: city_code=${body.city_code}, country_code=${country_code}`);

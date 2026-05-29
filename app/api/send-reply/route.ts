@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { gzipSync } from 'zlib';
 
 interface HistoryMessage {
   id: string;
@@ -9,6 +10,49 @@ interface HistoryMessage {
   content: string;
   document_url?: string | null;
   dossier_ref: string;
+}
+
+/**
+ * Interface pour un message client (payload)
+ */
+interface ClientMessage {
+  content: string;
+  created_at: string;
+}
+
+/**
+ * Interface pour un message générique (dédoublonnage)
+ */
+interface GenericMessage {
+  content?: string;
+  created_at?: string;
+  agent_email?: string;
+  sender?: string;
+  id?: string;
+  document_url?: string | null;
+  dossier_ref?: string;
+  role?: string;
+  is_initial?: boolean;
+}
+
+/**
+ * Élimine les doublons dans un tableau de messages
+ */
+function deduplicateMessages<T extends GenericMessage>(messages: T[]): T[] {
+  const uniqueMap = new Map<string, T>();
+  
+  for (const msg of messages) {
+    const contentKey = msg.content ? msg.content.substring(0, 200) : '';
+    const dateKey = msg.created_at || '';
+    const senderKey = msg.agent_email || msg.sender || '';
+    const key = `${contentKey}_${dateKey}_${senderKey}`;
+    
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, msg);
+    }
+  }
+  
+  return Array.from(uniqueMap.values());
 }
 
 export async function POST(req: Request) {
@@ -101,43 +145,64 @@ export async function POST(req: Request) {
 
     let historyHtml = '';
     
+    // ✅ Utiliser un Set pour éviter les doublons dans l'email
+    const emailMessagesSet = new Set<string>();
+    
     if (history && history.length > 0) {
-      historyHtml += history.map((h: HistoryMessage) => `
-        <div style="margin-top:15px; padding:15px; border-left:2px solid ${h.agent_email === 'CLIENT' ? '#52525b' : '#dc2626'}; background:#0c0c0e; border-radius:0 8px 8px 0;">
-          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-            ${h.agent_email === 'CLIENT' ? 'VOTRE MESSAGE' : `RÉPONSE ${serviceNameRaw}`} — ${new Date(h.created_at).toLocaleString('fr-FR')}
-          </p>
-          <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${h.content.replace(/\n/g, '<br>')}</div>
-        </div>
-      `).join('');
+      const uniqueHistory = deduplicateMessages<HistoryMessage>(history);
+      uniqueHistory.forEach((h: HistoryMessage) => {
+        const msgKey = `${h.content}_${h.created_at}`;
+        if (!emailMessagesSet.has(msgKey)) {
+          emailMessagesSet.add(msgKey);
+          historyHtml += `
+            <div style="margin-top:15px; padding:15px; border-left:2px solid ${h.agent_email === 'CLIENT' ? '#52525b' : '#dc2626'}; background:#0c0c0e; border-radius:0 8px 8px 0;">
+              <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
+                ${h.agent_email === 'CLIENT' ? 'VOTRE MESSAGE' : `RÉPONSE ${serviceNameRaw}`} — ${new Date(h.created_at).toLocaleString('fr-FR')}
+              </p>
+              <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${h.content.replace(/\n/g, '<br>')}</div>
+            </div>
+          `;
+        }
+      });
     }
 
-    // ✅ CORRECTION : Récupérer l'historique des messages du client depuis le payload
-    const clientMessagesHistory = signalInfo?.payload?.messages_history || [];
+    // ✅ Récupérer l'historique des messages du client depuis le payload (sans doublons)
+    const clientMessagesHistory = (signalInfo?.payload?.messages_history || []) as ClientMessage[];
+    const uniqueClientMessages = deduplicateMessages<ClientMessage>(clientMessagesHistory);
     
     // Ajouter l'historique des messages client dans l'email
-    if (clientMessagesHistory.length > 0) {
-      historyHtml += clientMessagesHistory.map((msg: { content: string; created_at: string }, index: number) => `
-        <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
-          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-            ${index === 0 ? 'MESSAGE INITIAL' : 'MESSAGE CLIENT'} — ${new Date(msg.created_at).toLocaleString('fr-FR')}
-          </p>
-          <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${msg.content.replace(/\n/g, '<br>')}</div>
-        </div>
-      `).join('');
+    if (uniqueClientMessages.length > 0) {
+      uniqueClientMessages.forEach((msg: ClientMessage, index: number) => {
+        const msgKey = `${msg.content}_${msg.created_at}`;
+        if (!emailMessagesSet.has(msgKey)) {
+          emailMessagesSet.add(msgKey);
+          historyHtml += `
+            <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
+              <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
+                ${index === 0 ? 'MESSAGE INITIAL' : 'MESSAGE CLIENT'} — ${new Date(msg.created_at).toLocaleString('fr-FR')}
+              </p>
+              <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${msg.content.replace(/\n/g, '<br>')}</div>
+            </div>
+          `;
+        }
+      });
     }
 
-    if (signalInfo && signalInfo.payload && clientMessagesHistory.length === 0) {
-      const firstMsg = signalInfo.payload.message;
-      const firstDate = signalInfo.created_at;
-      historyHtml += `
-        <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
-          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-            MESSAGE INITIAL — ${new Date(firstDate).toLocaleString('fr-FR')}
-          </p>
-          <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${firstMsg.replace(/\n/g, '<br>')}</div>
-        </div>
-      `;
+    if (signalInfo && signalInfo.payload && uniqueClientMessages.length === 0) {
+      const firstMsg = signalInfo.payload.message as string;
+      const firstDate = signalInfo.created_at as string;
+      const msgKey = `${firstMsg}_${firstDate}`;
+      if (!emailMessagesSet.has(msgKey)) {
+        emailMessagesSet.add(msgKey);
+        historyHtml += `
+          <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
+            <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
+              MESSAGE INITIAL — ${new Date(firstDate).toLocaleString('fr-FR')}
+            </p>
+            <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${firstMsg.replace(/\n/g, '<br>')}</div>
+          </div>
+        `;
+      }
     }
 
     const now = new Date();
@@ -249,12 +314,12 @@ export async function POST(req: Request) {
 
     // ✅ CORRECTION : Mettre à jour le payload du signal avec le nouveau message dans l'historique
     if (signalInfo && signalInfo.payload) {
-      const existingMessagesHistory = signalInfo.payload.messages_history || [];
+      const existingMessagesHistory = (signalInfo.payload.messages_history || []) as ClientMessage[];
       const currentMessageExists = existingMessagesHistory.some(
-        (msg: { content: string }) => msg.content === message
+        (msg: ClientMessage) => msg.content === message
       );
       
-      const updatedMessagesHistory = currentMessageExists
+      const updatedMessagesHistory: ClientMessage[] = currentMessageExists
         ? existingMessagesHistory
         : [...existingMessagesHistory, {
             content: message,
@@ -279,7 +344,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB
+    // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB AVEC COMPRESSION
     if (signalInfo) {
         const origin = new URL(req.url).origin;
         console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
@@ -293,19 +358,36 @@ export async function POST(req: Request) {
         
         const signalToArchive = updatedSignal || signalInfo;
         
+        // ✅ Construire l'archive avec dédoublonnage
+        const archivePayload = {
+          message: signalToArchive,
+          history: [],
+          purgeActive: false,
+          city_code: stationName || activeCity,
+          country_code: activeCountry
+        };
+        
+        // ✅ Compresser en GZIP avant envoi
+        const jsonString = JSON.stringify(archivePayload);
+        const compressed = gzipSync(jsonString);
+        const compressedBase64 = compressed.toString('base64');
+        
+        console.log(`📦 send-reply: compression GZIP - original: ${jsonString.length} bytes, compressé: ${compressed.length} bytes (gain: ${((1 - compressed.length/jsonString.length) * 100).toFixed(1)}%)`);
+        
         try {
             await fetch(`${origin}/api/archive-external`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'X-Content-Encoding': 'gzip'
+                },
                 body: JSON.stringify({
-                    message: signalToArchive,
-                    history: [],
-                    purgeActive: false,
-                    city_code: stationName || activeCity,
-                    country_code: activeCountry
+                  ...archivePayload,
+                  _compressed: compressedBase64,
+                  _compressedFormat: 'gzip'
                 })
             });
-            console.log(`✅ send-reply: archivage GitHub déclenché`);
+            console.log(`✅ send-reply: archivage GitHub déclenché (compressé)`);
         } catch (arcErr) {
             console.error("❌ send-reply: erreur synchro archive:", arcErr);
         }

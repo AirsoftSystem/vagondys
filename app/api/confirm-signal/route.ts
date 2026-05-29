@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { masterAdmin } from "@/lib/supabase/master";
 import { randomUUID } from 'crypto';
+import { gzipSync } from 'zlib';
 
 // Définition de l'interface pour garantir la sécurité des données
 interface SignalPayload {
@@ -214,7 +215,6 @@ export async function GET(request: NextRequest) {
 
     let registryEntry;
     try {
-      // Vérifier que masterAdmin n'est pas null avant de l'utiliser
       if (!masterAdmin) {
         await forceLog(`confirm-signal-${requestId}`, {
           event: 'MASTER_ADMIN_NULL',
@@ -324,7 +324,6 @@ export async function GET(request: NextRequest) {
     // ✅ CORRECTION : Conserver et enrichir l'historique des messages
     const existingMessagesHistory = p.messages_history || [];
     
-    // ✅ S'assurer que le message actuel est dans l'historique
     const currentMessageExists = existingMessagesHistory.some(
       (msg) => msg.content === currentMessageForEmail
     );
@@ -559,7 +558,7 @@ export async function GET(request: NextRequest) {
       console.error("Erreur email client:", emailErr);
     }
 
-    // ✅ ARCHIVAGE GITHUB AVEC HISTORIQUE COMPLET
+    // ✅ ARCHIVAGE GITHUB AVEC HISTORIQUE COMPLET ET COMPRESSION GZIP
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
       await forceLog(`confirm-signal-${requestId}`, {
@@ -568,7 +567,27 @@ export async function GET(request: NextRequest) {
         country
       }, 'info');
       
-      // ✅ Utiliser l'historique mis à jour
+      // ✅ CONSTRUCTION DU FULLTHREAD SANS DOUBLONS
+      // Utiliser un Set pour éviter les doublons basés sur le contenu + date
+      const uniqueMessages = new Map();
+      
+      // Ajouter tous les messages de l'historique
+      updatedMessagesHistory.forEach((msg, idx) => {
+        const key = `${msg.content}_${msg.created_at}`;
+        if (!uniqueMessages.has(key)) {
+          uniqueMessages.set(key, {
+            role: "public",
+            sender: clientEmail,
+            content: msg.content,
+            created_at: msg.created_at,
+            is_initial: idx === 0
+          });
+        }
+      });
+      
+      // Ajouter les réponses staff (echanges_staff) plus tard via l'engine
+      // Pour éviter les doublons, on ne les ajoute PAS ici - l'engine les gérera
+      
       const fullThread = [
         {
           role: "CLIENT_CONTACT_INFO",
@@ -582,16 +601,10 @@ export async function GET(request: NextRequest) {
             subject: rawSubject
           }
         },
-        ...updatedMessagesHistory.map((msg, index) => ({
-          role: "public",
-          sender: clientEmail,
-          content: msg.content,
-          created_at: msg.created_at,
-          is_initial: index === 0
-        }))
+        ...Array.from(uniqueMessages.values())
       ];
       
-      const archivePayload = {
+      const archiveData = {
         message: {
           dossier_ref: finalDossierRef,
           created_at: signal.created_at,
@@ -621,10 +634,30 @@ export async function GET(request: NextRequest) {
         messages_count: updatedMessagesHistory.length
       }, 'info');
       
+      // ✅ COMPRESSION GZIP avant envoi
+      const jsonData = JSON.stringify(archiveData);
+      const compressedData = gzipSync(jsonData);
+      const compressedBase64 = compressedData.toString('base64');
+      
+      await forceLog(`confirm-signal-${requestId}`, {
+        event: 'COMPRESSION_GZIP',
+        originalSize: jsonData.length,
+        compressedSize: compressedData.length,
+        ratio: `${((compressedData.length / jsonData.length) * 100).toFixed(1)}%`
+      }, 'info');
+      
+      // Envoyer les données compressées à l'API d'archivage
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(archivePayload)
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Content-Encoding': 'gzip'
+        },
+        body: JSON.stringify({
+          ...archiveData,
+          _compressed: compressedBase64,
+          _compressedFormat: 'gzip'
+        })
       });
 
       if (!archiveRes.ok) {
