@@ -8,6 +8,7 @@ import { gunzipSync } from 'zlib';
  * Body: { dossier_ref: string, city_code: string, country_code?: string }
  * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
  * ✅ AJOUT : Support des fichiers compressés .json.gz
+ * ✅ CORRECTION : Vérification existence avant insertion dans communication_replies
  */
 export async function POST(req: Request) {
   try {
@@ -64,13 +65,11 @@ export async function POST(req: Request) {
     const isGzipped = targetFile.name.endsWith('.gz');
     
     if (isGzipped) {
-      // ✅ Fichier compressé : décompresser avant de parser
       const arrayBuffer = await fileRes.arrayBuffer();
       const decompressed = gunzipSync(Buffer.from(arrayBuffer));
       archiveData = JSON.parse(decompressed.toString('utf8'));
       console.log(`📦 RESTORE: fichier GZIP décompressé (${targetFile.name})`);
     } else {
-      // Fichier JSON standard
       archiveData = await fileRes.json();
       console.log(`📦 RESTORE: fichier JSON standard (${targetFile.name})`);
     }
@@ -113,13 +112,13 @@ export async function POST(req: Request) {
     if (existingSignal) {
       console.log(`ℹ️ RESTORE: le dossier ${dossier_ref} existe déjà en base, mise à jour uniquement de l'historique`);
     } else {
-      // ✅ Insertion du signal restauré
+      // Insertion du signal restauré
       const insertData = {
         id: signalData.id,
         dossier_ref: dossier_ref,
         payload: signalData.payload,
         confirmed: signalData.confirmed,
-        is_read: true, // Important : apparaît dans l'onglet ARCHIVES
+        is_read: true,
         is_new_athlete: false,
         created_at: signalData.created_at,
         city: effectiveCity,
@@ -138,29 +137,57 @@ export async function POST(req: Request) {
       console.log(`✅ RESTORE: signal inséré pour ${dossier_ref}`);
     }
 
-    // 7. Insérer l'historique des échanges dans communication_replies
+    // ✅ CORRECTION : Insérer l'historique des échanges SANS créer de doublons
     if (historyData.length > 0) {
-      const historyToInsert = historyData.map(h => ({
-        id: h.id,
-        dossier_ref: dossier_ref,
-        agent_email: h.agent_email,
-        content: h.content,
-        document_url: h.document_url || null,
-        created_at: h.created_at,
-        city: effectiveCity,
-        country: effectiveCountry
-      }));
-
-      const { error: historyError } = await supabaseClient
-        .from("communication_replies")
-        .insert(historyToInsert);
-
-      if (historyError) {
-        console.error(`❌ RESTORE: erreur insertion historique:`, historyError);
-        // Non bloquant, on continue
-      } else {
-        console.log(`✅ RESTORE: ${historyData.length} échanges insérés pour ${dossier_ref}`);
+      console.log(`📝 RESTORE: vérification et insertion de ${historyData.length} échanges dans communication_replies`);
+      
+      let insertedCount = 0;
+      let duplicateCount = 0;
+      
+      for (const h of historyData) {
+        // Vérifier si ce message existe déjà (par contenu + agent_email + dossier_ref)
+        const { data: existing, error: checkReplyError } = await supabaseClient
+          .from("communication_replies")
+          .select("id")
+          .eq("dossier_ref", dossier_ref)
+          .eq("agent_email", h.agent_email)
+          .eq("content", h.content)
+          .maybeSingle();
+        
+        if (checkReplyError) {
+          console.warn(`⚠️ RESTORE: erreur vérification message:`, checkReplyError);
+          continue;
+        }
+        
+        if (!existing) {
+          // N'existe pas, on l'insère
+          const replyData = {
+            id: h.id,
+            dossier_ref: dossier_ref,
+            agent_email: h.agent_email,
+            content: h.content,
+            document_url: h.document_url || null,
+            created_at: h.created_at,
+            city: effectiveCity,
+            country: effectiveCountry
+          };
+          
+          const { error: insertReplyError } = await supabaseClient
+            .from("communication_replies")
+            .insert([replyData]);
+          
+          if (insertReplyError) {
+            console.error(`❌ RESTORE: erreur insertion message:`, insertReplyError);
+          } else {
+            insertedCount++;
+          }
+        } else {
+          duplicateCount++;
+          console.log(`⚠️ RESTORE: message déjà existant, ignoré: ${h.agent_email} - ${h.content.substring(0, 50)}...`);
+        }
       }
+      
+      console.log(`✅ RESTORE: ${insertedCount} nouveaux échanges insérés, ${duplicateCount} doublons ignorés pour ${dossier_ref}`);
     }
 
     console.log(`✅ RESTORE: restauration terminée avec succès pour ${dossier_ref}`);

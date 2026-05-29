@@ -79,6 +79,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * Utilise désormais le registry central pour obtenir la ville/pays
  * ✅ AJOUT : Dédoublonnage des messages et compression GZIP
  * ✅ CORRECTION : Utilisation de la ville du payload pour le chemin d'archivage
+ * ✅ CORRECTION : Suppression des entrées en double dans communication_replies lors de l'archivage
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -274,7 +275,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     ? `🔒 ARCHIVAGE FINAL & PURGE : Dossier ${ref}` 
     : `🔄 SYNCHRONISATION : Dossier ${ref}`;
 
-  // ✅ Upload du fichier compressé (en base64, sans paramètre supplémentaire)
+  // ✅ Upload du fichier compressé (en base64)
   const ghResponse = await upsertFile(
     customToken,
     targetRepo,
@@ -289,10 +290,53 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     throw new Error(`Échec GitHub (${ghResponse.status}): ${errText}`);
   }
 
-  // Purge des données locales (Optionnel)
+  // ✅ CORRECTION MAJEURE : Purge des données locales avec suppression des doublons
   let purged = false;
   if (purgeActive === true) {
     console.log(`🗑️ processArchivePost: purge active pour ${ref} sur ${archiveCity}/${archiveCountry}`);
+    
+    // ✅ ÉTAPE 1 : Supprimer les entrées en double dans communication_replies AVANT la purge
+    // Récupérer tous les messages pour ce dossier
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (supabaseUrl && supabaseKey) {
+      const supabaseClient = createClient(supabaseUrl, supabaseKey);
+      
+      // Récupérer tous les messages pour ce dossier
+      const { data: allMessages } = await supabaseClient
+        .from("communication_replies")
+        .select("*")
+        .eq("dossier_ref", ref);
+      
+      if (allMessages && allMessages.length > 0) {
+        // Dédupliquer par contenu + agent_email
+        const uniqueMessages = new Map();
+        const duplicatesToDelete: string[] = [];
+        
+        for (const msg of allMessages) {
+          const key = `${msg.content}_${msg.agent_email}`;
+          if (uniqueMessages.has(key)) {
+            // C'est un doublon, marquer pour suppression
+            duplicatesToDelete.push(msg.id);
+          } else {
+            uniqueMessages.set(key, msg);
+          }
+        }
+        
+        // Supprimer les doublons
+        if (duplicatesToDelete.length > 0) {
+          console.log(`🗑️ processArchivePost: suppression de ${duplicatesToDelete.length} doublons dans communication_replies pour ${ref}`);
+          await supabaseClient
+            .from("communication_replies")
+            .delete()
+            .in("id", duplicatesToDelete);
+        }
+      }
+    }
+    
+    // ✅ ÉTAPE 2 : Appeler la purge standard
     await purgeDossierData(ref, archiveCity, archiveCountry);
     purged = true;
     console.log(`✅ processArchivePost: purge terminée pour ${ref}`);
