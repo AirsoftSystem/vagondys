@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { gzipSync } from 'zlib';
 
 interface HistoryMessage {
   id: string;
@@ -166,7 +165,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // ✅ Récupérer l'historique des messages du client depuis le payload (sans doublons)
+    // ✅ Récupérer l'historique des messages du client depuis le payload
     const clientMessagesHistory = (signalInfo?.payload?.messages_history || []) as ClientMessage[];
     const uniqueClientMessages = deduplicateMessages<ClientMessage>(clientMessagesHistory);
     
@@ -312,58 +311,94 @@ export async function POST(req: Request) {
       console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
-    // ✅ CORRECTION MAJEURE : NE PAS ajouter la réponse staff dans messages_history
-    // Les réponses staff sont déjà dans communication_replies
-    // messages_history ne doit contenir que les messages CLIENT
-    // Ce bloc a été SUPPRIMÉ pour éviter les doublons
-
-    // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB AVEC COMPRESSION
-    if (signalInfo) {
-        const origin = new URL(req.url).origin;
-        console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
+    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE APRÈS CHAQUE RÉPONSE STAFF
+    // Récupérer le signal mis à jour avec toutes les données
+    const { data: finalSignal } = await supabaseClient
+      .from('pending_signals')
+      .select('*')
+      .eq('dossier_ref', cleanDossierRef)
+      .maybeSingle();
+    
+    if (finalSignal) {
+      const origin = new URL(req.url).origin;
+      console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
+      
+      // ✅ Récupérer toutes les réponses staff pour l'archive
+      const { data: allReplies } = await supabaseClient
+        .from('communication_replies')
+        .select('*')
+        .eq('dossier_ref', cleanDossierRef)
+        .order('created_at', { ascending: true });
+      
+      // ✅ Construire le fullThread complet (messages client + réponses staff)
+      const clientMessages = (finalSignal.payload?.messages_history || []) as ClientMessage[];
+      const staffMessages = (allReplies || []) as HistoryMessage[];
+      
+      // Créer le fil de discussion complet
+      const fullThreadMessages = [
+        {
+          role: "CLIENT_CONTACT_INFO",
+          sender: "SYSTEM",
+          content: `Fiche Contact : ${finalSignal.payload?.name} | Tel: ${finalSignal.payload?.phone || "Non renseigné"} | Email: ${finalSignal.payload?.email}`,
+          created_at: finalSignal.created_at,
+          details: {
+            name: finalSignal.payload?.name,
+            phone: finalSignal.payload?.phone,
+            email: finalSignal.payload?.email,
+            subject: finalSignal.payload?.original_subject || finalSignal.payload?.subject
+          }
+        },
+        // Messages client
+        ...clientMessages.map((msg, idx) => ({
+          role: "public",
+          sender: finalSignal.payload?.email,
+          content: msg.content,
+          created_at: msg.created_at,
+          is_initial: idx === 0
+        })),
+        // Réponses staff
+        ...staffMessages.map((reply) => ({
+          id: reply.id,
+          created_at: reply.created_at,
+          agent_email: reply.agent_email,
+          content: reply.content,
+          document_url: reply.document_url || null,
+          dossier_ref: reply.dossier_ref
+        }))
+      ];
+      
+      // Trier par date
+      fullThreadMessages.sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      });
+      
+      const archivePayload = {
+        message: finalSignal,
+        history: staffMessages,
+        purgeActive: false,
+        city_code: stationName || activeCity || finalSignal.payload?.city || 'NANTES',
+        country_code: activeCountry || finalSignal.payload?.country || 'FR',
+        fullThread: fullThreadMessages
+      };
+      
+      try {
+        const archiveRes = await fetch(`${origin}/api/archive-external`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(archivePayload)
+        });
         
-        // ✅ Récupérer le signal à archiver (sans modifier le payload)
-        const { data: updatedSignal } = await supabaseClient
-          .from('pending_signals')
-          .select('*')
-          .eq('dossier_ref', cleanDossierRef)
-          .maybeSingle();
-        
-        const signalToArchive = updatedSignal || signalInfo;
-        
-        // ✅ Construire l'archive avec dédoublonnage
-        const archivePayload = {
-          message: signalToArchive,
-          history: [],
-          purgeActive: false,
-          city_code: stationName || activeCity,
-          country_code: activeCountry
-        };
-        
-        // ✅ Compresser en GZIP avant envoi
-        const jsonString = JSON.stringify(archivePayload);
-        const compressed = gzipSync(jsonString);
-        const compressedBase64 = compressed.toString('base64');
-        
-        console.log(`📦 send-reply: compression GZIP - original: ${jsonString.length} bytes, compressé: ${compressed.length} bytes (gain: ${((1 - compressed.length/jsonString.length) * 100).toFixed(1)}%)`);
-        
-        try {
-            await fetch(`${origin}/api/archive-external`, {
-                method: 'POST',
-                headers: { 
-                  'Content-Type': 'application/json',
-                  'X-Content-Encoding': 'gzip'
-                },
-                body: JSON.stringify({
-                  ...archivePayload,
-                  _compressed: compressedBase64,
-                  _compressedFormat: 'gzip'
-                })
-            });
-            console.log(`✅ send-reply: archivage GitHub déclenché (compressé)`);
-        } catch (arcErr) {
-            console.error("❌ send-reply: erreur synchro archive:", arcErr);
+        if (archiveRes.ok) {
+          console.log(`✅ send-reply: archivage GitHub réussi pour ${cleanDossierRef}`);
+        } else {
+          const errorText = await archiveRes.text();
+          console.error(`❌ send-reply: archivage GitHub échoué (${archiveRes.status}): ${errorText.substring(0, 200)}`);
         }
+      } catch (arcErr) {
+        console.error("❌ send-reply: erreur synchro archive:", arcErr);
+      }
     }
 
     console.log(`✅ send-reply: succès complet pour ${cleanDossierRef}`);
