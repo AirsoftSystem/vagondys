@@ -67,7 +67,13 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
       const email = user.email.toLowerCase()
       console.log('[getStaffCity] Fallback: extraction depuis email:', email)
       
-      if (email.includes('nantes') || email.includes('.nantes')) {
+      // ✅ AJOUT : Détection des admins (retournent MASTER)
+      if (email === 'admin@vagondys.com' || email === 'vagondys@gmail.com' || email === 'contact@vagondys.com') {
+        city = 'MASTER'
+        country = 'FR'
+        console.log('[getStaffCity] Admin détecté, ville = MASTER')
+      }
+      else if (email.includes('nantes') || email.includes('.nantes')) {
         city = 'NANTES'
         console.log('[getStaffCity] Ville extraite (nantes):', city)
       }
@@ -83,6 +89,26 @@ export async function getStaffCity(): Promise<{ city: string | null; country: st
       else if (email.includes('paris')) {
         city = 'PARIS'
         console.log('[getStaffCity] Ville extraite (paris):', city)
+      }
+      else if (email.includes('communication')) {
+        city = 'MASTER'
+        country = 'FR'
+        console.log('[getStaffCity] Communication détectée, ville = MASTER')
+      }
+      else if (email.includes('sponsors')) {
+        city = 'MASTER'
+        country = 'FR'
+        console.log('[getStaffCity] Sponsors détectée, ville = MASTER')
+      }
+      else if (email.includes('ligue')) {
+        city = 'MASTER'
+        country = 'FR'
+        console.log('[getStaffCity] Ligue détectée, ville = MASTER')
+      }
+      else if (email.includes('inscription') || email.includes('licence')) {
+        city = 'MASTER'
+        country = 'FR'
+        console.log('[getStaffCity] Inscription/Licence détectée, ville = MASTER')
       }
       else {
         city = 'NANTES'
