@@ -112,16 +112,42 @@ export async function GET(request: Request) {
       const payload = clientSignal.payload;
       const messagesHistory = payload.messages_history || [];
       
-      // ✅ Ajouter le message initial s'il n'est pas déjà dans l'historique
+      // ✅ Trouver la date du premier message (la plus ancienne dans messages_history)
+      let oldestMessageDate: string | null = null;
+      if (messagesHistory.length > 0) {
+        // Trier les messages par date pour trouver le plus ancien
+        const sortedMessages = [...messagesHistory].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        oldestMessageDate = sortedMessages[0]?.created_at || null;
+      }
+      
+      // ✅ Ajouter le message initial avec la date du premier message, PAS signal.created_at
       if (payload.message) {
+        // Vérifier si le message initial est déjà dans l'historique
         const isAlreadyInHistory = messagesHistory.some(
           (m: { content: string }) => m.content === payload.message
         );
         
-        if (messagesHistory.length === 0 || !isAlreadyInHistory) {
+        // Si l'historique est vide OU que le message n'est pas dans l'historique
+        // Utiliser la date du signal SEULEMENT si c'est le premier message
+        if (messagesHistory.length === 0) {
+          // Premier message : utiliser la date du signal
           clientHistoryMessages.push({
             id: `${clientSignal.id}_initial`,
             created_at: clientSignal.created_at,
+            agent_email: "CLIENT",
+            content: payload.message,
+            dossier_ref: clientSignal.dossier_ref,
+            document_url: null,
+            is_initial: true
+          });
+        } else if (!isAlreadyInHistory && oldestMessageDate) {
+          // Message supplémentaire : utiliser la date la plus ancienne de l'historique
+          // (évite d'avoir une date de création du signal qui crée un doublon)
+          clientHistoryMessages.push({
+            id: `${clientSignal.id}_initial`,
+            created_at: oldestMessageDate,
             agent_email: "CLIENT",
             content: payload.message,
             dossier_ref: clientSignal.dossier_ref,
@@ -133,6 +159,7 @@ export async function GET(request: Request) {
       
       // ✅ Ajouter tous les messages de l'historique
       messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
+        // Vérifier si c'est un doublon du message initial
         const isDuplicateOfInitial = payload.message === msg.content && 
                                      clientHistoryMessages.some(m => m.content === msg.content);
         

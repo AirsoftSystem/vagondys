@@ -1,359 +1,623 @@
-# 1. Créer la Server Action pour récupérer la ville de l'agent
-#    Fichier : app/staff/interface/actions.ts
-#    (contenu donné ci-dessus)
-
-# 2. Modifier le hook useStaffInterface pour utiliser cette action
-#    - Importer l'action
-#    - Remplacer la requête directe par un appel à getAgentCity(email)
-#    - Adapter la logique de fallback si l'agent n'est pas trouvé
-
-# 3. Vérifier l'existence des colonnes dans les bases de chaque ville
-#    - pending_signals : is_new_athlete (boolean)
-#    - communication_replies : toutes les colonnes attendues
-
-# 4. Peupler staff_registry dans la base MASTER avec les emails des agents
-#    (au moins pour les tests : nantes@..., lyon@..., etc.)
-
-# 5. Tester à nouveau le flux complet :
-#    - Soumettre un contact avec une ville (ex: NANTES)
-#    - Cliquer sur le lien de confirmation
-#    - Vérifier que le signal apparaît dans l'interface Staff pour l'agent NANTES
-
-VAGONDYS/
-┣━ app/
-┃  ┣━ staff/
-┃  ┃  ┗━ interface/
-┃  ┃     ┣━ actions.ts                     <-- NOUVEAU (Server Action)
-┃  ┃     ┣━ components/
-┃  ┃     ┣━ hooks/
-┃  ┃     ┃  ┗━ useStaffInterface.ts        <-- MODIFIÉ (appelle l'action)
-┃  ┃     ┣━ types/
-┃  ┃     ┗━ page.tsx
-┃  ┗━ ...
-┗━ ...
-
-::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-# Analyse complète : Ce que j'ai fait et où nous en sommes
-
-## Ce que j'ai fait dans les messages précédents
-
-J'ai créé un système d'intégration WebSocket pour connecter votre application Flutter/ESP32 à votre site web VAGONDYS. Voici les composants que j'ai développés :
-
-### 1. **Hook WebSocket** (`app/(auth)/espace-joueur/hooks/useWebSocketStats.ts`)
-- Écoute les messages WebSocket du système Flutter
-- Traduit les messages "finished" en objets `MatchRecord`
-- Gère les stats des cibles (13 cibles, points, timeouts)
-- Fournit les états `isConnected`, `lastGameResult`, `cibleStats`
-
-### 2. **Intégration dans la page** (`app/(auth)/espace-joueur/page.tsx`)
-- Ajout de l'import du hook
-- États pour la connexion (`serverIp`, `autoConnect`)
-- Fonction `handleNewGameResult` pour mettre à jour Supabase
-- Interface de connexion WebSocket dans le header
-- Indicateur "LIVE" quand connecté
-- Affichage des stats de jeu dans la carte de rang
-
-### 3. **Corrections successives**
-- Chemin d'import corrigé (`./hooks/useWebSocketStats`)
-- Types ajoutés (`GameResult`, `GameStats`)
-- Dépendances `useCallback` corrigées
-- Paramètre `playerIndex` inutilisé supprimé
-
----
-
-## État actuel des fichiers
-
-### ✅ Fichiers existants et corrigés
-
-1. **`app/(auth)/espace-joueur/page.tsx`** ✓ (corrigé avec toutes les modifications)
-2. **`app/(auth)/espace-joueur/hooks/useWebSocketStats.ts`** ✓ (corrigé)
-
-### ❌ Fichiers manquants ou à créer
-
-D'après votre arborescence et la documentation, il manque :
-
-1. **`app/(auth)/espace-joueur/types.ts`** - Pour centraliser les interfaces
-2. **`app/(auth)/espace-joueur/components/Notification.tsx`** - Pour la notification de fin de partie
-3. **`app/(auth)/espace-joueur/components/WebSocketControl.tsx`** - Pour l'interface de connexion
-
----
-
-## Arborescence cible pour l'espace-joueur
-
-Voici comment devrait être organisé votre dossier `espace-joueur` :
-
-```
-app/(auth)/espace-joueur/
-│
-├── 📁 components/                          # 🧩 Composants réutilisables
-│   ├── Notification.tsx                     # Notification de fin de partie
-│   ├── WebSocketControl.tsx                 # Interface de connexion
-│   ├── StatsCard.tsx                        # Carte d'affichage des stats
-│   └── RankCard.tsx                         # Carte de rang
-│
-├── 📁 hooks/                                # 🪝 Hooks personnalisés
-│   └── useWebSocketStats.ts                  # 🔌 Hook WebSocket (existant) ✅
-│
-├── 📁 types/                                 # 📚 Types TypeScript
-│   └── index.ts                              # Interfaces partagées ✅
-│
-├── 📁 utils/                                 # 🔧 Fonctions utilitaires
-│   └── formatters.ts                          # Formatage (temps, dates)
-│
-└── page.tsx                                  # 📄 Page principale (existant) ✅
-```
-
----
-
-## Ce qui reste à faire
-
-### 1. **Créer le fichier de types** `app/(auth)/espace-joueur/types/index.ts`
-
-```ts
-export interface MatchRecord {
-  date: Date;
-  duration: number;
-  score: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  shots: number;
-  hitsHead: number;
-  hitsBody: number;
-  hitsLegs: number;
-  win: boolean;
-  group: string;
-  shotDistribution: Record<string, number>;
-}
-
-export interface GameStats {
-  totalMatches: number;
-  totalScore: number;
-  totalShots: number;
-  totalKills: number;
-  totalDeaths: number;
-  totalAssists: number;
-  totalHitsHead: number;
-  totalHitsBody: number;
-  totalHitsLegs: number;
-}
-
-export interface GameResult {
-  score: number;
-  shots: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  hitsHead?: number;
-  hitsBody?: number;
-  hitsLegs?: number;
-  date?: Date;
-  duration?: number;
-  group?: string;
-  shotDistribution?: Record<string, number>;
-}
-```
-
-### 2. **Extraire le composant Notification** (optionnel, pour cleaner le code)
-
-### 3. **Tester la connexion réelle** avec votre système ESP32
-
----
-
-## Voulez-vous que je :
-
-1. **Vous fournisse le code** pour les fichiers manquants ?
-2. **Vérifie** que tout est cohérent avec votre architecture existante ?
-3. **Rien d'autre** (si vous estimez que c'est complet) ?
-
-:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-app/(auth)/espace-joueur/
-│
-├── 📁 components/
-│   ├── Notification.tsx           # (À créer) ✅
-│   ├── WebSocketControl.tsx       # (À créer) ⚠️ Déjà partiellement dans page.tsx
-│   ├── StatsCard.tsx              # (À créer) ✅
-│   ├── RankCard.tsx               # (À créer) ✅
-│   ├── PrecisionBar.tsx           # (À créer) ← de precisionBar() Flutter
-│   ├── GlobalProgressBar.tsx      # (À créer) ← de _globalProgressBar() Flutter
-│   ├── ScoreChart.tsx             # (À créer) ← de _scoreLineChart() Flutter
-│   ├── HistoryTable.tsx           # (À créer) ← de _historyTable() Flutter
-│   └── 📁 cibles/
-│       ├── FlowerCibles.tsx       # (À créer) ← FlowerCibleCamembertWidget
-│       ├── FullscreenCibles.tsx   # (À créer) ← FullscreenFleurCiblePage
-│       └── CibleZone.tsx          # (À créer) ← FleurDeCiblesWidget
-│
-├── 📁 hooks/
-│   └── useWebSocketStats.ts       # ✅ Existant et corrigé
-│
-├── 📁 types/
-│   └── index.ts                    # ✅ Existant
-│
-├── 📁 utils/
-│   └── formatters.ts               # (À créer) ✅
-│
-├── 📁 services/                     # (Optionnel) Pour logique métier
-│   ├── gradeService.ts              # Calculs de grades
-│   └── precisionService.ts          # Calculs de précision
-│
-└── page.tsx                         # ✅ Existant (allégé avec composants)
-
-
-3. Mise à jour de page.tsx avec les nouveaux composants
-Ajoutez ces imports et remplacez la section "ZONE POUR FUTURS COMPOSANTS" :
-
-// Dans les imports, ajoutez :
-import { ScoreChart } from './components/ScoreChart';
-import { HistoryTable } from './components/HistoryTable';
-
-// Remplacez la section de la grille du bas par :
-<div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-  {/* Graphique d'évolution */}
-  <ScoreChart history={profile.history} />
-  
-  {/* Tableau d'historique */}
-  <HistoryTable history={profile.history} />
-</div>
-
-::::::::::::::::::::::::::::::::::::::::::::::::::
-
-app/(auth)/espace-joueur/
-├── page.tsx
-├── types/
-│   └── index.ts
-├── utils/
-│   └── formatters.ts
-├── hooks/
-│   └── useWebSocketStats.ts
-└── components/
-    ├── StatsCard.tsx
-    ├── RankCard.tsx
-    ├── PrecisionBar.tsx
-    ├── GlobalProgressBar.tsx
-    ├── WebSocketControl.tsx
-    ├── Notification.tsx
-    ├── ScoreChart.tsx
-    ├── HistoryTable.tsx
-    └── cibles/
-        ├── types.ts
-        ├── CibleSimple.tsx
-        └── FleurCibles.tsx
-*/
-
-:::::::::::::::::::::::::::::::::::::::::::::::::::
-
-// global.css
-
-.tactical-grid-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.03;
-  background-image: 
-    linear-gradient(#fff 1px, transparent 1px), 
-    linear-gradient(90deg, #fff 1px, transparent 1px);
-  background-size: 30px 30px;
-}
-
-/* ========================================== */
-/* PROGRESS BARS - Style VAGONDYS */
-/* ========================================== */
-
-/* Barre de progression pour le grade */
-.rank-progress-bar {
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-.rank-progress-bar[data-progress] {
-  width: calc(attr(data-progress) * 1%);
-}
-
-/* Alternative si attr() ne fonctionne pas */
-@supports not (width: attr(data-progress)) {
-  .rank-progress-bar[data-progress] {
-    width: calc(var(--progress-value) * 1%);
-  }
-}
-
-/* Version avec variable CSS (fallback) */
-.rank-progress-bar {
-  --progress: 0;
-  width: calc(var(--progress) * 1%);
-}
-
-.rank-progress-bar[data-progress] {
-  --progress: attr(data-progress);
-}
-
-/* Pour les navigateurs modernes */
-@supports (width: attr(data-progress type(<number>))) {
-  .rank-progress-bar[data-progress] {
-    width: attr(data-progress type(<number>), 0%);
-  }
-}
-
-/* Pour les barres de progression dynamiques */
-[style*="--progress-width"] {
-  width: var(--progress-width);
-}
-
 
 /*
-Nouveau Projet >>> "Flutter > VSC = Vercel" mais pour inclure le son dans un fichier :
 
-5. UTILISATION DANS UN COMPOSANT :
-*/
-// Exemple d'utilisation dans OfficialButton.tsx
-import { useAudioControl, COUNTDOWN_SEQUENCE } from "@/lib/hooks/useAudioControl";
+## 🎯 PROMPT ULTRA DÉTAILLÉ - PROJET VAGONDYS (Architecture Unifiée)
 
-export function OfficialButton({ action, onAction }: OfficialButtonProps) {
-  const { isPlaying, playCountdown } = useAudioControl({
-    onStart: () => console.log("Décompte démarré"),
-    onComplete: () => console.log("Décompte terminé, envoi de la commande"),
-    onError: (err) => console.error("Erreur audio:", err),
-  });
+---
 
-  const handleClick = async () => {
-    // 1. Jouer le décompte vocal
-    await playCountdown(COUNTDOWN_SEQUENCE);
-    
-    // 2. Envoyer la commande après le décompte
-    onAction();
-  };
+### 1. CONTEXTE INITIAL DU PROJET
 
-  return (
-    <button
-      onClick={handleClick}
-      disabled={isPlaying}
-      className={isPlaying ? "opacity-50" : ""}
-    >
-      {isPlaying ? "DÉCOMPTE..." : action === "START_GAME" ? "DÉMARRER" : "VALIDER"}
-    </button>
-  );
+**Projet :** VAGONDYS - Maison d'élite d'airsoft
+
+**Problème de départ :**
+- Architecture multi-villes non unifiée (12 comptes GitHub distincts, 25+ projets Supabase)
+- Stockage fragmenté (Supabase Storage, GitHub, pas de R2)
+- Absence d'archivage annuel, gestion des tournois, créneaux horaires
+- Sites public et staff non intégrés
+- Messages clients écrasés au lieu d'être enrichis dans l'historique
+- Archives GitHub non mises à jour après les réponses staff
+
+**Objectif final :** Refonte complète 100% FREE (puis passage PAYANT) garantissant :
+- Conservation de toutes les données
+- Consultation par les licenciés de leur historique annuel
+- Utilisation unique d'un compte GitHub + un projet Supabase (architecture UNIFIÉE)
+
+---
+
+### 2. ARCHITECTURE FINALE (Option B - Unifiée)
+
+| Service | Avant (Option A) | Après (Option B - UNIFIÉ) |
+|---------|------------------|---------------------------|
+| **Comptes GitHub** | 12 comptes (un par ville) | 1 SEUL compte |
+| **Repos GitHub** | 12 repos (un par ville) | 1 SEUL repo (`VGD-Tech/VAGONDYS_ARCHIVES`) |
+| **Projets Supabase** | 25+ (Master + Public/Staff par ville) | 1 SEUL projet (`VGD-Tech`) |
+| **Gestion des villes** | Bases séparées | Une seule base + colonne `city` pour filtrer |
+| **Stockage documents** | Supabase Storage | Cloudflare R2 |
+| **Archives matchs** | GitHub | Ne plus archiver (reste dans Supabase) |
+
+---
+
+### 3. STRUCTURE DE LA BASE DE DONNÉES UNIQUE (VGD-Tech)
+
+**Un seul projet Supabase contenant TOUTES les tables avec colonne `city` :**
+
+| Table | Rôle | Colonne city |
+|-------|------|--------------|
+| `athletes` | Profil des joueurs + stats cumulées | ✅ OUI |
+| `match_history` | Historique des matchs | ✅ OUI |
+| `pending_signals` | Messages du formulaire de contact | ✅ OUI |
+| `communication_replies` | Réponses du staff | ✅ OUI |
+| `game_launches` | Lancements de jeux par le staff | ✅ OUI |
+| `athletes_registry` | Annuaire central (liaison Auth) | ✅ OUI |
+| `email_confirmations` | Tokens de confirmation email | N/A |
+| `staff_registry` | Membres du staff (email, ville, rôle) | ✅ OUI |
+| `tournament_results` | Résultats des tournois | ✅ OUI |
+| `rankings_history` | Classements hebdomadaires | ✅ OUI |
+| `as_eg_sessions` | Sessions de notoriété | ✅ OUI |
+| `player_archives` | Archives annuelles | ✅ OUI |
+| `time_slots` | Créneaux horaires (réservations) | ✅ OUI |
+
+---
+
+### 4. VARIABLES D'ENVIRONNEMENT (`.env.local`)
+
+**Variables UNIFIÉES (plus de variables par ville) :**
+
+```bash
+# Supabase UNIQUE
+NEXT_PUBLIC_SUPABASE_URL=https://votre-projet-unique.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_clé_anon_publique
+SUPABASE_SERVICE_ROLE_KEY=votre_clé_service_role
+
+# GitHub UNIQUE
+GITHUB_ARCHIVE_TOKEN=ghp_votre_token_unique
+GITHUB_ARCHIVE_REPO=vagondys/VAGONDYS_ARCHIVES
+
+# Sécurité
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
+TURNSTILE_SECRET_KEY=...
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=...
+RECAPTCHA_SECRET_KEY=...
+
+# Emails
+RESEND_API_KEY=re_...
+CONTACT_FROM=contact@vagondys.com
+FRONTEND_URL=https://vagondys.com
+NEXT_PUBLIC_FRONTEND_URL=https://vagondys.com
+
+# Gmail (backup)
+GMAIL_SMTP_USER=vagondys@gmail.com
+GMAIL_SMTP_APP_PASSWORD=...
+GMAIL_FROM_NAME="Staff VAGONDYS"
+GMAIL_ALIAS_EMAIL=admin@vagondys.com
+GMAIL_NOREPLY=no-reply@vagondys.com
+
+# Alias emails
+EMAIL_DIRECTION=admin@vagondys.com
+EMAIL_CONTACT=contact@vagondys.com
+EMAIL_NANTES=nantes@vagondys.com
+EMAIL_LYON=lyon@vagondys.com
+EMAIL_MADRID=madrid@vagondys.com
+
+# Raspberry Pi (couloirs)
+NEXT_PUBLIC_LANE_1_IP=100.84.57.25
+```
+
+---
+
+### 5. FICHIERS CORRIGÉS ET LEUR RÔLE
+
+#### 5.1 Proxy / Middleware (`proxy.ts`)
+
+| Règle | Description |
+|-------|-------------|
+| **Règle 0** | Écrans TV (live_controls) - accès direct sans transformation |
+| **Règle 0.5** | Protection fichiers statiques (images, css, js) |
+| **Règle 1** | Blocage accès fichiers sensibles (.env, node_modules, etc.) |
+| **Règle 2** | En-têtes de sécurité (X-Robots-Tag, X-Frame-Options, etc.) |
+| **Règle 3** | Authentification espace joueur / carte ID |
+| **Règle 4** | Isolation du domaine public (`staff.vagondys.com`) |
+| **Règle 5 & 6** | Authentification staff (vérification session + headers city) |
+| **Règle 7** | Réécritures d'URL (rewrites) |
+
+**Modifications clés :**
+- Utilisation de `createServerClient` (pas `createClient`) pour la gestion des cookies
+- Récupération de la ville via `getAthleteCity` et `getAthleteCountry`
+- Support du sous-domaine `staff.vagondys.com`
+
+---
+
+#### 5.2 Client Supabase Unifié (`lib/supabase/master.ts`)
+
+**Fonctions principales :**
+
+| Fonction | Rôle |
+|----------|------|
+| `masterClient` | Client standard pour lectures/opérations classiques |
+| `masterAdmin` | Client admin (service_role) pour bypasser RLS |
+| `registerAthlete` | Inscription dans l'annuaire central |
+| `verifyEmailToken` | Vérification token de confirmation email |
+| `consumeEmailToken` | Marquage token comme utilisé |
+| `syncAthleteReference` | Synchronisation dossier_ref dans registry |
+| `getAthleteCity` | Récupération ville d'un athlète |
+| `getAthleteCountry` | Récupération pays d'un athlète |
+| `getStationConfig` | Configuration virtuelle (compatibilité) |
+| `createDynamicClient` | Client dynamique (compatibilité) |
+| `locateAthleteStation` | Localisation station (compatibilité) |
+
+---
+
+#### 5.3 Client Serveur (`lib/supabase/server.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `masterAdminClient` | Client admin pour opérations critiques |
+| `createVagondysClient` | Client public/joueurs (avec résolution ville via headers/session) |
+| `createStaffClient` | Client staff (avec paramètres cityCode/countryCode) |
+| `createAdminClient` | Client admin (service_role) |
+
+---
+
+#### 5.4 Client Navigateur (`lib/supabase/client.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `createVagondysClient` | Client public côté navigateur |
+| `createStaffClient` | Client staff côté navigateur |
+| `fetchGitHubArchive` | Récupération archive depuis GitHub |
+| `findDossierRefByEmailInGitHub` | Recherche référence par email |
+
+---
+
+#### 5.5 Client Unifié (`lib/supabase/unified-client.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `createUnifiedServerClient` | Point d'entrée unique côté serveur |
+| `createUnifiedBrowserClient` | Point d'entrée unique côté navigateur |
+| `createUnifiedAdminClient` | Client admin unifié |
+| `getCurrentCityFromRequest` | Récupération ville depuis headers/session |
+| `canAccessCity` | Vérification accès aux données d'une ville |
+
+---
+
+#### 5.6 Actions Staff (`actions/staff-actions.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `getStaffCity` | Récupération ville/pays/email du staff connecté |
+
+**Logique de résolution de la ville :**
+1. Lecture depuis `athletes_registry` (si masterAdmin disponible)
+2. Extraction depuis l'email (nantes, lyon, madrid, communication, sponsors, ligue, etc.)
+3. Admin (`admin@vagondys.com`, `vagondys@gmail.com`, `contact@vagondys.com`) → ville = `MASTER`
+4. Ville par défaut = `NANTES`
+
+---
+
+#### 5.7 Configuration Staff (`actions/get-staff-config.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `getStaffConfig` | Récupération configuration STAFF (variables unifiées) |
+
+---
+
+#### 5.8 Formulaire de Contact (`app/(public)/contact/page.tsx`)
+
+**Nouveautés :**
+- Géolocalisation par IP pour pré-remplir la ville la plus proche (formule de Haversine)
+- Sélecteur "Objet du signal" modifié (suppression "Ville" et "Autre")
+- Catégories centralisées (COMMUNICATION, SPONSORS, LIGUE, INSCRIPTION, LICENCE) → `city = 'MASTER'`
+- Catégories filtrées par ville (PLAYER, COMPETITION, TOURNOIS, RESERVATIONS) → conservation ville sélectionnée
+- Recherche automatique de dossier existant via email
+
+**Géolocalisation IP :**
+```javascript
+// Appel à ipapi.co/json/
+// Détermination de la ville la plus proche via coordonnées GPS
+// Liste des villes : Nantes, Lyon, Paris, Marseille, Bordeaux, Lille, Toulouse, Madrid
+```
+
+---
+
+#### 5.9 Actions Formulaire de Contact (`app/(public)/contact/actions.ts`)
+
+| Fonction | Rôle |
+|----------|------|
+| `submitContact` | Envoi du message initial (création/mise à jour signal) |
+| `submitReply` | Réponse client (espace client) - NE PLUS insérer dans `communication_replies` |
+| `sendInvitation` | Envoi invitation inscription (staff → joueur) |
+
+**Redirection intelligente selon l'objet :**
+
+| Catégorie | Destination | Filtre |
+|-----------|-------------|--------|
+| COMMUNICATION, SPONSORS, LIGUE, INSCRIPTION, LICENCE | `admin@vagondys.com` | `city = 'MASTER'` |
+| PLAYER, COMPETITION, TOURNOIS, RESERVATIONS | Staff de la ville sélectionnée | `city` de la ville |
+
+**Gestion de l'historique :**
+- `messages_history` stocke UNIQUEMENT les messages CLIENT
+- `communication_replies` stocke UNIQUEMENT les réponses STAFF
+- Plus de doublons entre les deux sources
+
+---
+
+#### 5.10 API Confirmation Signal (`app/api/confirm-signal/route.ts`)
+
+**Rôle :** Validation du signal via le lien envoyé par email
+
+**Actions effectuées :**
+1. Vérification du token et récupération du signal
+2. Récupération du dossier_ref depuis `athletes_registry` ou GitHub
+3. Enrichissement de `messages_history`
+4. Mise à jour STAFF et PUBLIC (confirmed = true)
+5. Envoi emails (staff + client)
+6. **CRÉATION DE L'ARCHIVE GITHUB** (premier archivage)
+
+**Format de l'archive envoyée à `/api/archive-external` :**
+```json
+{
+  "message": { "dossier_ref": "...", "payload": {...} },
+  "history": [],
+  "purgeActive": false,
+  "city_code": "NANTES",
+  "country_code": "FR",
+  "fullThread": [...]
 }
-/*
+```
 
-OU :
+---
 
-/*
-// Exemple d'utilisation dans CountdownDisplay.tsx
-import { useCountdownDisplay } from "@/lib/hooks/useAudioControl";
+#### 5.11 API Réponse Staff (`app/api/send-reply/route.ts`)
 
-export function CountdownDisplay() {
-  const { countdownValue, isCountingDown } = useCountdownDisplay();
+**Rôle :** Envoi d'une réponse par le staff
 
-  if (!isCountingDown) return null;
+**Actions effectuées :**
+1. Récupération du signal
+2. Insertion de la réponse dans `communication_replies` (UNIQUEMENT ici)
+3. Mise à jour `is_read = true`
+4. Envoi email au client
+5. **MISE À JOUR DE L'ARCHIVE GITHUB** (avec toutes les réponses staff)
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
-      <div className="text-9xl font-black text-red-600 animate-pulse">
-        {countdownValue === 0 ? "GO!" : countdownValue}
-      </div>
-    </div>
-  );
-}
+**Points clés :**
+- NE PAS ajouter la réponse dans `payload.messages_history` (réservé aux messages client)
+- Récupération de TOUTES les réponses staff pour construire le `fullThread`
+
+---
+
+#### 5.12 API Archives Externes (`lib/archive-external/engine.ts`)
+
+**Rôle :** Moteur d'archivage GitHub
+
+**Points clés :**
+- La ville pour le chemin d'archivage vient du `payload.city` (la VRAIE ville de l'athlète)
+- `city_code` (MASTER) est utilisé uniquement pour le routage, PAS pour l'archivage
+- Dédoublonnage des messages via `deduplicateMessages()`
+- Compression GZIP des fichiers (extension `.json.gz`)
+
+**Chemin d'archivage :**
+```
+archives/{PAYS}/{VILLE}/{email_slug}_{dossier_ref}.json.gz
+```
+
+**Exemple :** `archives/FRANCE/NANTES/airsoftsystem_nantes_gmail_com_VGD-WH8NCQR3.json.gz`
+
+---
+
+#### 5.13 API Archives Externes - Client GitHub (`lib/archive-external/gh-client.ts`)
+
+**Fonctions :**
+| Fonction | Rôle |
+|----------|------|
+| `findFileInRepo` | Recherche récursive d'un fichier par référence |
+| `listAllArchiveFiles` | Liste tous les fichiers .json et .json.gz |
+| `upsertFile` | Upload d'un fichier (détection auto .gz) |
+| `deleteFile` | Suppression d'un fichier |
+
+**Support .json.gz :**
+- Détection par extension `.gz`
+- Upload en base64 (déjà encodé pour les fichiers compressés)
+
+---
+
+#### 5.14 API Restauration (`app/api/archive-external/restore/route.ts`)
+
+**Rôle :** Restauration d'un dossier depuis GitHub vers Supabase
+
+**Support .json.gz :**
+- Détection via `targetFile.name.endsWith('.gz')`
+- Décompression avec `gunzipSync()` avant parsing JSON
+
+---
+
+#### 5.15 API Staff Pending Signals (`app/api/staff/pending-signals/route.ts`)
+
+**Rôle :** Liste des messages pour le staff
+
+**Filtrage :**
+- **Admins** (`admin@vagondys.com`, `vagondys@gmail.com`, `contact@vagondys.com`) : voient TOUS les messages (sans filtre ville)
+- **Agents avec rôle** (communication, sponsors, etc.) : filtre par `payload->>subject`
+- **Agents génériques** (nantes@vagondys.com) : filtre par `city`
+
+---
+
+#### 5.16 Espace Joueur (`app/(auth)/espace-joueur/page.tsx`)
+
+**Contenu :**
+- Grade et score total
+- Barre de précision
+- Barre de progression globale
+- Visualisation des cibles (camembert + zones)
+- Graphique d'évolution des scores
+- Tableau d'historique des matchs
+- Coffre-fort numérique (archives GitHub)
+- Onglet Tournois
+
+**Fonctionnalités temps réel :**
+- Abonnements Realtime sur `match_history` et `athletes`
+- Rafraîchissement automatique des données
+
+---
+
+#### 5.17 Page Inscription (`app/(auth)/inscription/page.tsx`)
+
+**Rôle :** Création d'un nouveau compte joueur
+
+**Nouveautés :**
+- Géolocalisation par IP pour pré-remplir la ville la plus proche
+- Vérification d'existence de dossier (recherche GitHub)
+- Turnstile anti-bot
+- Sélection pays (FRANCE/ESPAGNE) et ville
+
+---
+
+#### 5.18 API Inscription (`app/api/auth/signup/route.ts`)
+
+**Rôle :** Création du compte utilisateur
+
+**Actions :**
+1. Validation Turnstile
+2. Création utilisateur Auth
+3. Insertion dans `athletes_registry`
+4. Insertion dans `athletes` (avec stats par défaut)
+5. Insertion dans `pending_signals` (signalement staff)
+6. Génération token confirmation email
+7. Envoi email vérification
+
+---
+
+### 6. PROBLÈMES RÉSOLUS
+
+| Problème | Solution |
+|----------|----------|
+| Multiples comptes GitHub/Supabase | Unification en 1 compte GitHub + 1 projet Supabase |
+| Variables d'environnement par ville | Variables UNIFIÉES (plus de MASTER, NANTES, etc.) |
+| Fichiers JSON trop volumineux | Compression GZIP (gain 60-70%) |
+| Doublons messages (client + staff) | `messages_history` = CLIENT uniquement, `communication_replies` = STAFF uniquement |
+| Pas d'archive GitHub après confirmation | Archivage dans `confirm-signal/route.ts` |
+| Pas de mise à jour archive après réponse staff | Archivage dans `send-reply/route.ts` |
+| Redirections en boucle staff | Correction `proxy.ts` avec `createServerClient` |
+| Ville d'archivage incorrecte | Utilisation `payload.city` (pas `city_code`) pour le chemin |
+| Fichiers .gz non listés/lus | Support `.json.gz` dans `listAllArchiveFiles`, `findFileInRepo`, `restore` |
+| Messages centralisés non filtrés | Admins sans filtre ville |
+| Géolocalisation | IP → ville la plus proche (formule Haversine) |
+
+---
+
+### 7. FLUX COMPLET D'UN MESSAGE
+
+```
+1. Client remplit formulaire de contact
+   ↓
+2. submitContact() crée/met à jour pending_signals (messages_history uniquement)
+   ↓
+3. Email de confirmation envoyé
+   ↓
+4. Client clique sur lien de confirmation
+   ↓
+5. confirm-signal/route.ts :
+   - Valide le token
+   - Enrichit messages_history
+   - Met à jour pending_signals (confirmed = true)
+   - Envoie emails (staff + client)
+   - 📦 CRÉE L'ARCHIVE GITHUB (premier archivage)
+   ↓
+6. Staff voit le message dans l'interface staff
+   ↓
+7. Staff répond
+   ↓
+8. send-reply/route.ts :
+   - Insère la réponse dans communication_replies
+   - Met à jour is_read = true
+   - Envoie email au client
+   - 📦 MET À JOUR L'ARCHIVE GITHUB (avec toutes les réponses)
+   ↓
+9. Client peut consulter l'historique complet
+```
+
+---
+
+### 8. FLUX COMPLET D'UNE INSCRIPTION
+
+```
+1. Remplissage formulaire inscription (géolocalisation IP → ville suggérée)
+   ↓
+2. Vérification Turnstile
+   ↓
+3. Appel /api/auth/signup
+   ↓
+4. Création utilisateur Auth
+   ↓
+5. Insertion dans athletes_registry (annuaire central)
+   ↓
+6. Insertion dans athletes (statuts par défaut)
+   ↓
+7. Insertion dans pending_signals (signalement staff)
+   ↓
+8. Génération token confirmation email
+   ↓
+9. Envoi email vérification
+   ↓
+10. Client clique sur lien de confirmation
+    ↓
+11. confirm-email/route.ts :
+    - Vérifie token
+    - Génère matricule VGD-XXXXXXXX
+    - Met à jour athletes (status = ACTIF, dossier_ref)
+    - Met à jour athletes_registry (dossier_ref)
+    - Active email dans Auth
+    - Envoie emails de bienvenue
+    - 📦 Crée l'archive GitHub
+```
+
+---
+
+### 9. STRUCTURE GITHUB (ARCHIVES)
+
+```
+VAGONDYS_ARCHIVES/
+└── archives/
+    ├── FRANCE/
+    │   ├── MASTER/
+    │   │   └── {email_slug}_{dossier_ref}.json.gz
+    │   ├── NANTES/
+    │   │   └── {email_slug}_{dossier_ref}.json.gz
+    │   ├── LYON/
+    │   │   └── ...
+    │   └── PARIS/
+    │       └── ...
+    └── ESPAGNE/
+        └── MADRID/
+            └── ...
+```
+
+**Nommage des fichiers :**
+`{email_slug}_{dossier_ref}.json.gz`
+
+**email_slug :** email transformé (remplacement @ et . par _)
+
+---
+
+### 10. COMPRESSION GZIP
+
+**Quand :** Lors de l'archivage dans `engine.ts`
+
+**Extension :** `.json.gz`
+
+**Gain :** 60-70% de réduction de taille
+
+**Traitement :**
+- Upload : compression avec `gzipSync()` → base64
+- Download : décompression avec `gunzipSync()`
+
+---
+
+### 11. GÉOLOCALISATION PAR IP
+
+**Service utilisé :** `https://ipapi.co/json/`
+
+**Données récupérées :** pays, latitude, longitude
+
+**Calcul de la ville la plus proche :** Formule de Haversine
+
+**Villes supportées :**
+- FRANCE : Nantes, Lyon, Paris, Marseille, Bordeaux, Lille, Toulouse
+- ESPAGNE : Madrid
+
+---
+
+### 12. SÉCURITÉ
+
+| Mesure | Implémentation |
+|--------|----------------|
+| Anti-bot | Turnstile (Cloudflare) |
+| Protection arborescence | Middleware bloque fichiers sensibles |
+| RLS (Row Level Security) | Politiques Supabase (service_role, authenticated staff) |
+| Variables d'environnement | Clés stockées sur Vercel (pas dans le code) |
+| Authentification staff | Vérification session + rôle (staff_registry) |
+
+---
+
+### 13. DÉPLOIEMENT
+
+**Plateforme :** Vercel
+
+**Variables d'environnement à configurer :**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GITHUB_ARCHIVE_TOKEN`
+- `GITHUB_ARCHIVE_REPO`
+- `RESEND_API_KEY`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+- `TURNSTILE_SECRET_KEY`
+- Variables Gmail (backup)
+
+---
+
+### 14. LIENS UTILES
+
+| Service | URL |
+|---------|-----|
+| Site public | `https://vagondys.com` |
+| Interface staff | `https://staff.vagondys.com` |
+| Supabase projet | `https://supabase.com/dashboard/project/ahkquocuzrqbtcotqesy` |
+| GitHub archives | `https://github.com/VGD-Tech/VAGONDYS_ARCHIVES` |
+
+---
+
+### 15. FICHIERS MODIFIÉS (RÉCAPITULATIF)
+
+| Fichier | Statut |
+|---------|--------|
+| `.env.local` | ✅ FAIT |
+| `proxy.ts` | ✅ FAIT |
+| `lib/supabase/master.ts` | ✅ FAIT |
+| `lib/supabase/server.ts` | ✅ FAIT |
+| `lib/supabase/client.ts` | ✅ FAIT |
+| `lib/supabase/unified-client.ts` | ✅ FAIT |
+| `actions/staff-actions.ts` | ✅ FAIT |
+| `actions/get-staff-config.ts` | ✅ FAIT |
+| `app/(public)/contact/page.tsx` | ✅ FAIT |
+| `app/(public)/contact/actions.ts` | ✅ FAIT |
+| `app/(public)/contact/SubmitButton.tsx` | ✅ FAIT |
+| `app/(auth)/inscription/page.tsx` | ✅ FAIT |
+| `app/(auth)/espace-joueur/page.tsx` | ✅ FAIT |
+| `app/api/auth/signup/route.ts` | ✅ FAIT |
+| `app/api/confirm-email/route.ts` | ✅ FAIT |
+| `app/api/confirm-signal/route.ts` | ✅ FAIT |
+| `app/api/send-reply/route.ts` | ✅ FAIT |
+| `app/api/notify-read/route.ts` | ✅ FAIT |
+| `app/api/archive-external/route.ts` | ✅ FAIT |
+| `app/api/archive-external/restore/route.ts` | ✅ FAIT |
+| `app/api/staff/pending-signals/route.ts` | ✅ FAIT |
+| `app/api/staff/history/route.ts` | ✅ FAIT |
+| `app/api/staff/dashboard/route.ts` | ✅ FAIT |
+| `app/api/staff/public-data/route.ts` | ✅ FAIT |
+| `app/staff/interface/page.tsx` | ✅ FAIT |
+| `app/staff/page.tsx` | ✅ FAIT |
+| `lib/archive-external/engine.ts` | ✅ FAIT |
+| `lib/archive-external/gh-client.ts` | ✅ FAIT |
+| `lib/archive-external/db-client.ts` | ✅ FAIT |
+| `lib/email/gmail.ts` | ✅ FAIT |
+| `app/staff/mode_jeux/hooks/useGameModes.ts` | ✅ FAIT |
+| `app/staff/hooks/useDashboardData.ts` | ✅ FAIT |
+| `app/staff/components/dashboard/*.tsx` | ✅ FAIT |
+
+---
+
+### 16. PROCHAINES ÉVOLUTIONS POSSIBLES
+
+- Ajout de nouvelles villes (Barcelone, Toulouse, etc.)
+- Système de paiement pour les réservations
+- Application mobile (React Native)
+- Tableau de bord avancé avec analytics
+- Système de notifications push
+- Export PDF des statistiques joueur
+
+---
+
+**Ce prompt décrit l'intégralité du projet VAGONDYS après unification, de l'architecture aux fichiers modifiés, en passant par les flux et les résolutions de problèmes.**
+
 */
