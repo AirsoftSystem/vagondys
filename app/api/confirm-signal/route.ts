@@ -320,7 +320,7 @@ export async function GET(request: NextRequest) {
     const serviceNameRaw = rawSubject.split('_')[0] || "CONTACT"; 
     const cleanServiceName = serviceNameRaw.toLowerCase(); 
 
-    // ✅ CORRECTION : Conserver et enrichir l'historique des messages
+    // Conserver et enrichir l'historique des messages
     const existingMessagesHistory = p.messages_history || [];
     
     const currentMessageExists = existingMessagesHistory.some(
@@ -350,7 +350,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // ✅ MISE À JOUR DANS STAFF
+    // MISE À JOUR DANS STAFF
     try {
       const { error: staffUpdateError } = await supabaseStaff
         .from('pending_signals')
@@ -381,7 +381,7 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // ✅ MISE À JOUR DANS PUBLIC
+    // MISE À JOUR DANS PUBLIC
     try {
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'TENTATIVE_UPDATE_PUBLIC',
@@ -444,7 +444,7 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // ✅ NOTIFICATIONS EMAIL
+    // NOTIFICATIONS EMAIL
     let serviceEmail = "contact@vagondys.com";
     const s = serviceNameRaw; 
     if (s === "NANTES") serviceEmail = process.env.EMAIL_NANTES || "nantes@vagondys.com";
@@ -527,7 +527,7 @@ export async function GET(request: NextRequest) {
       console.error("Erreur email client:", emailErr);
     }
 
-    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE À CHAQUE CONFIRMATION
+    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE - VERSION FIABLE
     let archiveSuccess = false;
     let archiveError: string | null = null;
     
@@ -539,7 +539,7 @@ export async function GET(request: NextRequest) {
         country
       }, 'info');
       
-      // ✅ Utiliser la VRAIE ville du payload pour l'archivage (pas city_code)
+      // Utiliser la VRAIE ville du payload pour l'archivage
       const archiveCity = p.city || city;
       const archiveCountry = p.country || country;
       
@@ -549,7 +549,7 @@ export async function GET(request: NextRequest) {
         pays: archiveCountry
       }, 'info');
       
-      // ✅ CONSTRUCTION DU FULLTHREAD SANS DOUBLONS
+      // Construction du fullThread
       const uniqueMessages = new Map<string, { role: string; sender: string; content: string; created_at: string; is_initial: boolean }>();
       
       updatedMessagesHistory.forEach((msg, idx) => {
@@ -581,7 +581,7 @@ export async function GET(request: NextRequest) {
         ...Array.from(uniqueMessages.values())
       ];
       
-      // ✅ Format correct pour processArchivePost
+      // Format correct pour processArchivePost
       const archivePayload = {
         message: {
           dossier_ref: finalDossierRef,
@@ -612,7 +612,7 @@ export async function GET(request: NextRequest) {
         messages_count: updatedMessagesHistory.length
       }, 'info');
       
-      // ✅ Appel à l'API d'archivage
+      // Appel à l'API d'archivage
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -643,12 +643,13 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
     
-    // ✅ Si l'archivage a échoué, on le signale mais on continue
     if (!archiveSuccess) {
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'ARCHIVAGE_ECHEC_MAIS_CONTINUE',
         error: archiveError || 'Erreur inconnue'
       }, 'warn');
+    } else {
+      console.log(`✅ confirm-signal: Archive GitHub créée avec succès pour ${finalDossierRef}`);
     }
 
     await forceLog(`confirm-signal-${requestId}`, {

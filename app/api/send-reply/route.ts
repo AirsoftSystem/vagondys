@@ -311,8 +311,8 @@ export async function POST(req: Request) {
       console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
-    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE APRÈS CHAQUE RÉPONSE STAFF
-    // Récupérer le signal mis à jour avec toutes les données
+    // ✅ ARCHIVAGE GITHUB APRÈS CHAQUE RÉPONSE STAFF (sans modifier le payload)
+    // Récupérer le signal mis à jour
     const { data: finalSignal } = await supabaseClient
       .from('pending_signals')
       .select('*')
@@ -399,6 +399,8 @@ export async function POST(req: Request) {
       } catch (arcErr) {
         console.error("❌ send-reply: erreur synchro archive:", arcErr);
       }
+    } else {
+      console.warn(`⚠️ send-reply: aucun signal trouvé pour l'archivage de ${cleanDossierRef}`);
     }
 
     console.log(`✅ send-reply: succès complet pour ${cleanDossierRef}`);
