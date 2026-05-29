@@ -78,8 +78,11 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ARCHIVE ENGINE - Version adaptée pour l'Option B
  * Utilise désormais le registry central pour obtenir la ville/pays
  * ✅ AJOUT : Dédoublonnage des messages et compression GZIP
+ * ✅ CORRECTION : Utilisation de la ville du payload pour le chemin d'archivage
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
+  // city_code et country_code sont extraits mais non utilisés pour l'archivage
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { message, history, purgeActive, city_code, country_code, fullThread: providedFullThread } = body;
 
   if (!message || !message.dossier_ref) {
@@ -90,30 +93,31 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   const ref = message.dossier_ref;
   const newEmail = String(payload?.email || "inconnu").toLowerCase().trim();
   
-  // LOGIQUE DE TRIAGE : Priorité au city_code passé explicitement
-  let rawCity = (city_code || payload?.city || "").toUpperCase().trim();
-  let finalCountryCode = (country_code || "").toUpperCase().trim();
+  // ✅ CORRECTION : La ville pour le chemin d'archivage vient du payload (la vraie ville de l'athlète)
+  // city_code est utilisé pour le routage (MASTER pour les admins), mais PAS pour l'archivage
+  let archiveCity = (payload?.city || "").toUpperCase().trim();
+  let archiveCountry = (payload?.country || "").toUpperCase().trim();
   
-  // Si la ville n'est pas fournie, on tente de la récupérer depuis le registry
-  if (!rawCity && newEmail !== "inconnu") {
+  // Si la ville n'est pas dans le payload, on tente de la récupérer depuis le registry
+  if (!archiveCity && newEmail !== "inconnu") {
     const registryCity = await getAthleteCity(newEmail);
     const registryCountry = await getAthleteCountry(newEmail);
     if (registryCity) {
-      rawCity = registryCity.toUpperCase().trim();
-      finalCountryCode = finalCountryCode || (registryCountry || "FR").toUpperCase().trim();
-      console.log(`📦 Archivage: ville récupérée depuis registry: ${finalCountryCode}_${rawCity}`);
+      archiveCity = registryCity.toUpperCase().trim();
+      archiveCountry = archiveCountry || (registryCountry || "FR").toUpperCase().trim();
+      console.log(`📦 Archivage: ville récupérée depuis registry: ${archiveCountry}_${archiveCity}`);
     }
   }
   
   // Fallback par défaut
-  if (!rawCity) {
-    rawCity = "NANTES";
+  if (!archiveCity) {
+    archiveCity = "NANTES";
   }
   
   // Normalisation du code pays
   const rawCountryName = (payload?.country || "FRANCE").toUpperCase().trim();
-  if (!finalCountryCode) {
-    finalCountryCode = (rawCountryName === "ESPAGNE" || rawCountryName === "ES") ? "ES" : "FR";
+  if (!archiveCountry) {
+    archiveCountry = (rawCountryName === "ESPAGNE" || rawCountryName === "ES") ? "ES" : "FR";
   }
   
   // Configuration GitHub (Repo unique pour toutes les archives)
@@ -124,21 +128,23 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     throw new Error(`❌ CONFIGURATION GITHUB MANQUANTE: GITHUB_ARCHIVE_REPO et GITHUB_ARCHIVE_TOKEN doivent être définis`);
   }
   
-  console.log(`📦 Archivage vers: ${targetRepo} (ville ${rawCity}/${finalCountryCode})`);
+  console.log(`📦 Archivage vers: ${targetRepo} (ville archivage: ${archiveCity}/${archiveCountry})`);
 
-  // Préparation du chemin et du nom de fichier
-  const normCountry = normalizeForPath(finalCountryCode === "ES" ? "ESPAGNE" : "FRANCE");
-  const normCity = normalizeForPath(rawCity);
+  // Préparation du chemin et du nom de fichier (basé sur la VRAIE ville de l'athlète)
+  const normCountry = normalizeForPath(archiveCountry === "ES" ? "ESPAGNE" : "FRANCE");
+  const normCity = normalizeForPath(archiveCity);
   const emailSlug = newEmail.replace(/[@.]/g, "_");
   
   // ✅ Utilisation de l'extension .json.gz pour la compression
   const fileName = `${emailSlug}_${ref}.json.gz`;
   const path = `archives/${normCountry}/${normCity}/${fileName}`;
 
+  console.log(`📦 Archivage: chemin complet = ${path}`);
+
   // Récupération de l'historique des réponses staff
   let finalHistory: HistoryRow[] = Array.isArray(history) ? history : [];
   if (finalHistory.length === 0) {
-    finalHistory = await getHistoryFromDB(ref, rawCity);
+    finalHistory = await getHistoryFromDB(ref, archiveCity);
   }
 
   // Construction du fil de discussion avec dédoublonnage
@@ -220,8 +226,8 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     },
     dossier_complet: {
       ...message,
-      city_code: rawCity,
-      country_code: finalCountryCode
+      city_code: archiveCity,
+      country_code: archiveCountry
     },
     echanges_staff: deduplicateMessages(finalHistory.map(h => ({
       id: h.id,
@@ -243,6 +249,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
 
   if (existingFile) {
     if (existingFile.path !== path) {
+      console.log(`📦 Archivage: déplacement de ${existingFile.path} vers ${path}`);
       await deleteFile(
         customToken, 
         targetRepo, 
@@ -272,7 +279,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     customToken,
     targetRepo,
     path,
-    compressed.toString('base64'), // Envoyer en base64 car c'est binaire
+    compressed.toString('base64'),
     commitMsg,
     currentSha
   );
@@ -285,8 +292,8 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   // Purge des données locales (Optionnel)
   let purged = false;
   if (purgeActive === true) {
-    console.log(`🗑️ processArchivePost: purge active pour ${ref} sur ${rawCity}/${finalCountryCode}`);
-    await purgeDossierData(ref, rawCity, finalCountryCode);
+    console.log(`🗑️ processArchivePost: purge active pour ${ref} sur ${archiveCity}/${archiveCountry}`);
+    await purgeDossierData(ref, archiveCity, archiveCountry);
     purged = true;
     console.log(`✅ processArchivePost: purge terminée pour ${ref}`);
   }
