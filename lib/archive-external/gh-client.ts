@@ -31,9 +31,28 @@ async function ghFetch(url: string, token: string, options: RequestInit = {}) {
 }
 
 /**
+ * Vérifie si un fichier est une archive JSON (compressée ou non)
+ */
+function isArchiveFile(filename: string): boolean {
+  return filename.endsWith('.json') || filename.endsWith('.json.gz');
+}
+
+/**
+ * Nettoie le nom de fichier pour la recherche (enlève l'extension)
+ */
+function cleanFilenameForSearch(filename: string, removeExtension: boolean = true): string {
+  let result = filename;
+  if (removeExtension) {
+    result = result.replace(/\.json(\.gz)?$/, '');
+  }
+  return result.toLowerCase().replace(/-/g, "");
+}
+
+/**
  * Recherche récursive d'un dossier par sa référence (VGD-XXXX)
  * Reprend votre algorithme exact de recherche par cleanRef
  * ✅ AJOUT : Support des fichiers .json et .json.gz
+ * ✅ AJOUT : Recherche améliorée pour les fichiers compressés
  */
 export async function findFileInRepo(
   ref: string, 
@@ -42,7 +61,6 @@ export async function findFileInRepo(
   path: string = "archives",
   countryCode?: string
 ): Promise<GitHubFile | null> {
-  // ✅ Un seul log non bloquant
   if (countryCode) {
     console.log(`🔍 findFileInRepo: recherche ref=${ref} dans ${repoName} (${countryCode})`);
   }
@@ -61,14 +79,14 @@ export async function findFileInRepo(
     if (item.type === "dir") {
       const found = await findFileInRepo(ref, token, repoName, item.path, countryCode);
       if (found) return found;
-    } else if (item.type === "file") {
-      // ✅ Support des fichiers .json et .json.gz
-      const isJsonFile = item.name.endsWith('.json') || item.name.endsWith('.json.gz');
-      if (!isJsonFile) continue;
+    } else if (item.type === "file" && isArchiveFile(item.name)) {
+      // ✅ Comparaison améliorée pour les fichiers compressés
+      const itemNameClean = cleanFilenameForSearch(item.name, true);
+      const refClean = cleanRef;
       
-      // ✅ Comparaison avec la référence
-      const itemNameClean = item.name.replace(/-/g, "").toLowerCase();
-      if (itemNameClean.includes(cleanRef) || item.name.includes(ref)) {
+      // Vérifier si le nom du fichier contient la référence
+      if (itemNameClean.includes(refClean) || item.name.includes(ref)) {
+        console.log(`✅ findFileInRepo: fichier trouvé: ${item.name}`);
         return item;
       }
     }
@@ -79,37 +97,52 @@ export async function findFileInRepo(
 
 /**
  * Liste tous les fichiers .json et .json.gz de manière récursive
- * ✅ MODIFICATION : Support des fichiers .json.gz
+ * ✅ MODIFICATION : Support complet des fichiers .json.gz
+ * ✅ AJOUT : Gestion des erreurs améliorée
  */
 export async function listAllArchiveFiles(
   token: string, 
   repoName: string, 
-  path: string = "archives"
+  path: string = "archives",
+  depth: number = 0
 ): Promise<GitHubFile[]> {
   const url = buildGitHubUrl(repoName, path);
   const res = await ghFetch(url, token);
-  if (!res.ok) return [];
+  
+  if (!res.ok) {
+    if (res.status === 404) {
+      // Le dossier n'existe pas encore, retourner un tableau vide
+      return [];
+    }
+    console.warn(`⚠️ listAllArchiveFiles: échec requête GitHub pour ${path}, status=${res.status}`);
+    return [];
+  }
 
   const items = (await res.json()) as GitHubFile[];
   let allFiles: GitHubFile[] = [];
 
   for (const item of items) {
     if (item.type === "dir") {
-      const subFiles = await listAllArchiveFiles(token, repoName, item.path);
-      allFiles = [...allFiles, ...subFiles];
-    } else if (item.type === "file") {
-      // ✅ Support des fichiers .json et .json.gz
-      if (item.name.endsWith('.json') || item.name.endsWith('.json.gz')) {
-        allFiles.push(item);
+      // Limiter la profondeur de récursion pour éviter les appels infinis
+      if (depth < 10) {
+        const subFiles = await listAllArchiveFiles(token, repoName, item.path, depth + 1);
+        allFiles = [...allFiles, ...subFiles];
+      } else {
+        console.warn(`⚠️ listAllArchiveFiles: profondeur maximale atteinte pour ${item.path}`);
       }
+    } else if (item.type === "file" && isArchiveFile(item.name)) {
+      allFiles.push(item);
     }
   }
+  
+  console.log(`📦 listAllArchiveFiles: ${allFiles.length} fichiers trouvés dans ${path}`);
   return allFiles;
 }
 
 /**
  * Enregistre ou met à jour un fichier sur GitHub
  * ✅ MODIFICATION : Détection automatique du type de contenu (base64 vs texte)
+ * ✅ AJOUT : Support complet des fichiers .json.gz
  */
 export async function upsertFile(
   token: string,
@@ -119,19 +152,19 @@ export async function upsertFile(
   message: string,
   sha?: string
 ) {
-  // ✅ Vérifier si le contenu est déjà en base64 (fichiers compressés)
-  // Les données compressées sont déjà en base64, pas besoin de re-encoder
   let contentEncoded: string;
+  let isCompressed = false;
   
-  // Détection simple : si le contenu contient des caractères non ASCII ou si c'est du base64 valide
-  // Pour les fichiers .gz, on suppose que le contenu est déjà en base64
+  // Détection du type de fichier par l'extension
   if (path.endsWith('.gz')) {
-    // Déjà en base64 (venant de compressed.toString('base64'))
+    // Fichier compressé : le contenu est déjà en base64
     contentEncoded = content;
+    isCompressed = true;
     console.log(`📦 upsertFile: fichier compressé détecté (${path}), contenu déjà en base64`);
   } else {
     // Fichier JSON standard : encoder en base64
     contentEncoded = Buffer.from(content).toString("base64");
+    console.log(`📦 upsertFile: fichier JSON standard (${path}), contenu encodé en base64`);
   }
   
   const url = buildGitHubUrl(repoName, path);
@@ -151,11 +184,19 @@ export async function upsertFile(
     requestBody.sha = sha;
   }
   
-  return ghFetch(url, token, {
+  const response = await ghFetch(url, token, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(requestBody)
   });
+  
+  if (response.ok && isCompressed) {
+    console.log(`✅ upsertFile: fichier compressé uploadé avec succès (${path})`);
+  } else if (response.ok) {
+    console.log(`✅ upsertFile: fichier uploadé avec succès (${path})`);
+  }
+  
+  return response;
 }
 
 /**
@@ -169,6 +210,8 @@ export async function deleteFile(
   message: string
 ) {
   const url = buildGitHubUrl(repoName, path);
+  
+  console.log(`🗑️ deleteFile: suppression de ${path}`);
   
   return ghFetch(url, token, {
     method: "DELETE",

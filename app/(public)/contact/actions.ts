@@ -179,7 +179,7 @@ export async function submitContact(formData: FormData) {
     }
     
     if (existingSignal) {
-      // ✅ CORRECTION : Enrichir l'historique sans écraser
+      // ✅ Enrichir l'historique sans écraser
       const existingPayload = existingSignal.payload as SignalPayload;
       const messagesHistory = [...(existingPayload.messages_history || [])];
       
@@ -204,13 +204,13 @@ export async function submitContact(formData: FormData) {
         });
       }
       
-      // ✅ CORRECTION : Mise à jour complète du payload
+      // ✅ Mise à jour complète du payload
       const updatedPayload: SignalPayload = {
         name: existingPayload.name || name,
         email: email,
         phone: existingPayload.phone || phone,
         subject: subject,
-        message: message, // Dernier message reçu
+        message: message,
         city: registryEntry?.city || targetCity,
         country: registryEntry?.country || targetCountry,
         messages_history: messagesHistory
@@ -310,12 +310,17 @@ export async function submitContact(formData: FormData) {
 
 /**
  * ACTION 2 : Envoi d'une réponse (Espace Client/Discussion)
+ * ✅ CORRECTION : Plus d'insertion dans communication_replies pour les messages client
+ * Les messages client sont déjà stockés dans messages_history, pas besoin de dupliquer
  */
 export async function submitReply(formData: FormData) {
   const dossier_ref = String(formData.get("dossier_ref") || "").trim();
   const content = String(formData.get("message") || "").trim();
-  const city = String(formData.get("city") || "NANTES").trim().toUpperCase();
-  const country = String(formData.get("country") || "FR").trim().toUpperCase();
+  // Variables conservées pour l'API mais non utilisées directement dans cette version
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const cityParam = String(formData.get("city") || "NANTES").trim().toUpperCase();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const countryParam = String(formData.get("country") || "FR").trim().toUpperCase();
 
   if (!dossier_ref || !content) throw new Error("Données manquantes.");
 
@@ -330,21 +335,46 @@ export async function submitReply(formData: FormData) {
     const { createClient } = await import("@supabase/supabase-js");
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
     
-    const sharedId = randomUUID(); 
-    const replyData = {
-      id: sharedId,
-      dossier_ref,
-      content,
-      agent_email: "CLIENT",
-      city: city,
-      country: country
-    };
+    // ✅ Récupérer le signal existant pour mettre à jour messages_history
+    const { data: existingSignal } = await supabaseClient
+      .from('pending_signals')
+      .select('payload, dossier_ref')
+      .eq('dossier_ref', dossier_ref)
+      .maybeSingle();
     
-    const { error } = await supabaseClient
-      .from("communication_replies")
-      .insert([replyData]);
+    if (existingSignal && existingSignal.payload) {
+      const existingPayload = existingSignal.payload as SignalPayload;
+      const messagesHistory = [...(existingPayload.messages_history || [])];
+      
+      // Vérifier si le message n'est pas déjà dans l'historique
+      const alreadyExists = messagesHistory.some(
+        (msg) => msg.content === content
+      );
+      
+      if (!alreadyExists) {
+        messagesHistory.push({
+          content: content,
+          created_at: new Date().toISOString()
+        });
+      }
+      
+      const updatedPayload = {
+        ...existingPayload,
+        message: content,
+        messages_history: messagesHistory
+      };
+      
+      // Mettre à jour le payload avec l'historique
+      await supabaseClient
+        .from('pending_signals')
+        .update({ payload: updatedPayload })
+        .eq('dossier_ref', dossier_ref);
+      
+      console.log(`✅ submitReply: payload mis à jour avec historique (${messagesHistory.length} messages)`);
+    }
     
-    if (error) throw new Error("Erreur base de données.");
+    // ✅ NOTE : On n'insert PLUS dans communication_replies pour les messages client
+    // Les réponses staff sont gérées par send-reply/route.ts
     
     return { success: true };
     

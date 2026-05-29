@@ -445,35 +445,9 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
 
-    // ✅ SI CLIENT RETOURNANT, AJOUTER DANS communication_replies
-    if (!signal.is_new_athlete) {
-      try {
-        const { error: replyError } = await supabaseStaff
-          .from('communication_replies')
-          .insert([{
-            dossier_ref: finalDossierRef,
-            content: currentMessageForEmail,
-            agent_email: "CLIENT"
-          }]);
-
-        if (replyError) {
-          await forceLog(`confirm-signal-${requestId}`, {
-            event: 'ERREUR_INSERTION_REPLY',
-            error: replyError.message
-          }, 'error');
-        } else {
-          await forceLog(`confirm-signal-${requestId}`, {
-            event: 'INSERTION_REPLY_OK'
-          }, 'info');
-        }
-      } catch (replyError) {
-        const error = replyError as Error;
-        await forceLog(`confirm-signal-${requestId}`, {
-          event: 'EXCEPTION_INSERTION_REPLY',
-          error: error.message
-        }, 'error');
-      }
-    }
+    // ✅ CORRECTION SUPPRIMÉE : Plus d'insertion dans communication_replies pour les messages client
+    // Les messages client sont déjà dans messages_history, pas besoin de dupliquer
+    // Le bloc "if (!signal.is_new_athlete)" a été SUPPRIMÉ pour éviter les doublons
 
     // ✅ NOTIFICATIONS EMAIL (inchangé)
     let serviceEmail = "contact@vagondys.com";
@@ -568,10 +542,8 @@ export async function GET(request: NextRequest) {
       }, 'info');
       
       // ✅ CONSTRUCTION DU FULLTHREAD SANS DOUBLONS
-      // Utiliser un Set pour éviter les doublons basés sur le contenu + date
       const uniqueMessages = new Map();
       
-      // Ajouter tous les messages de l'historique
       updatedMessagesHistory.forEach((msg, idx) => {
         const key = `${msg.content}_${msg.created_at}`;
         if (!uniqueMessages.has(key)) {
@@ -584,9 +556,6 @@ export async function GET(request: NextRequest) {
           });
         }
       });
-      
-      // Ajouter les réponses staff (echanges_staff) plus tard via l'engine
-      // Pour éviter les doublons, on ne les ajoute PAS ici - l'engine les gérera
       
       const fullThread = [
         {
@@ -646,7 +615,6 @@ export async function GET(request: NextRequest) {
         ratio: `${((compressedData.length / jsonData.length) * 100).toFixed(1)}%`
       }, 'info');
       
-      // Envoyer les données compressées à l'API d'archivage
       const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
         method: 'POST',
         headers: { 
