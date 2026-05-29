@@ -312,44 +312,17 @@ export async function POST(req: Request) {
       console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
-    // ✅ CORRECTION : Mettre à jour le payload du signal avec le nouveau message dans l'historique
-    if (signalInfo && signalInfo.payload) {
-      const existingMessagesHistory = (signalInfo.payload.messages_history || []) as ClientMessage[];
-      const currentMessageExists = existingMessagesHistory.some(
-        (msg: ClientMessage) => msg.content === message
-      );
-      
-      const updatedMessagesHistory: ClientMessage[] = currentMessageExists
-        ? existingMessagesHistory
-        : [...existingMessagesHistory, {
-            content: message,
-            created_at: new Date().toISOString()
-          }];
-      
-      const updatedPayload = {
-        ...signalInfo.payload,
-        message: message,
-        messages_history: updatedMessagesHistory
-      };
-      
-      const { error: updatePayloadError } = await supabaseClient
-        .from('pending_signals')
-        .update({ payload: updatedPayload })
-        .eq('dossier_ref', cleanDossierRef);
-      
-      if (updatePayloadError) {
-        console.error("❌ send-reply: erreur mise à jour payload:", updatePayloadError);
-      } else {
-        console.log(`✅ send-reply: payload mis à jour avec historique (${updatedMessagesHistory.length} messages)`);
-      }
-    }
+    // ✅ CORRECTION MAJEURE : NE PAS ajouter la réponse staff dans messages_history
+    // Les réponses staff sont déjà dans communication_replies
+    // messages_history ne doit contenir que les messages CLIENT
+    // Ce bloc a été SUPPRIMÉ pour éviter les doublons
 
     // 5. SYNCHRONISATION DE L'ARCHIVE GITHUB AVEC COMPRESSION
     if (signalInfo) {
         const origin = new URL(req.url).origin;
         console.log(`📦 send-reply: archivage GitHub pour ${cleanDossierRef}`);
         
-        // ✅ Récupérer le payload mis à jour
+        // ✅ Récupérer le signal à archiver (sans modifier le payload)
         const { data: updatedSignal } = await supabaseClient
           .from('pending_signals')
           .select('*')

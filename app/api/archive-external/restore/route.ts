@@ -1,11 +1,13 @@
 
 import { NextResponse } from "next/server";
+import { gunzipSync } from 'zlib';
 
 /**
  * API RESTORE : Restaure un dossier depuis GitHub vers la base STAFF
  * POST /api/archive-external/restore
  * Body: { dossier_ref: string, city_code: string, country_code?: string }
  * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
+ * ✅ AJOUT : Support des fichiers compressés .json.gz
  */
 export async function POST(req: Request) {
   try {
@@ -53,9 +55,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Archive non trouvée sur GitHub" }, { status: 404 });
     }
 
-    // 4. Lire le contenu de l'archive
+    console.log(`✅ RESTORE: fichier trouvé: ${targetFile.name} (${targetFile.path})`);
+
+    // 4. Lire le contenu de l'archive (avec décompression si nécessaire)
     const fileRes = await fetch(targetFile.download_url);
-    const archiveData = await fileRes.json();
+    
+    let archiveData;
+    const isGzipped = targetFile.name.endsWith('.gz');
+    
+    if (isGzipped) {
+      // ✅ Fichier compressé : décompresser avant de parser
+      const arrayBuffer = await fileRes.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+      archiveData = JSON.parse(decompressed.toString('utf8'));
+      console.log(`📦 RESTORE: fichier GZIP décompressé (${targetFile.name})`);
+    } else {
+      // Fichier JSON standard
+      archiveData = await fileRes.json();
+      console.log(`📦 RESTORE: fichier JSON standard (${targetFile.name})`);
+    }
+    
     const restoredData = mapArchiveToFrontendShape(archiveData);
 
     if (!restoredData || !restoredData.dossier) {
