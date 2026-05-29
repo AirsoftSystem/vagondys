@@ -42,13 +42,35 @@ export async function GET(request: Request) {
 
     const cityUpper = city.toUpperCase().trim();
     const countryUpper = (country || "FR").toUpperCase().trim();
-
-    let query = adminClient
-      .from("pending_signals")
-      .select("*")
-      .eq("city", cityUpper)
-      .eq("country", countryUpper)
-      .order("created_at", { ascending: false });
+    
+    // ✅ DÉTERMINER SI L'AGENT EST ADMIN
+    const lowerEmail = agentEmail.toLowerCase();
+    const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
+    const isAdmin = admins.includes(lowerEmail);
+    
+    // ✅ CONSTRUCTION DE LA REQUÊTE
+    let query;
+    
+    if (isAdmin) {
+      // ✅ LES ADMINS VOIENT TOUS LES MESSAGES (y compris ceux avec city = 'MASTER')
+      // Pas de filtre par ville pour les admins
+      console.log(`🔍 Admin ${agentEmail}: voit TOUS les messages (sans filtre ville)`);
+      
+      query = adminClient
+        .from("pending_signals")
+        .select("*")
+        .order("created_at", { ascending: false });
+    } else {
+      // ✅ AGENTS STANDARDS : filtrés par ville
+      console.log(`🔍 Agent standard ${agentEmail}: filtré par ville ${cityUpper}`);
+      
+      query = adminClient
+        .from("pending_signals")
+        .select("*")
+        .eq("city", cityUpper)
+        .eq("country", countryUpper)
+        .order("created_at", { ascending: false });
+    }
 
     // Filtrer par statut de lecture
     if (view === "pending") {
@@ -59,17 +81,9 @@ export async function GET(request: Request) {
 
     query = query.eq("confirmed", true);
 
-    // ✅ NOUVELLE LOGIQUE DE FILTRAGE PAR MOT-CLÉ
-    // Récupérer les catégories centralisées (vont à admin@vagondys.com)
-    // et les catégories filtrées par ville
-    const lowerEmail = agentEmail.toLowerCase();
-    
-    // Les admins voient TOUS les messages (pas de filtre)
-    const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
-    const isAdmin = admins.includes(lowerEmail);
-    
+    // ✅ FILTRAGE PAR RÔLE (pour les agents non-admins uniquement)
     if (!isAdmin) {
-      // ✅ Déterminer le rôle de l'agent à partir de son email
+      // Déterminer le rôle de l'agent à partir de son email
       let agentRole: string | null = null;
       
       if (lowerEmail.includes("communication")) agentRole = "COMMUNICATION";
@@ -81,17 +95,12 @@ export async function GET(request: Request) {
       else if (lowerEmail.includes("licence")) agentRole = "LICENCE";
       else if (lowerEmail.includes("reservations")) agentRole = "RESERVATIONS";
       
-      // ✅ Si l'agent a un rôle spécifique, filtrer par ce rôle
       if (agentRole) {
-        // Les messages avec ce sujet sont envoyés à cet agent
         query = query.eq("payload->>subject", agentRole);
         console.log(`🔍 Filtrage par rôle: ${agentRole} pour agent ${agentEmail}`);
       } else {
-        // Fallback : filtrer par la ville (pour les agents génériques comme nantes@vagondys.com)
-        console.log(`🔍 Aucun rôle spécifique, filtrage uniquement par ville: ${cityUpper}`);
+        console.log(`🔍 Aucun rôle spécifique pour ${agentEmail}, filtrage uniquement par ville: ${cityUpper}`);
       }
-    } else {
-      console.log(`🔍 Admin ${agentEmail}: voit tous les messages`);
     }
 
     const { data, error } = await query;
@@ -101,7 +110,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail} (${cityUpper})`);
+    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail}`);
     return NextResponse.json({ messages: data || [], city, country });
 
   } catch (error) {
