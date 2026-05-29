@@ -20,9 +20,26 @@ interface SignalPayload {
   }>;
 }
 
+// ✅ Définition des catégories qui vont directement à admin@vagondys.com
+const CENTRALIZED_SUBJECTS = [
+  'COMMUNICATION',
+  'SPONSORS',
+  'LIGUE',
+  'INSCRIPTION',
+  'LICENCE'
+];
+
+// ✅ Définition des catégories qui sont filtrées par ville
+const CITY_FILTERED_SUBJECTS = [
+  'PLAYER',
+  'COMPETITION',
+  'TOURNOIS',
+  'RESERVATIONS'
+];
+
 /**
- * ACTION 1 : Envoi du formulaire initial (calqué sur l'inscription)
- * Version adaptée pour l'Option B (un seul projet Supabase)
+ * ACTION 1 : Envoi du formulaire initial
+ * Version adaptée pour l'Option B avec redirection intelligente selon l'objet
  */
 export async function submitContact(formData: FormData) {
   
@@ -41,10 +58,10 @@ export async function submitContact(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const phone = String(formData.get("phone") || "").trim();
-  const subject = String(formData.get("subject") || "").trim();
+  let subject = String(formData.get("subject") || "").trim().toUpperCase();
   const message = String(formData.get("message") || "").trim();
-  const country = String(formData.get("country") || "FR").trim().toUpperCase();
-  const city = String(formData.get("city") || "NANTES").trim().toUpperCase();
+  const originalCountry = String(formData.get("country") || "FR").trim().toUpperCase();
+  const originalCity = String(formData.get("city") || "NANTES").trim().toUpperCase();
 
   const token = formData.get("cf-turnstile-response");
   if (!token) {
@@ -52,6 +69,27 @@ export async function submitContact(formData: FormData) {
   }
 
   try {
+    // ✅ REDIRECTION INTELLIGENTE SELON L'OBJET
+    let targetCity = originalCity;
+    let targetCountry = originalCountry;
+    let isCentralized = CENTRALIZED_SUBJECTS.includes(subject);
+    
+    // Si l'objet est centralisé, on redirige vers admin@vagondys.com
+    if (isCentralized) {
+      targetCity = 'MASTER';
+      targetCountry = 'FR';
+      console.log(`📧 Message centralisé: ${subject} → admin@vagondys.com`);
+    } else if (!CITY_FILTERED_SUBJECTS.includes(subject)) {
+      // Si l'objet n'est ni centralisé ni filtré par ville, on le met en COMMUNICATION par défaut
+      subject = 'COMMUNICATION';
+      targetCity = 'MASTER';
+      targetCountry = 'FR';
+      isCentralized = true;
+      console.log(`📧 Objet non reconnu, redirection vers COMMUNICATION (centralisé)`);
+    } else {
+      console.log(`📧 Message filtré par ville: ${subject} → ${targetCity}`);
+    }
+
     // 1. RECHERCHE DANS LE REGISTRE MASTER
     const { data: registryEntry } = await supabaseMaster
       .from('athletes_registry')
@@ -61,18 +99,23 @@ export async function submitContact(formData: FormData) {
 
     let existingDossierRef: string | null = registryEntry?.dossier_ref || null;
     
-    // 2. RECHERCHE DANS PENDING_SIGNALS (STAFF) - Version directe sans createDynamicClient
+    // 2. RECHERCHE DANS PENDING_SIGNALS (avec filtre city si non centralisé)
     if (!existingDossierRef) {
       try {
-        // Utilisation directe du client avec le projet unique
-        const { data: existingSignal } = await supabaseMaster
+        let query = supabaseMaster
           .from('pending_signals')
           .select('dossier_ref')
           .eq('payload->>email', email)
           .not('dossier_ref', 'is', null)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+        
+        // Ajouter le filtre city si ce n'est pas un message centralisé
+        if (!isCentralized) {
+          query = query.eq('city', targetCity);
+        }
+        
+        const { data: existingSignal } = await query.maybeSingle();
         
         if (existingSignal?.dossier_ref) {
           existingDossierRef = existingSignal.dossier_ref;
@@ -85,7 +128,7 @@ export async function submitContact(formData: FormData) {
     // 3. RECHERCHE DANS GITHUB
     if (!existingDossierRef) {
       try {
-        const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${city}&country_code=${country}`;
+        const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${targetCity}&country_code=${targetCountry}`;
         const searchRes = await fetch(searchUrl);
         if (searchRes.ok) {
           const searchData = await searchRes.json();
@@ -116,17 +159,20 @@ export async function submitContact(formData: FormData) {
       isNewDossier = true;
     }
 
-    // 4. UTILISATION DIRECTE DU CLIENT MASTER (Option B)
-    // Plus besoin de createDynamicClient - un seul projet
-    
     let insertData;
     
     // 5. VÉRIFICATION SI SIGNAL EXISTE DÉJÀ
-    const { data: existingSignal, error: checkError } = await supabaseMaster
+    let query = supabaseMaster
       .from('pending_signals')
       .select('id, dossier_ref, payload, confirmed, created_at')
-      .eq('payload->>email', email)
-      .maybeSingle();
+      .eq('payload->>email', email);
+    
+    // Ajouter le filtre city si ce n'est pas un message centralisé
+    if (!isCentralized) {
+      query = query.eq('city', targetCity);
+    }
+    
+    const { data: existingSignal, error: checkError } = await query.maybeSingle();
     
     if (checkError) {
       throw new Error(`Erreur vérification signal: ${checkError.message}`);
@@ -137,7 +183,6 @@ export async function submitContact(formData: FormData) {
       const currentPayload = existingSignal.payload as SignalPayload;
       const messagesHistory = currentPayload.messages_history || [];
       
-      // Ajouter l'ancien message à l'historique s'il n'y est pas
       if (currentPayload.message && messagesHistory.length === 0) {
         messagesHistory.push({
           content: currentPayload.message,
@@ -145,13 +190,11 @@ export async function submitContact(formData: FormData) {
         });
       }
       
-      // ✅ Vérifier si le nouveau message n'est pas déjà dans l'historique
       const alreadyExists = messagesHistory.some(
         (msg) => msg.content === message
       );
       
       if (!alreadyExists) {
-        // Ajouter le nouveau message seulement s'il n'existe pas
         messagesHistory.push({
           content: message,
           created_at: new Date().toISOString()
@@ -162,11 +205,11 @@ export async function submitContact(formData: FormData) {
         ...currentPayload,
         message: message,
         messages_history: messagesHistory,
-        city: registryEntry?.city || city,
-        country: registryEntry?.country || country
+        city: registryEntry?.city || targetCity,
+        country: registryEntry?.country || targetCountry,
+        subject: subject
       };
       
-      // ✅ Mise à jour : is_read = false, confirmed = false, payload enrichi
       const { data: updatedData, error: updateError } = await supabaseMaster
         .from('pending_signals')
         .update({
@@ -184,11 +227,11 @@ export async function submitContact(formData: FormData) {
       insertData = updatedData;
       
     } else {
-      // Création d'un nouveau signal (premier message)
+      // Création d'un nouveau signal
       const insertPayload: SignalPayload = { 
         name, email, phone, subject, message,
-        city: registryEntry?.city || city,
-        country: registryEntry?.country || country,
+        city: registryEntry?.city || targetCity,
+        country: registryEntry?.country || targetCountry,
         messages_history: []
       };
       
@@ -201,8 +244,8 @@ export async function submitContact(formData: FormData) {
           payload: insertPayload,
           is_new_athlete: !registryEntry && isNewDossier,
           is_read: false,
-          city: registryEntry?.city || city,
-          country: registryEntry?.country || country
+          city: targetCity,
+          country: targetCountry
         }])
         .select()
         .single();
@@ -213,8 +256,8 @@ export async function submitContact(formData: FormData) {
       insertData = newData;
     }
 
-    // 6. ENVOI DE L'EMAIL - TOUJOURS "ACTION REQUISE" (pas "NOUVEAU MESSAGE")
-    const confirmLink = `${siteUrl}/api/confirm-signal?service=${encodeURIComponent(subject)}&city=${city}&country=${country}&id=${insertData.id}`;
+    // 6. ENVOI DE L'EMAIL
+    const confirmLink = `${siteUrl}/api/confirm-signal?service=${encodeURIComponent(subject)}&city=${targetCity}&country=${targetCountry}&id=${insertData.id}`;
 
     const htmlContent = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
@@ -240,7 +283,6 @@ export async function submitContact(formData: FormData) {
     const textContent = `Protocole Sécurisé - Référence Dossier: ${dossier_ref}\n\nMessage à valider: "${message}"\n\nActivez votre transmission ici: ${confirmLink}`;
 
     try {
-      // ✅ Sujet unique pour TOUS les messages : "ACTION REQUISE : Confirmez votre signal"
       await sendGeneralEmail(
         email,
         "ACTION REQUISE : Confirmez votre signal",
@@ -262,7 +304,6 @@ export async function submitContact(formData: FormData) {
 
 /**
  * ACTION 2 : Envoi d'une réponse (Espace Client/Discussion)
- * Version adaptée pour l'Option B
  */
 export async function submitReply(formData: FormData) {
   const dossier_ref = String(formData.get("dossier_ref") || "").trim();
@@ -273,7 +314,6 @@ export async function submitReply(formData: FormData) {
   if (!dossier_ref || !content) throw new Error("Données manquantes.");
 
   try {
-    // Version Option B : Un seul projet Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
@@ -309,7 +349,6 @@ export async function submitReply(formData: FormData) {
 
 /**
  * ACTION 3 : Envoi du formulaire d'inscription (Staff vers Joueur)
- * Version adaptée pour l'Option B (inchangée car pas de dépendance à createDynamicClient)
  */
 export async function sendInvitation(email: string) {
   if (!email) throw new Error("Email requis.");

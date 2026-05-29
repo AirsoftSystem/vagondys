@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -24,6 +25,7 @@ import Link from "next/link";
 /**
  * PAGE INSCRIPTION - VAGONDYS
  * Version "City-Aware" : Identifie la ville et communique avec le Master/GitHub spécifique.
+ * ✅ AJOUT : Géolocalisation par IP pour pré-remplir la ville la plus proche
  */
 
 type TurnstileOptions = {
@@ -42,6 +44,18 @@ type TurnstileWindow = Window & {
   };
 };
 
+// ✅ Liste des villes avec leurs coordonnées pour la géolocalisation
+const CITIES_COORDINATES = [
+  { name: "Nantes", lat: 47.2184, lon: -1.5536, country: "FR" },
+  { name: "Lyon", lat: 45.7640, lon: 4.8357, country: "FR" },
+  { name: "Paris", lat: 48.8566, lon: 2.3522, country: "FR" },
+  { name: "Marseille", lat: 43.2965, lon: 5.3698, country: "FR" },
+  { name: "Bordeaux", lat: 44.8378, lon: -0.5792, country: "FR" },
+  { name: "Lille", lat: 50.6292, lon: 3.0573, country: "FR" },
+  { name: "Toulouse", lat: 43.6047, lon: 1.4442, country: "FR" },
+  { name: "Madrid", lat: 40.4168, lon: -3.7038, country: "ES" }
+];
+
 export default function InscriptionJoueurPage() {
   const [formData, setFormData] = useState({
     full_name: "",
@@ -49,27 +63,87 @@ export default function InscriptionJoueurPage() {
     email: "",
     phone: "",
     password: "",
-    country_select: "FR", // Utilise maintenant les codes ISO pour la cohérence
-    city: "Nantes", // Ville d'ancrage par défaut
+    country_select: "FR",
+    city: "Nantes",
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [geoDetectionDone, setGeoDetectionDone] = useState(false);
 
-  // ÉTATS POUR LA VÉRIFICATION D'ARCHIVE (Conscience des dépôts par ville)
+  // États pour la vérification d'archive
   const [dossierRef, setDossierRef] = useState("0");
   const [isChecking, setIsChecking] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const widgetIdRef = useRef<string | null>(null);
 
+  // ✅ NOUVEAU : Géolocalisation par IP pour déterminer la ville la plus proche
+  useEffect(() => {
+    const detectLocationByIP = async () => {
+      if (geoDetectionDone) return;
+      
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        
+        if (data && data.country_code) {
+          const countryCode = data.country_code.toUpperCase();
+          const country = countryCode === 'ES' ? 'ES' : 'FR';
+          
+          const userLat = data.latitude;
+          const userLon = data.longitude;
+          
+          if (userLat && userLon) {
+            // Filtrer par pays détecté
+            const filteredCities = CITIES_COORDINATES.filter(c => c.country === country);
+            
+            // Calculer la distance et trouver la ville la plus proche
+            let closestCity = filteredCities[0];
+            let minDistance = Infinity;
+            
+            for (const city of filteredCities) {
+              const R = 6371; // Rayon de la Terre en km
+              const dLat = (city.lat - userLat) * Math.PI / 180;
+              const dLon = (city.lon - userLon) * Math.PI / 180;
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(userLat * Math.PI / 180) * Math.cos(city.lat * Math.PI / 180) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const distance = R * c;
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestCity = city;
+              }
+            }
+            
+            if (closestCity) {
+              setFormData(prev => ({
+                ...prev,
+                country_select: closestCity.country,
+                city: closestCity.name
+              }));
+              setGeoDetectionDone(true);
+              console.log(`📍 Géolocalisation: Ville détectée = ${closestCity.name} (distance: ${minDistance.toFixed(0)} km)`);
+            }
+          }
+        }
+      } catch {
+        console.log('⚠️ Géolocalisation IP non disponible, utilisation des valeurs par défaut');
+      }
+    };
+    
+    detectLocationByIP();
+  }, [geoDetectionDone]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // EFFET DE VÉRIFICATION DE L'EMAIL (Recherche "City-Aware" dans les archives GitHub)
+  // Effet de vérification de l'email
   useEffect(() => {
     const checkExistingDossier = async () => {
       if (formData.email.includes('@') && formData.email.includes('.')) {
@@ -79,7 +153,6 @@ export default function InscriptionJoueurPage() {
           const cityCode = formData.city.toUpperCase();
           const countryCode = formData.country_select.toUpperCase();
           
-          // Recherche avec prise en compte du pays et de la ville
           const res = await fetch(`/api/archive-external?search=${emailSlug}&city_code=${cityCode}&country_code=${countryCode}`);
           
           if (res.ok) {
@@ -112,7 +185,7 @@ export default function InscriptionJoueurPage() {
     return () => clearTimeout(timer);
   }, [formData.email, formData.city, formData.country_select]);
 
-  // GESTION DU CAPTCHA CLOUDFLARE TURNSTILE
+  // Gestion du captcha Cloudflare Turnstile
   useEffect(() => {
     const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     if (!SITE_KEY) return;
@@ -202,7 +275,6 @@ export default function InscriptionJoueurPage() {
         dossierRef: dossierRef 
       };
 
-      // APPEL À L'API AUTH ( Dispatcher Master )
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -400,8 +472,8 @@ export default function InscriptionJoueurPage() {
                   onChange={handleInputChange}
                   className="w-full bg-black border border-zinc-900 rounded-xl p-4 pl-12 text-xs font-bold outline-none appearance-none text-zinc-400"
                 >
-                  <option value="FR">FRANCE (VALIDE)</option>
-                  <option value="ES">ESPAGNE (EN COURS)</option>
+                  <option value="FR">FRANCE</option>
+                  <option value="ES">ESPAGNE</option>
                 </select>
               </div>
             </div>
@@ -416,9 +488,14 @@ export default function InscriptionJoueurPage() {
                   onChange={handleInputChange} 
                   className="w-full bg-black border border-zinc-900 rounded-xl p-4 pl-12 text-xs font-bold outline-none focus:border-red-600 transition-all appearance-none"
                 >
-                  <option value="Nantes">NANTES (ACTIF)</option>
-                  <option value="Lyon">LYON (TEST)</option>
-                  <option value="Madrid">MADRID (PRÉVU)</option>
+                  <option value="Nantes">NANTES</option>
+                  <option value="Lyon">LYON</option>
+                  <option value="Paris">PARIS</option>
+                  <option value="Marseille">MARSEILLE</option>
+                  <option value="Bordeaux">BORDEAUX</option>
+                  <option value="Lille">LILLE</option>
+                  <option value="Toulouse">TOULOUSE</option>
+                  <option value="Madrid">MADRID</option>
                 </select>
               </div>
             </div>

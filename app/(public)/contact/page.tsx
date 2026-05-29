@@ -24,7 +24,7 @@ function ContactFormContent() {
   const [dossierRef, setDossierRef] = useState("0");
   const [isChecking, setIsChecking] = useState(false);
   
-  // ✅ AJOUT : États pour pré-remplir pays et ville si athlète existant
+  // États pour pré-remplir pays et ville si athlète existant
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
   const [detectedCity, setDetectedCity] = useState<string | null>(null);
 
@@ -32,26 +32,92 @@ function ContactFormContent() {
   const [currentCountry, setCurrentCountry] = useState<string>("FR");
   const [currentCity, setCurrentCity] = useState<string>("NANTES");
 
-  // ✅ MODIFIÉ : Effet pour rechercher la référence via la nouvelle API check-athlete
+  // ✅ NOUVEAU : Géolocalisation par IP pour déterminer la ville la plus proche
+  useEffect(() => {
+    const detectLocationByIP = async () => {
+      try {
+        // Appel à une API de géolocalisation gratuite
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        
+        if (data && data.country_code) {
+          const countryCode = data.country_code.toUpperCase();
+          setCurrentCountry(countryCode === 'ES' ? 'ES' : 'FR');
+          
+          // Déterminer la ville la plus proche selon les coordonnées GPS
+          const userLat = data.latitude;
+          const userLon = data.longitude;
+          
+          if (userLat && userLon) {
+            // Liste des villes avec leurs coordonnées
+            const cities = [
+              { name: 'NANTES', lat: 47.2184, lon: -1.5536, country: 'FR' },
+              { name: 'LYON', lat: 45.7640, lon: 4.8357, country: 'FR' },
+              { name: 'PARIS', lat: 48.8566, lon: 2.3522, country: 'FR' },
+              { name: 'MARSEILLE', lat: 43.2965, lon: 5.3698, country: 'FR' },
+              { name: 'BORDEAUX', lat: 44.8378, lon: -0.5792, country: 'FR' },
+              { name: 'LILLE', lat: 50.6292, lon: 3.0573, country: 'FR' },
+              { name: 'TOULOUSE', lat: 43.6047, lon: 1.4442, country: 'FR' },
+              { name: 'MADRID', lat: 40.4168, lon: -3.7038, country: 'ES' }
+            ];
+            
+            // Filtrer par pays détecté
+            const filteredCities = cities.filter(c => c.country === (countryCode === 'ES' ? 'ES' : 'FR'));
+            
+            // Calculer la distance (formule de Haversine simplifiée)
+            let closestCity = filteredCities[0];
+            let minDistance = Infinity;
+            
+            for (const city of filteredCities) {
+              const lat1 = userLat;
+              const lon1 = userLon;
+              const lat2 = city.lat;
+              const lon2 = city.lon;
+              
+              const R = 6371; // Rayon de la Terre en km
+              const dLat = (lat2 - lat1) * Math.PI / 180;
+              const dLon = (lon2 - lon1) * Math.PI / 180;
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const distance = R * c;
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestCity = city;
+              }
+            }
+            
+            if (closestCity) {
+              setCurrentCity(closestCity.name);
+              console.log(`📍 Géolocalisation: Ville détectée = ${closestCity.name} (distance: ${minDistance.toFixed(0)} km)`);
+            }
+          }
+        }
+      } catch {
+        console.log('⚠️ Géolocalisation IP non disponible, utilisation des valeurs par défaut');
+      }
+    };
+    
+    detectLocationByIP();
+  }, []);
+
+  // Effet pour rechercher la référence via la nouvelle API check-athlete
   useEffect(() => {
     const checkExistingAthlete = async () => {
-      // On ne déclenche la recherche que si l'email a une structure minimale valide
       if (email.includes('@') && email.includes('.')) {
         setIsChecking(true);
         try {
-          // ✅ ÉTAPE 1 : Recherche dans le MASTER (athletes_registry)
           const checkRes = await fetch(`/api/check-athlete?email=${encodeURIComponent(email)}`);
           
           if (checkRes.ok) {
             const data = await checkRes.json();
             
             if (data.found && data.athlete) {
-              // Athlète trouvé dans MASTER
               if (data.athlete.dossier_ref) {
                 setDossierRef(data.athlete.dossier_ref);
               }
-              
-              // ✅ Pré-remplir le pays et la ville détectés
               if (data.athlete.country) {
                 setDetectedCountry(data.athlete.country);
                 setCurrentCountry(data.athlete.country);
@@ -60,14 +126,11 @@ function ContactFormContent() {
                 setDetectedCity(data.athlete.city);
                 setCurrentCity(data.athlete.city);
               }
-              
-              console.log(`✅ Athlète trouvé: ${data.athlete.city}/${data.athlete.country} - Dossier: ${data.athlete.dossier_ref}`);
+              console.log(`✅ Athlète trouvé: ${data.athlete.city}/${data.athlete.country}`);
               return;
             }
           }
           
-          // ✅ ÉTAPE 2 : Si non trouvé dans MASTER, rechercher dans GitHub (fallback)
-          // ✅ AJOUT : Transmission de la ville et du pays détectés (ou valeurs par défaut)
           const emailSlug = email.toLowerCase().replace(/[@.]/g, '_');
           const cityValue = detectedCity || currentCity;
           const countryValue = detectedCountry || currentCountry;
@@ -78,7 +141,6 @@ function ContactFormContent() {
             const archiveData = await archiveRes.json();
             if (archiveData.dossier_ref) {
               setDossierRef(archiveData.dossier_ref);
-              console.log(`📦 Dossier trouvé dans GitHub: ${archiveData.dossier_ref}`);
             } else {
               setDossierRef("0");
             }
@@ -93,18 +155,16 @@ function ContactFormContent() {
           setIsChecking(false);
         }
       } else {
-        // Reset si l'email est effacé ou invalide
         if (dossierRef !== "0") setDossierRef("0");
         if (detectedCountry) setDetectedCountry(null);
         if (detectedCity) setDetectedCity(null);
       }
     };
 
-    const timer = setTimeout(checkExistingAthlete, 1000); // Debounce de 1s
+    const timer = setTimeout(checkExistingAthlete, 1000);
     return () => clearTimeout(timer);
   }, [email, dossierRef, detectedCountry, detectedCity, currentCountry, currentCity]);
 
-  // Handlers pour mettre à jour les états courants des selects
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrentCountry(e.target.value);
   };
@@ -232,7 +292,7 @@ function ContactFormContent() {
             </div>
           </div>
 
-          {/* LIGNE 3 : PAYS ET VILLE (comme dans inscription) */}
+          {/* LIGNE 3 : PAYS ET VILLE */}
           <div className="grid md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label htmlFor="country" className="flex items-center gap-2 text-[10px] uppercase text-zinc-500 font-black tracking-widest">
@@ -285,7 +345,7 @@ function ContactFormContent() {
             </div>
           </div>
 
-          {/* LIGNE 4 : OBJET DU SIGNAL */}
+          {/* LIGNE 4 : OBJET DU SIGNAL (MODIFIÉ) */}
           <div className="space-y-2">
             <label htmlFor="subject" className="flex items-center gap-2 text-[10px] uppercase text-zinc-500 font-black tracking-widest">
               <MessageSquare className="w-3 h-3 text-red-600" /> Objet du signal
@@ -298,17 +358,17 @@ function ContactFormContent() {
                 className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm appearance-none cursor-pointer uppercase"
               >
                 <option value="">— SELECTION_PROTOCOLE —</option>
+                {/* Catégories centralisées (vont à admin@vagondys.com) */}
                 <option value="COMMUNICATION">COMMUNICATION</option>
                 <option value="SPONSORS">SPONSORS</option>
                 <option value="LIGUE">LIGUE</option>
-                <option value="COMPETITION">COMPETITION</option>
-                <option value="TOURNOIS">TOURNOIS</option>
-                <option value="PLAYER">PLAYER</option>
                 <option value="INSCRIPTION">INSCRIPTION</option>
                 <option value="LICENCE">LICENCE</option>
+                {/* Catégories filtrées par ville */}
+                <option value="PLAYER">PLAYER</option>
+                <option value="COMPETITION">COMPETITION</option>
+                <option value="TOURNOIS">TOURNOIS</option>
                 <option value="RESERVATIONS">RESERVATIONS</option>
-                <option value="NANTES">NANTES</option>
-                <option value="AUTRE">AUTRE</option>
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-red-600 font-black text-[10px]">
                 ▼
@@ -340,7 +400,7 @@ function ContactFormContent() {
             />
           </div>
 
-          {/* BOUTON DE SOUMISSION EXTERNE */}
+          {/* BOUTON DE SOUMISSION */}
           <SubmitButton />
           
         </form>
@@ -382,12 +442,12 @@ export default function ContactPage() {
         <ContactFormContent />
       </Suspense>
 
-          <div className="flex flex-col items-center gap-2 pt-8 opacity-30">
-            <div className="w-8 h-px bg-zinc-800" />
-            <p className="text-[8px] text-zinc-500 uppercase tracking-[0.5em] text-center font-bold">
-              Vagondys Security Protocol v.16.1.1
-            </p>
-          </div>
+      <div className="flex flex-col items-center gap-2 pt-8 opacity-30">
+        <div className="w-8 h-px bg-zinc-800" />
+        <p className="text-[8px] text-zinc-500 uppercase tracking-[0.5em] text-center font-bold">
+          Vagondys Security Protocol v.16.1.1
+        </p>
+      </div>
 
     </main>
   );

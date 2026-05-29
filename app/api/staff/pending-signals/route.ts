@@ -59,24 +59,39 @@ export async function GET(request: Request) {
 
     query = query.eq("confirmed", true);
 
-    // Filtrage par mot-clé selon l'email de l'agent
+    // ✅ NOUVELLE LOGIQUE DE FILTRAGE PAR MOT-CLÉ
+    // Récupérer les catégories centralisées (vont à admin@vagondys.com)
+    // et les catégories filtrées par ville
+    const lowerEmail = agentEmail.toLowerCase();
+    
+    // Les admins voient TOUS les messages (pas de filtre)
     const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
-    if (!admins.includes(agentEmail.toLowerCase())) {
-      const lowerEmail = agentEmail.toLowerCase();
-      let keyword = "";
-      if (lowerEmail.includes("communication")) keyword = "communication";
-      else if (lowerEmail.includes("sponsors")) keyword = "sponsor";
-      else if (lowerEmail.includes("ligue")) keyword = "ligue";
-      else if (lowerEmail.includes("competition")) keyword = "competition";
-      else if (lowerEmail.includes("tournois")) keyword = "tournoi";
-      else if (lowerEmail.includes("player")) keyword = "player";
-      else if (lowerEmail.includes("licence")) keyword = "licence";
-      else if (lowerEmail.includes("reservations")) keyword = "reservation";
-      else if (lowerEmail.includes(cityUpper.toLowerCase())) keyword = cityUpper.toLowerCase();
-
-      if (keyword) {
-        query = query.or(`payload->>subject.ilike.%${keyword}%,payload->>message.ilike.%${keyword}%`);
+    const isAdmin = admins.includes(lowerEmail);
+    
+    if (!isAdmin) {
+      // ✅ Déterminer le rôle de l'agent à partir de son email
+      let agentRole: string | null = null;
+      
+      if (lowerEmail.includes("communication")) agentRole = "COMMUNICATION";
+      else if (lowerEmail.includes("sponsors")) agentRole = "SPONSORS";
+      else if (lowerEmail.includes("ligue")) agentRole = "LIGUE";
+      else if (lowerEmail.includes("competition")) agentRole = "COMPETITION";
+      else if (lowerEmail.includes("tournois")) agentRole = "TOURNOIS";
+      else if (lowerEmail.includes("player")) agentRole = "PLAYER";
+      else if (lowerEmail.includes("licence")) agentRole = "LICENCE";
+      else if (lowerEmail.includes("reservations")) agentRole = "RESERVATIONS";
+      
+      // ✅ Si l'agent a un rôle spécifique, filtrer par ce rôle
+      if (agentRole) {
+        // Les messages avec ce sujet sont envoyés à cet agent
+        query = query.eq("payload->>subject", agentRole);
+        console.log(`🔍 Filtrage par rôle: ${agentRole} pour agent ${agentEmail}`);
+      } else {
+        // Fallback : filtrer par la ville (pour les agents génériques comme nantes@vagondys.com)
+        console.log(`🔍 Aucun rôle spécifique, filtrage uniquement par ville: ${cityUpper}`);
       }
+    } else {
+      console.log(`🔍 Admin ${agentEmail}: voit tous les messages`);
     }
 
     const { data, error } = await query;
@@ -86,6 +101,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail} (${cityUpper})`);
     return NextResponse.json({ messages: data || [], city, country });
 
   } catch (error) {
