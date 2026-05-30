@@ -1,3 +1,4 @@
+Analyse le "Prompt & Arborescence" et garde toujours tout en mémoire, et ensuite je te dirai quoi faire , mais ne fais aucun code ici :
 
 /*
 

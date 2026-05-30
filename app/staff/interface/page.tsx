@@ -430,8 +430,8 @@ export default function StaffMessagesPage() {
     setIsSending(true);
     
     const sharedId = self.crypto.randomUUID();
-    const cleanContentForDB = replyContent;
-    const fullEmailContent = `${replyContent}\n\n---\nPour répondre à ce message ou nous recontacter, merci d'utiliser notre formulaire officiel :\nhttps://vagondys.com/contact?ref=${replyingTo.dossier_ref}`;
+    // Suppression du footer - le contenu est identique pour l'email et la base
+    const cleanContent = replyContent;
 
     try {
       const response = await fetch('/api/send-reply', {
@@ -442,8 +442,7 @@ export default function StaffMessagesPage() {
           messageId: replyingTo.id,
           to: replyingTo.payload.email,
           subject: replyingTo.payload.subject,
-          message: fullEmailContent,
-          dbContent: cleanContentForDB,
+          message: cleanContent,
           agentEmail: userEmail,
           docLink: documentLink,
           dossierRef: replyingTo.dossier_ref,
