@@ -133,75 +133,100 @@ export async function POST(req: Request) {
       if (!stationName) stationName = signalInfo.payload?.city;
     }
 
-    // 2. RÉCUPÉRATION DES ÉCHANGES (pour l'historique dans l'email)
-    const { data: historyData } = await supabaseClient
+    // 2. RÉCUPÉRATION ET FUSION DE TOUS LES MESSAGES (STAFF + CLIENT)
+    const { data: staffMessages } = await supabaseClient
       .from('communication_replies')
       .select('*')
       .eq('dossier_ref', cleanDossierRef)
       .order('created_at', { ascending: false });
 
-    const history = historyData as HistoryMessage[] | null;
-
-    let historyHtml = '';
-    
-    // ✅ Utiliser un Set pour éviter les doublons dans l'email
-    const emailMessagesSet = new Set<string>();
-    
-    if (history && history.length > 0) {
-      const uniqueHistory = deduplicateMessages<HistoryMessage>(history);
-      uniqueHistory.forEach((h: HistoryMessage) => {
-        const msgKey = `${h.content}_${h.created_at}`;
-        if (!emailMessagesSet.has(msgKey)) {
-          emailMessagesSet.add(msgKey);
-          historyHtml += `
-            <div style="margin-top:15px; padding:15px; border-left:2px solid ${h.agent_email === 'CLIENT' ? '#52525b' : '#dc2626'}; background:#0c0c0e; border-radius:0 8px 8px 0;">
-              <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-                ${h.agent_email === 'CLIENT' ? 'VOTRE MESSAGE' : `RÉPONSE ${serviceNameRaw}`} — ${new Date(h.created_at).toLocaleString('fr-FR')}
-              </p>
-              <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${h.content.replace(/\n/g, '<br>')}</div>
-            </div>
-          `;
-        }
-      });
-    }
-
-    // ✅ Récupérer l'historique des messages du client depuis le payload
     const clientMessagesHistory = (signalInfo?.payload?.messages_history || []) as ClientMessage[];
+    const uniqueStaffMessages = deduplicateMessages<HistoryMessage>(staffMessages || []);
     const uniqueClientMessages = deduplicateMessages<ClientMessage>(clientMessagesHistory);
     
-    // Ajouter l'historique des messages client dans l'email
-    if (uniqueClientMessages.length > 0) {
-      uniqueClientMessages.forEach((msg: ClientMessage, index: number) => {
-        const msgKey = `${msg.content}_${msg.created_at}`;
-        if (!emailMessagesSet.has(msgKey)) {
-          emailMessagesSet.add(msgKey);
-          historyHtml += `
-            <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
-              <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-                ${index === 0 ? 'MESSAGE INITIAL' : 'MESSAGE CLIENT'} — ${new Date(msg.created_at).toLocaleString('fr-FR')}
-              </p>
-              <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${msg.content.replace(/\n/g, '<br>')}</div>
-            </div>
-          `;
-        }
-      });
+    // ✅ Créer un tableau unique de tous les messages
+    interface UnifiedMessage {
+      type: 'staff' | 'client' | 'initial';
+      content: string;
+      created_at: string;
+      agent_email?: string;
+      is_initial?: boolean;
     }
-
-    if (signalInfo && signalInfo.payload && uniqueClientMessages.length === 0) {
+    
+    const allMessages: UnifiedMessage[] = [];
+    
+    // Ajouter les messages staff
+    uniqueStaffMessages.forEach((msg: HistoryMessage) => {
+      allMessages.push({
+        type: 'staff',
+        content: msg.content,
+        created_at: msg.created_at,
+        agent_email: msg.agent_email,
+      });
+    });
+    
+    // Ajouter les messages client (y compris l'initial s'il est dans l'historique)
+    uniqueClientMessages.forEach((msg: ClientMessage, idx: number) => {
+      allMessages.push({
+        type: 'client',
+        content: msg.content,
+        created_at: msg.created_at,
+        is_initial: idx === 0 && uniqueClientMessages.length > 0,
+      });
+    });
+    
+    // Ajouter le message initial s'il n'est pas déjà dans clientMessagesHistory
+    const hasInitialInHistory = uniqueClientMessages.some(
+      (msg: ClientMessage) => msg.content === signalInfo?.payload?.message
+    );
+    
+    if (signalInfo && signalInfo.payload && !hasInitialInHistory) {
       const firstMsg = signalInfo.payload.message as string;
       const firstDate = signalInfo.created_at as string;
-      const msgKey = `${firstMsg}_${firstDate}`;
-      if (!emailMessagesSet.has(msgKey)) {
-        emailMessagesSet.add(msgKey);
-        historyHtml += `
-          <div style="margin-top:15px; padding:15px; border-left:2px solid #52525b; background:#0c0c0e; border-radius:0 8px 8px 0;">
-            <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
-              MESSAGE INITIAL — ${new Date(firstDate).toLocaleString('fr-FR')}
-            </p>
-            <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${firstMsg.replace(/\n/g, '<br>')}</div>
-          </div>
-        `;
+      allMessages.push({
+        type: 'initial',
+        content: firstMsg,
+        created_at: firstDate,
+        is_initial: true,
+      });
+    }
+    
+    // ✅ Trier par date DÉCROISSANTE (du plus récent au plus ancien)
+    allMessages.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // ✅ Générer le HTML dans l'ordre trié
+    let historyHtml = '';
+    const emailMessagesSet = new Set<string>();
+    
+    for (const msg of allMessages) {
+      const msgKey = `${msg.content}_${msg.created_at}`;
+      if (emailMessagesSet.has(msgKey)) continue;
+      emailMessagesSet.add(msgKey);
+      
+      let title = '';
+      let borderColor = '#52525b';
+      
+      if (msg.type === 'staff') {
+        title = `RÉPONSE ${serviceNameRaw}`;
+        borderColor = '#dc2626';
+      } else if (msg.type === 'client') {
+        title = msg.is_initial ? 'MESSAGE INITIAL' : 'MESSAGE CLIENT';
+        borderColor = '#52525b';
+      } else if (msg.type === 'initial') {
+        title = 'MESSAGE INITIAL';
+        borderColor = '#52525b';
       }
+      
+      historyHtml += `
+        <div style="margin-top:15px; padding:15px; border-left:2px solid ${borderColor}; background:#0c0c0e; border-radius:0 8px 8px 0;">
+          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:8px;">
+            ${title} — ${new Date(msg.created_at).toLocaleString('fr-FR')}
+          </p>
+          <div style="font-size:12px; color:#a1a1aa; line-height:1.5;">${msg.content.replace(/\n/g, '<br>')}</div>
+        </div>
+      `;
     }
 
     const now = new Date();
@@ -367,7 +392,7 @@ export async function POST(req: Request) {
         }))
       ];
       
-      // Trier par date
+      // Trier par date (croissant pour l'archive)
       fullThreadMessages.sort((a, b) => {
         const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;

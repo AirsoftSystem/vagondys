@@ -196,7 +196,7 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ CORRECTION : Dédoublonnage des messages dans fetchHistoryAndLinks
+  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date (plus fiable que par id)
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -224,19 +224,26 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      // ✅ Dédoublonnage : utilisation d'une Map pour éliminer les doublons par id
+      // ✅ Dédoublonnage par clé unique basée sur le contenu + date (évite la perte de messages)
+      const getMessageKey = (msg: { created_at: string; content: string }) => 
+        `${msg.created_at}_${msg.content.substring(0, 100)}`;
+      
       const messageMap = new Map<string, ExtendedHistoryMessage>();
       
       // Ajouter les messages de la base STAFF (prioritaires)
       formattedHistory.forEach(msg => {
-        messageMap.set(msg.id, msg);
+        const key = getMessageKey(msg);
+        if (!messageMap.has(key)) {
+          messageMap.set(key, msg);
+        }
       });
       
-      // Ajouter les messages de GitHub (seulement si l'id n'existe pas déjà)
+      // Ajouter les messages de GitHub (seulement si la clé n'existe pas déjà)
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         archivedData.echanges_staff.forEach(h => {
-          if (!messageMap.has(h.id)) {
-            messageMap.set(h.id, {
+          const key = getMessageKey(h);
+          if (!messageMap.has(key)) {
+            messageMap.set(key, {
               id: h.id,
               created_at: h.created_at,
               agent_email: h.agent_email,
@@ -250,7 +257,7 @@ export default function StaffMessagesPage() {
         setGithubArchive(archivedData);
       }
       
-      // Convertir la Map en tableau et trier par date (du plus ancien au plus récent)
+      // Convertir la Map en tableau et trier par date (du plus récent au plus ancien)
       const mergedHistory = Array.from(messageMap.values());
       mergedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
@@ -385,6 +392,7 @@ export default function StaffMessagesPage() {
     setExpandedMessages(newExpanded);
   };
 
+  // ✅ CORRECTION : Suppression de "history: historyMessages" pour que l'API aille chercher l'historique complet en base
   const handleDeepArchive = async (msg: SignalMessage) => {
     if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;
     
@@ -396,7 +404,6 @@ export default function StaffMessagesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: msg, 
-          history: historyMessages,
           purgeActive: true,
           city_code: userCity,
           country_code: userCountry || 'FR'
