@@ -49,6 +49,17 @@ interface ExtendedHistoryMessage extends HistoryMessage {
 interface GitHubArchiveData {
   dossier: SignalMessage;
   echanges_staff: HistoryMessage[];
+  fil_de_discussion?: Array<{
+    role?: string;
+    sender?: string;
+    content?: string;
+    created_at?: string;
+    is_initial?: boolean;
+    id?: string;
+    agent_email?: string;
+    document_url?: string | null;
+    dossier_ref?: string;
+  }>;
   date_archivage: string;
   archive_by: string;
 }
@@ -197,6 +208,7 @@ export default function StaffMessagesPage() {
   };
 
   // ✅ CORRECTION : Dédoublonnage des messages par contenu + date (plus fiable que par id)
+  // ✅ AJOUT : Extraction des messages client depuis fil_de_discussion de l'archive GitHub
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -238,7 +250,29 @@ export default function StaffMessagesPage() {
         }
       });
       
-      // Ajouter les messages de GitHub (seulement si la clé n'existe pas déjà)
+      // ✅ AJOUT : Ajouter les messages client depuis l'archive GitHub (fil_de_discussion)
+      if (archivedData && archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
+        archivedData.fil_de_discussion.forEach(msg => {
+          // Ne prendre que les messages client (role === "public")
+          if (msg.role === "public" && msg.content) {
+            const key = getMessageKey({ created_at: msg.created_at || "", content: msg.content });
+            if (!messageMap.has(key)) {
+              messageMap.set(key, {
+                id: `github_client_${msg.created_at}`,
+                created_at: msg.created_at || new Date().toISOString(),
+                agent_email: "CLIENT",
+                content: msg.content,
+                dossier_ref: ref,
+                document_url: null,
+                is_initial: msg.is_initial === true
+              });
+            }
+          }
+        });
+        console.log(`📦 GitHub: ${archivedData.fil_de_discussion.filter(m => m.role === "public").length} messages client ajoutés depuis fil_de_discussion`);
+      }
+      
+      // Ajouter les messages staff depuis GitHub (echanges_staff)
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         archivedData.echanges_staff.forEach(h => {
           const key = getMessageKey(h);
@@ -315,12 +349,42 @@ export default function StaffMessagesPage() {
           ...archivedData.dossier,
           id: `archived-${archivedData.dossier.dossier_ref}`
         };
-        const formattedHistory: ExtendedHistoryMessage[] = (archivedData.echanges_staff || []).map(h => ({
-          ...h,
-          document_url: h.document_url || null,
-          is_initial: false
-        }));
-        setHistoryMessages(formattedHistory);
+        
+        // ✅ Extraire également les messages client depuis fil_de_discussion pour l'affichage immédiat
+        const allMessages: ExtendedHistoryMessage[] = [];
+        
+        // Ajouter les messages staff
+        if (archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
+          archivedData.echanges_staff.forEach(h => {
+            allMessages.push({
+              ...h,
+              document_url: h.document_url || null,
+              is_initial: false
+            });
+          });
+        }
+        
+        // Ajouter les messages client depuis fil_de_discussion
+        if (archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
+          archivedData.fil_de_discussion.forEach(msg => {
+            if (msg.role === "public" && msg.content) {
+              allMessages.push({
+                id: `github_client_${msg.created_at}`,
+                created_at: msg.created_at || new Date().toISOString(),
+                agent_email: "CLIENT",
+                content: msg.content,
+                dossier_ref: archivedData.dossier.dossier_ref || "",
+                document_url: null,
+                is_initial: msg.is_initial === true
+              });
+            }
+          });
+        }
+        
+        // Trier par date (du plus récent au plus ancien)
+        allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        setHistoryMessages(allMessages);
         setGithubArchive(archivedData);
         setReplyingTo(mockMsg);
         setLinkedDossiers([]);
