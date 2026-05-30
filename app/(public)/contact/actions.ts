@@ -172,10 +172,50 @@ export async function submitContact(formData: FormData) {
       query = query.eq('city', targetCity);
     }
     
-    const { data: existingSignal, error: checkError } = await query.maybeSingle();
+    // ✅ Correction : Séparer existingSignal (let) et checkError (const)
+    const result = await query.maybeSingle();
+    const { error: checkError } = result;
+    let { data: existingSignal } = result;
     
     if (checkError) {
       throw new Error(`Erreur vérification signal: ${checkError.message}`);
+    }
+    
+    // ✅ NOUVELLE CORRECTION : Si le dossier existe dans GitHub mais pas en base (après purge)
+    if (!existingSignal && existingDossierRef) {
+      console.log(`🔄 submitContact: dossier ${existingDossierRef} trouvé dans GitHub mais pas en base, tentative de restauration...`);
+      
+      try {
+        const restoreUrl = `${siteUrl}/api/archive-external/restore`;
+        const restoreRes = await fetch(restoreUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dossier_ref: existingDossierRef,
+            city_code: targetCity,
+            country_code: targetCountry
+          })
+        });
+        
+        if (restoreRes.ok) {
+          console.log(`✅ submitContact: dossier ${existingDossierRef} restauré depuis GitHub`);
+          
+          // Re-vérifier si le signal existe maintenant après restauration
+          const restoredResult = await query.maybeSingle();
+          const restoredSignal = restoredResult.data;
+          if (restoredSignal) {
+            existingSignal = restoredSignal;
+            console.log(`✅ submitContact: signal restauré trouvé pour ${existingDossierRef}`);
+          } else {
+            console.warn(`⚠️ submitContact: restauration effectuée mais signal non trouvé pour ${existingDossierRef}`);
+          }
+        } else {
+          const restoreError = await restoreRes.text();
+          console.error(`❌ submitContact: échec restauration ${existingDossierRef}: ${restoreError}`);
+        }
+      } catch (restoreErr) {
+        console.error(`❌ submitContact: exception restauration ${existingDossierRef}:`, restoreErr);
+      }
     }
     
     if (existingSignal) {
