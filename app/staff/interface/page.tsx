@@ -207,7 +207,18 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date (plus fiable que par id)
+  // ✅ Fonction utilitaire pour normaliser une date (supprime les millisecondes pour la comparaison)
+  const normalizeDate = (dateStr: string): string => {
+    try {
+      const date = new Date(dateStr);
+      // Normaliser au format ISO sans millisecondes ni fuseau
+      return date.toISOString().split('.')[0]; // "2026-05-30T22:50:12"
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date normalisée (évite les collisions de dates)
   // ✅ AJOUT : Extraction des messages client depuis fil_de_discussion de l'archive GitHub
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
@@ -236,9 +247,12 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      // ✅ Dédoublonnage par clé unique basée sur le contenu + date (évite la perte de messages)
-      const getMessageKey = (msg: { created_at: string; content: string }) => 
-        `${msg.created_at}_${msg.content.substring(0, 100)}`;
+      // ✅ CORRECTION : Dédoublonnage par clé unique basée sur la date normalisée + contenu complet
+      // Cela évite les problèmes de millisecondes ou de formats différents
+      const getMessageKey = (msg: { created_at: string; content: string }) => {
+        const normalizedDate = normalizeDate(msg.created_at);
+        return `${normalizedDate}_${msg.content}`;
+      };
       
       const messageMap = new Map<string, ExtendedHistoryMessage>();
       
@@ -254,12 +268,12 @@ export default function StaffMessagesPage() {
       if (archivedData && archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
         archivedData.fil_de_discussion.forEach(msg => {
           // Ne prendre que les messages client (role === "public")
-          if (msg.role === "public" && msg.content) {
-            const key = getMessageKey({ created_at: msg.created_at || "", content: msg.content });
+          if (msg.role === "public" && msg.content && msg.created_at) {
+            const key = getMessageKey({ created_at: msg.created_at, content: msg.content });
             if (!messageMap.has(key)) {
               messageMap.set(key, {
-                id: `github_client_${msg.created_at}`,
-                created_at: msg.created_at || new Date().toISOString(),
+                id: `github_client_${normalizeDate(msg.created_at)}`,
+                created_at: msg.created_at,
                 agent_email: "CLIENT",
                 content: msg.content,
                 dossier_ref: ref,
@@ -367,10 +381,10 @@ export default function StaffMessagesPage() {
         // Ajouter les messages client depuis fil_de_discussion
         if (archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
           archivedData.fil_de_discussion.forEach(msg => {
-            if (msg.role === "public" && msg.content) {
+            if (msg.role === "public" && msg.content && msg.created_at) {
               allMessages.push({
-                id: `github_client_${msg.created_at}`,
-                created_at: msg.created_at || new Date().toISOString(),
+                id: `github_client_${normalizeDate(msg.created_at)}`,
+                created_at: msg.created_at,
                 agent_email: "CLIENT",
                 content: msg.content,
                 dossier_ref: archivedData.dossier.dossier_ref || "",
