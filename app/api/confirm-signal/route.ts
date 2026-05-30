@@ -549,22 +549,12 @@ export async function GET(request: NextRequest) {
         pays: archiveCountry
       }, 'info');
       
-      // Construction du fullThread
-      const uniqueMessages = new Map<string, { role: string; sender: string; content: string; created_at: string; is_initial: boolean }>();
+      // ✅ CORRECTION 1 : Trier les messages par date (du plus ancien au plus récent)
+      const sortedMessages = [...updatedMessagesHistory].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
       
-      updatedMessagesHistory.forEach((msg, idx) => {
-        const key = `${msg.content}_${msg.created_at}`;
-        if (!uniqueMessages.has(key)) {
-          uniqueMessages.set(key, {
-            role: "public",
-            sender: clientEmail,
-            content: msg.content,
-            created_at: msg.created_at,
-            is_initial: idx === 0
-          });
-        }
-      });
-      
+      // ✅ CORRECTION 2 : Construire le fullThread avec l'ordre trié
       const fullThread = [
         {
           role: "CLIENT_CONTACT_INFO",
@@ -578,10 +568,16 @@ export async function GET(request: NextRequest) {
             subject: rawSubject
           }
         },
-        ...Array.from(uniqueMessages.values())
+        ...sortedMessages.map((msg, idx) => ({
+          role: "public",
+          sender: clientEmail,
+          content: msg.content,
+          created_at: msg.created_at,
+          is_initial: idx === 0  // Le premier du tableau trié est le plus ancien
+        }))
       ];
       
-      // Format correct pour processArchivePost
+      // ✅ CORRECTION 3 : Supprimer 'history: []' pour que engine.ts aille chercher l'historique en base
       const archivePayload = {
         message: {
           dossier_ref: finalDossierRef,
@@ -597,7 +593,7 @@ export async function GET(request: NextRequest) {
             messages_history: updatedMessagesHistory
           }
         },
-        history: [],
+        // history: [],  ← SUPPRIMÉ - engine.ts ira chercher en base
         purgeActive: false,
         city_code: archiveCity,
         country_code: archiveCountry,
