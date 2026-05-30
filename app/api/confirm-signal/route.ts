@@ -527,9 +527,10 @@ export async function GET(request: NextRequest) {
       console.error("Erreur email client:", emailErr);
     }
 
-    // ✅ ARCHIVAGE GITHUB OBLIGATOIRE - VERSION FIABLE
+    // ✅ ARCHIVAGE GITHUB - AVEC VÉRIFICATION D'EXISTENCE POUR ÉVITER L'ÉCRASEMENT
     let archiveSuccess = false;
     let archiveError: string | null = null;
+    let archiveSkipped = false;
     
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vagondys.com";
@@ -549,87 +550,119 @@ export async function GET(request: NextRequest) {
         pays: archiveCountry
       }, 'info');
       
-      // ✅ CORRECTION 1 : Trier les messages par date (du plus ancien au plus récent)
-      const sortedMessages = [...updatedMessagesHistory].sort((a, b) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
+      // ✅ NOUVELLE CORRECTION : Vérifier si une archive existe déjà dans GitHub
+      const GITHUB_TOKEN = process.env.GITHUB_ARCHIVE_TOKEN;
+      const GITHUB_REPO = process.env.GITHUB_ARCHIVE_REPO;
+      const emailSlug = clientEmail.replace(/[@.]/g, '_');
+      const searchUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/archives/${archiveCountry === 'ES' ? 'ESPAGNE' : 'FRANCE'}/${archiveCity}`;
       
-      // ✅ CORRECTION 2 : Construire le fullThread avec l'ordre trié
-      const fullThread = [
-        {
-          role: "CLIENT_CONTACT_INFO",
-          sender: "SYSTEM",
-          content: `Fiche Contact : ${p.name} | Tel: ${p.phone || "Non renseigné"} | Email: ${clientEmail}`,
-          created_at: signal.created_at,
-          details: {
-            name: p.name,
-            phone: p.phone,
-            email: clientEmail,
-            subject: rawSubject
+      let archiveExists = false;
+      try {
+        const checkRes = await fetch(searchUrl, {
+          headers: {
+            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'VAGONDYS-APP'
           }
-        },
-        ...sortedMessages.map((msg, idx) => ({
-          role: "public",
-          sender: clientEmail,
-          content: msg.content,
-          created_at: msg.created_at,
-          is_initial: idx === 0  // Le premier du tableau trié est le plus ancien
-        }))
-      ];
+        });
+        
+        if (checkRes.ok) {
+          const files = await checkRes.json() as Array<{name: string}>;
+          archiveExists = files.some(f => f.name.toLowerCase().includes(emailSlug) || f.name.includes(finalDossierRef));
+        }
+      } catch {
+        // Ignorer les erreurs de vérification
+      }
       
-      // ✅ CORRECTION 3 : Supprimer 'history: []' pour que engine.ts aille chercher l'historique en base
-      const archivePayload = {
-        message: {
-          dossier_ref: finalDossierRef,
-          created_at: signal.created_at,
-          payload: {
-            name: p.name,
-            email: clientEmail,
-            phone: p.phone || null,
-            city: archiveCity,
-            country: archiveCountry,
-            subject: rawSubject,
-            message: currentMessageForEmail,
-            messages_history: updatedMessagesHistory
-          }
-        },
-        // history: [],  ← SUPPRIMÉ - engine.ts ira chercher en base
-        purgeActive: false,
-        city_code: archiveCity,
-        country_code: archiveCountry,
-        fullThread: fullThread
-      };
-      
-      await forceLog(`confirm-signal-${requestId}`, {
-        event: 'PAYLOAD_ARCHIVAGE',
-        dossier_ref: finalDossierRef,
-        archiveCity,
-        archiveCountry,
-        messages_count: updatedMessagesHistory.length
-      }, 'info');
-      
-      // Appel à l'API d'archivage
-      const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(archivePayload)
-      });
-
-      if (!archiveRes.ok) {
-        const errorText = await archiveRes.text();
-        archiveError = `Status ${archiveRes.status}: ${errorText.substring(0, 500)}`;
-        await forceLog(`confirm-signal-${requestId}`, {
-          event: 'ERREUR_ARCHIVAGE_GITHUB',
-          status: String(archiveRes.status),
-          response: errorText.substring(0, 500)
-        }, 'error');
-      } else {
-        const archiveResult = await archiveRes.json();
+      if (archiveExists) {
+        console.log(`📦 confirm-signal: Archive existe déjà pour ${finalDossierRef}, conservation de l'existante`);
+        archiveSkipped = true;
         archiveSuccess = true;
         await forceLog(`confirm-signal-${requestId}`, {
-          event: 'ARCHIVAGE_GITHUB_OK',
-          result: JSON.stringify(archiveResult)
+          event: 'ARCHIVAGE_SKIP_EXISTANT',
+          dossier_ref: finalDossierRef
         }, 'info');
+      } else {
+        // ✅ CORRECTION 1 : Trier les messages par date (du plus ancien au plus récent)
+        const sortedMessages = [...updatedMessagesHistory].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        
+        // ✅ CORRECTION 2 : Construire le fullThread avec l'ordre trié
+        const fullThread = [
+          {
+            role: "CLIENT_CONTACT_INFO",
+            sender: "SYSTEM",
+            content: `Fiche Contact : ${p.name} | Tel: ${p.phone || "Non renseigné"} | Email: ${clientEmail}`,
+            created_at: signal.created_at,
+            details: {
+              name: p.name,
+              phone: p.phone,
+              email: clientEmail,
+              subject: rawSubject
+            }
+          },
+          ...sortedMessages.map((msg, idx) => ({
+            role: "public",
+            sender: clientEmail,
+            content: msg.content,
+            created_at: msg.created_at,
+            is_initial: idx === 0
+          }))
+        ];
+        
+        const archivePayload = {
+          message: {
+            dossier_ref: finalDossierRef,
+            created_at: signal.created_at,
+            payload: {
+              name: p.name,
+              email: clientEmail,
+              phone: p.phone || null,
+              city: archiveCity,
+              country: archiveCountry,
+              subject: rawSubject,
+              message: currentMessageForEmail,
+              messages_history: updatedMessagesHistory
+            }
+          },
+          purgeActive: false,
+          city_code: archiveCity,
+          country_code: archiveCountry,
+          fullThread: fullThread
+        };
+        
+        await forceLog(`confirm-signal-${requestId}`, {
+          event: 'PAYLOAD_ARCHIVAGE',
+          dossier_ref: finalDossierRef,
+          archiveCity,
+          archiveCountry,
+          messages_count: updatedMessagesHistory.length
+        }, 'info');
+        
+        // Appel à l'API d'archivage
+        const archiveRes = await fetch(`${baseUrl}/api/archive-external`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(archivePayload)
+        });
+
+        if (!archiveRes.ok) {
+          const errorText = await archiveRes.text();
+          archiveError = `Status ${archiveRes.status}: ${errorText.substring(0, 500)}`;
+          await forceLog(`confirm-signal-${requestId}`, {
+            event: 'ERREUR_ARCHIVAGE_GITHUB',
+            status: String(archiveRes.status),
+            response: errorText.substring(0, 500)
+          }, 'error');
+        } else {
+          const archiveResult = await archiveRes.json();
+          archiveSuccess = true;
+          await forceLog(`confirm-signal-${requestId}`, {
+            event: 'ARCHIVAGE_GITHUB_OK',
+            result: JSON.stringify(archiveResult)
+          }, 'info');
+        }
       }
     } catch (archiveErr) {
       archiveError = archiveErr instanceof Error ? archiveErr.message : String(archiveErr);
@@ -639,11 +672,13 @@ export async function GET(request: NextRequest) {
       }, 'error');
     }
     
-    if (!archiveSuccess) {
+    if (!archiveSuccess && !archiveSkipped) {
       await forceLog(`confirm-signal-${requestId}`, {
         event: 'ARCHIVAGE_ECHEC_MAIS_CONTINUE',
         error: archiveError || 'Erreur inconnue'
       }, 'warn');
+    } else if (archiveSkipped) {
+      console.log(`✅ confirm-signal: Archivage ignoré (déjà existant) pour ${finalDossierRef}`);
     } else {
       console.log(`✅ confirm-signal: Archive GitHub créée avec succès pour ${finalDossierRef}`);
     }
@@ -651,7 +686,8 @@ export async function GET(request: NextRequest) {
     await forceLog(`confirm-signal-${requestId}`, {
       event: 'FIN_SUCCES',
       duration: String(Date.now() - startTime),
-      archiveSuccess
+      archiveSuccess,
+      archiveSkipped
     }, 'info');
 
     return NextResponse.redirect(new URL('/contact?status=confirmed', request.url));
