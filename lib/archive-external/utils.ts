@@ -1,3 +1,4 @@
+
 import { JsonObject, HistoryRow, ThreadMessage, ArchiveFrontendResponse } from "./types";
 
 /**
@@ -54,6 +55,7 @@ export function normalizeForPath(str: string | null): string {
 /**
  * MAPPER : Transforme le JSON brut de l'archive vers la forme attendue par le Front.
  * C'est l'élément crucial qui manquait à ton fichier utils.
+ * ✅ CORRECTION : Ajout de messages_history dans le payload retourné
  */
 export function mapArchiveToFrontendShape(contentJson: JsonObject): ArchiveFrontendResponse {
   const dossier_complet = (contentJson["dossier_complet"] as JsonObject | undefined) ?? null;
@@ -79,6 +81,9 @@ export function mapArchiveToFrontendShape(contentJson: JsonObject): ArchiveFront
   const rawPhone = (dossierPayload?.["phone"] as string) ?? (client_identity?.["telephone"] as string) ?? null;
   const rawSubject = (dossierPayload?.["subject"] as string) ?? (client_identity?.["sujet"] as string) ?? "";
   const rawMessage = (dossierPayload?.["message"] as string) ?? "";
+  
+  // ✅ CORRECTION : Récupérer messages_history depuis le payload de l'archive
+  const rawMessagesHistory = dossierPayload?.["messages_history"] as Array<{ content: string; created_at: string }> | undefined;
 
   const nameParts = splitName(rawName);
 
@@ -97,6 +102,8 @@ export function mapArchiveToFrontendShape(contentJson: JsonObject): ArchiveFront
       phone: rawPhone,
       subject: rawSubject,
       message: rawMessage,
+      // ✅ CORRECTION : Ajout de messages_history dans le payload
+      messages_history: rawMessagesHistory ?? [],
       client_identity: client_identity ?? null
     }
   };

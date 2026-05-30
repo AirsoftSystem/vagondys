@@ -74,6 +74,7 @@ interface RawArchiveData {
  * ✅ AJOUT : Support des fichiers compressés .json.gz
  * ✅ CORRECTION : Fusion des messages existants au lieu d'ignorer
  * ✅ CORRECTION : Détection des doublons par id au lieu de content
+ * ✅ CORRECTION : Utilisation de l'archive brute pour l'historique complet
  */
 export async function POST(req: Request) {
   try {
@@ -149,7 +150,12 @@ export async function POST(req: Request) {
     const signalData = restoredData.dossier;
     const historyData = restoredData.echanges_staff || [];
 
-    console.log(`📦 RESTORE: archive lue, ${historyData.length} échanges trouvés`);
+    // ✅ CORRECTION : Récupérer directement l'historique complet depuis l'archive brute
+    const archivePayload = archiveData.dossier_complet?.payload || {};
+    const archiveMessagesHistory = archivePayload.messages_history || [];
+    const archiveCreatedAt = archiveData.dossier_complet?.created_at || signalData.created_at;
+
+    console.log(`📦 RESTORE: archive lue, ${historyData.length} échanges trouvés, ${archiveMessagesHistory.length} messages dans l'historique`);
 
     // 5. Client UNIQUE (Option B)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -182,9 +188,8 @@ export async function POST(req: Request) {
       const existingPayload = existingSignal.payload as SignalPayload || {};
       const existingMessages = existingPayload.messages_history || [];
       
-      // Récupérer les messages depuis l'archive brute (plus fiable que signalData.payload)
-      const archivePayload = archiveData.dossier_complet?.payload || {};
-      const newMessages = archivePayload.messages_history || [];
+      // Utiliser l'archive brute pour les nouveaux messages (plus fiable)
+      const newMessages = archiveMessagesHistory;
       
       // Fusion unique par date + contenu (évite les doublons)
       const messageMap = new Map<string, { content: string; created_at: string }>();
@@ -236,15 +241,49 @@ export async function POST(req: Request) {
       }
       
     } else {
-      // Insertion du signal restauré (première fois)
+      // ✅ CORRECTION : Insertion du signal restauré avec l'historique complet depuis l'archive brute
+      console.log(`ℹ️ RESTORE: création d'un nouveau signal pour ${dossier_ref} avec historique complet`);
+      
+      // Récupérer les informations depuis l'archive brute et signalData
+      const archiveName = archivePayload.name || signalData.payload.name;
+      const archiveEmail = archivePayload.email || signalData.payload.email;
+      // ✅ CORRECTION 1 : Convertir null en undefined pour phone
+      const archivePhone = archivePayload.phone || (signalData.payload.phone === null ? undefined : signalData.payload.phone);
+      const archiveSubject = archivePayload.subject || signalData.payload.subject;
+      const archiveMessage = archivePayload.message || signalData.payload.message;
+      const archiveOriginalSubject = archivePayload.original_subject;
+      const archiveConfirmedAt = archivePayload.confirmed_at;
+      const archiveMeta = archivePayload.meta || {
+        is_resurrected: true,
+        is_returning_client: false,
+        first_contact: false
+      };
+      
+      // Construire le payload complet avec l'historique depuis l'archive brute
+      // ✅ CORRECTION 2 & 3 : Ne pas utiliser signalData.payload.city/country (n'existent pas)
+      // Utiliser effectiveCity et effectiveCountry directement
+      const completePayload: SignalPayload = {
+        name: archiveName,
+        email: archiveEmail,
+        phone: archivePhone,
+        city: effectiveCity,
+        country: effectiveCountry,
+        subject: archiveSubject,
+        message: archiveMessage,
+        original_subject: archiveOriginalSubject,
+        confirmed_at: archiveConfirmedAt,
+        messages_history: archiveMessagesHistory,
+        meta: archiveMeta
+      };
+      
       const insertData = {
         id: signalData.id,
         dossier_ref: dossier_ref,
-        payload: signalData.payload,
+        payload: completePayload,
         confirmed: signalData.confirmed,
         is_read: true,
         is_new_athlete: false,
-        created_at: signalData.created_at,
+        created_at: archiveCreatedAt,
         city: effectiveCity,
         country: effectiveCountry
       };
@@ -258,7 +297,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Erreur insertion signal" }, { status: 500 });
       }
 
-      console.log(`✅ RESTORE: signal inséré pour ${dossier_ref}`);
+      console.log(`✅ RESTORE: signal inséré avec historique complet (${archiveMessagesHistory.length} messages) pour ${dossier_ref}`);
     }
 
     // ✅ CORRECTION : Insérer l'historique des échanges en vérifiant par ID (plus fiable que par contenu)
