@@ -4,7 +4,7 @@ import { findFileInRepo, upsertFile, deleteFile } from "./gh-client";
 import { getHistoryFromDB, purgeDossierData } from "./db-client";
 import { normalizeForPath } from "./utils";
 import { HistoryRow } from "./types";
-import { gzipSync } from 'zlib';
+import { gzipSync, gunzipSync } from 'zlib';
 
 /**
  * Interface pour un message dans le fil de discussion
@@ -20,6 +20,42 @@ interface ThreadMessage {
   agent_email?: string;
   document_url?: string | null;
   dossier_ref?: string;
+}
+
+/**
+ * Interface pour l'archive complète
+ */
+interface FullArchiveData {
+  reference: string;
+  client_identity: {
+    nom?: string;
+    email?: string;
+    telephone?: string;
+    sujet?: string;
+  };
+  dossier_complet: {
+    dossier_ref: string;
+    created_at?: string;
+    payload?: {
+      city?: string;
+      country?: string;
+      email?: string;
+      name?: string;
+      phone?: string;
+      subject?: string;
+      message?: string;
+      messages_history?: Array<{ content: string; created_at: string }>;
+      original_subject?: string;
+      confirmed_at?: string;
+      meta?: Record<string, unknown>;
+    };
+    [key: string]: unknown;
+  };
+  echanges_staff: HistoryRow[];
+  fil_de_discussion: ThreadMessage[];
+  date_archivage: string;
+  archive_by: string;
+  security_version: string;
 }
 
 /**
@@ -53,6 +89,148 @@ interface ArchiveRequestBody {
 }
 
 /**
+ * Télécharge et décompresse une archive existante depuis GitHub
+ */
+async function fetchExistingArchive(
+  ref: string,
+  token: string,
+  repo: string,
+  cityCode?: string,
+  countryCode?: string
+): Promise<FullArchiveData | null> {
+  try {
+    const targetFile = await findFileInRepo(ref, token, repo, "archives", countryCode);
+    if (!targetFile) return null;
+    
+    const fileRes = await fetch(targetFile.download_url);
+    if (!fileRes.ok) return null;
+    
+    let archiveData: FullArchiveData;
+    if (targetFile.name.endsWith('.gz')) {
+      const arrayBuffer = await fileRes.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+      archiveData = JSON.parse(decompressed.toString('utf8'));
+    } else {
+      archiveData = await fileRes.json();
+    }
+    
+    return archiveData;
+  } catch (err) {
+    console.warn(`⚠️ fetchExistingArchive: impossible de récupérer l'archive pour ${ref}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Fusionne deux historiques de messages sans doublons
+ */
+function mergeMessagesHistory(
+  existing: Array<{ content: string; created_at: string }>,
+  incoming: Array<{ content: string; created_at: string }>
+): Array<{ content: string; created_at: string }> {
+  const map = new Map<string, { content: string; created_at: string }>();
+  
+  // Ajouter les messages existants
+  existing.forEach(msg => {
+    const key = `${msg.created_at}_${msg.content}`;
+    if (!map.has(key)) {
+      map.set(key, msg);
+    }
+  });
+  
+  // Ajouter les nouveaux messages
+  incoming.forEach(msg => {
+    const key = `${msg.created_at}_${msg.content}`;
+    if (!map.has(key)) {
+      map.set(key, msg);
+    }
+  });
+  
+  // Convertir en tableau et trier par date (croissant)
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  
+  return merged;
+}
+
+/**
+ * Fusionne deux fils de discussion sans doublons
+ */
+function mergeFullThread(
+  existing: ThreadMessage[],
+  incoming: ThreadMessage[]
+): ThreadMessage[] {
+  const map = new Map<string, ThreadMessage>();
+  
+  // Clé unique basée sur date + contenu + expéditeur
+  const getKey = (msg: ThreadMessage): string => {
+    const date = msg.created_at || '';
+    const content = msg.content || '';
+    const sender = msg.agent_email || msg.sender || '';
+    return `${date}_${content}_${sender}`;
+  };
+  
+  // Ajouter les messages existants
+  existing.forEach(msg => {
+    const key = getKey(msg);
+    if (!map.has(key)) {
+      map.set(key, msg);
+    }
+  });
+  
+  // Ajouter les nouveaux messages
+  incoming.forEach(msg => {
+    const key = getKey(msg);
+    if (!map.has(key)) {
+      map.set(key, msg);
+    }
+  });
+  
+  // Convertir en tableau et trier par date (croissant)
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateA - dateB;
+  });
+  
+  return merged;
+}
+
+/**
+ * Fusionne deux listes de réponses staff sans doublons
+ */
+function mergeStaffReplies(
+  existing: HistoryRow[],
+  incoming: HistoryRow[]
+): HistoryRow[] {
+  const map = new Map<string, HistoryRow>();
+  
+  // Clé unique basée sur id (priorité) ou date + contenu + agent_email
+  existing.forEach(reply => {
+    if (reply.id) {
+      map.set(reply.id, reply);
+    } else {
+      const key = `${reply.created_at}_${reply.content}_${reply.agent_email}`;
+      map.set(key, reply);
+    }
+  });
+  
+  incoming.forEach(reply => {
+    if (reply.id && !map.has(reply.id)) {
+      map.set(reply.id, reply);
+    } else if (!reply.id) {
+      const key = `${reply.created_at}_${reply.content}_${reply.agent_email}`;
+      if (!map.has(key)) {
+        map.set(key, reply);
+      }
+    }
+  });
+  
+  return Array.from(map.values());
+}
+
+/**
  * Élimine les doublons dans un tableau de messages
  * Utilise une Map basée sur le contenu + date + agent_email
  */
@@ -80,6 +258,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ AJOUT : Dédoublonnage des messages et compression GZIP
  * ✅ CORRECTION : Utilisation de la ville du payload pour le chemin d'archivage
  * ✅ CORRECTION : Suppression des entrées en double dans communication_replies lors de l'archivage
+ * ✅ NOUVELLE CORRECTION : Fusion avec l'archive existante au lieu d'ignorer ou écraser
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -142,10 +321,39 @@ export async function processArchivePost(body: ArchiveRequestBody) {
 
   console.log(`📦 Archivage: chemin complet = ${path}`);
 
+  // 🔄 NOUVELLE CORRECTION : Récupérer l'archive existante si elle existe
+  let existingArchive: FullArchiveData | null = null;
+  if (!purgeActive) {
+    existingArchive = await fetchExistingArchive(ref, customToken, targetRepo, archiveCity, archiveCountry);
+    if (existingArchive) {
+      console.log(`📦 Archivage: archive existante trouvée pour ${ref}, fusion des données`);
+    }
+  }
+
   // Récupération de l'historique des réponses staff
   let finalHistory: HistoryRow[] = Array.isArray(history) ? history : [];
   if (finalHistory.length === 0) {
     finalHistory = await getHistoryFromDB(ref, archiveCity);
+  }
+  
+  // ✅ FUSION avec l'archive existante si présente
+  if (existingArchive) {
+    // Fusionner messages_history
+    const existingMessagesHistory = existingArchive.dossier_complet?.payload?.messages_history || [];
+    const incomingMessagesHistory = payload?.messages_history || [];
+    const mergedMessagesHistory = mergeMessagesHistory(existingMessagesHistory, incomingMessagesHistory);
+    
+    // Mettre à jour le payload avec l'historique fusionné
+    if (payload) {
+      payload.messages_history = mergedMessagesHistory;
+    }
+    
+    // Fusionner echanges_staff
+    const existingReplies = existingArchive.echanges_staff || [];
+    const mergedReplies = mergeStaffReplies(existingReplies, finalHistory);
+    finalHistory = mergedReplies;
+    
+    console.log(`📦 Archivage: fusion effectuée - messages: ${existingMessagesHistory.length} → ${mergedMessagesHistory.length}, réponses: ${existingReplies.length} → ${mergedReplies.length}`);
   }
 
   // Construction du fil de discussion avec dédoublonnage
@@ -214,6 +422,12 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     });
     
     console.log(`📦 Archivage: reconstruction du fullThread (${combined.length} messages, ${fullThread.length} après dédoublonnage)`);
+  }
+  
+  // ✅ FUSION du fullThread avec l'archive existante si présente
+  if (existingArchive && existingArchive.fil_de_discussion) {
+    fullThread = mergeFullThread(existingArchive.fil_de_discussion, fullThread);
+    console.log(`📦 Archivage: fullThread fusionné (${existingArchive.fil_de_discussion.length} + ${fullThread.length} après fusion)`);
   }
 
   // Structure de l'archive JSON
