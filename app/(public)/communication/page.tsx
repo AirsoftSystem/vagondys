@@ -1,7 +1,8 @@
+
 "use client";
 
 import React from 'react';
-import { Home, Megaphone, Share2, ShieldCheck, Send } from "lucide-react";
+import { Home, Megaphone, Share2, ShieldCheck, Send, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 // ==========================================
@@ -64,48 +65,85 @@ export default function CommunicationPage() {
           </div>
         </section>
 
-        {/* --- SECTION CONTACT (REMPLACÉE PAR REDIRECTION) --- */}
-        <section className="grid md:grid-cols-2 gap-20 mb-40 items-start">
-          <div className="space-y-8">
-            <h2 className="text-5xl font-black uppercase tracking-tighter italic leading-[0.9]">
-              CANAUX DE <br/><span className="text-red-600 text-6xl">TRANSMISSION</span>
-            </h2>
-            <div className="space-y-6 text-zinc-400 text-lg leading-relaxed font-light">
-              <p>
-                La communication chez VAGONDYS est régie par une rigueur absolue. Chaque échange est traité comme une donnée critique de notre réseau via notre interface sécurisée.
-              </p>
-              <div className="p-6 bg-zinc-950 border-l-4 border-red-600 italic text-sm">
-                &quot;La clarté de l&apos;information est le premier vecteur de la précision sur le terrain.&quot;
+        {/* --- SECTION CANAUX DE TRANSMISSION (DEUX TERMINAUX) --- */}
+        <section className="mb-40">
+          <div className="grid md:grid-cols-2 gap-20 mb-12">
+            <div className="space-y-8">
+              <h2 className="text-5xl font-black uppercase tracking-tighter italic leading-[0.9]">
+                CANAUX DE <br/><span className="text-red-600 text-6xl">TRANSMISSION</span>
+              </h2>
+              <div className="space-y-6 text-zinc-400 text-lg leading-relaxed font-light">
+                <p>
+                  La communication chez VAGONDYS est régie par une rigueur absolue. Chaque échange est traité comme une donnée critique de notre réseau via notre interface sécurisée.
+                </p>
+                <div className="p-6 bg-zinc-950 border-l-4 border-red-600 italic text-sm">
+                  &quot;La clarté de l&apos;information est le premier vecteur de la précision sur le terrain.&quot;
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="relative">
-            <div className="absolute -inset-4 bg-red-600/10 blur-3xl rounded-full"></div>
-            <div className="relative bg-zinc-950 border border-zinc-800 p-10 shadow-2xl flex flex-col items-center text-center space-y-8">
-              <div className="w-16 h-16 bg-red-600/10 rounded-full flex items-center justify-center border border-red-600/20">
-                <Send className="w-8 h-8 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-white font-black uppercase text-xl mb-2 tracking-tighter italic">
-                  Prêt pour la transmission ?
-                </h3>
-                <p className="text-zinc-500 text-xs uppercase tracking-widest leading-relaxed">
-                  Cliquez ci-dessous pour accéder au terminal de contact sécurisé et soumettre votre signal.
+          {/* Deux blocs côte à côte */}
+          <div className="grid md:grid-cols-2 gap-8">
+            
+            {/* Bloc 1 : Terminal Public (Contact) */}
+            <div className="relative">
+              <div className="absolute -inset-4 bg-red-600/10 blur-3xl rounded-full"></div>
+              <div className="relative bg-zinc-950 border border-zinc-800 p-8 shadow-2xl flex flex-col items-center text-center space-y-6">
+                <div className="w-14 h-14 bg-red-600/10 rounded-full flex items-center justify-center border border-red-600/20">
+                  <Send className="w-7 h-7 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-white font-black uppercase text-lg mb-2 tracking-tighter italic">
+                    Terminal Public
+                  </h3>
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest leading-relaxed">
+                    Contact générique, demandes d&apos;information, presse, partenaires.
+                    <br />
+                    <span className="text-zinc-600">Sans authentification requise.</span>
+                  </p>
+                </div>
+                <Link 
+                  href="/contact" 
+                  className="w-full bg-red-600 text-white py-4 font-black uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2 group text-[11px]"
+                >
+                  Ouvrir le terminal <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                </Link>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">
+                  Protocole VAGONDYS/CONTACT
                 </p>
               </div>
-              
-              <Link 
-                href="/contact" 
-                className="w-full bg-red-600 text-white py-6 font-black uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3 group"
-              >
-                Ouvrir le terminal <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-              </Link>
-
-              <p className="text-[9px] text-zinc-600 uppercase tracking-widest">
-                Redirection vers le protocole sécurisé VAGONDYS/CONTACT
-              </p>
             </div>
+
+            {/* Bloc 2 : Terminal Privé (Messagerie Authentifiée) */}
+            <div className="relative">
+              <div className="absolute -inset-4 bg-red-600/5 blur-3xl rounded-full"></div>
+              <div className="relative bg-zinc-950 border border-zinc-800 p-8 shadow-2xl flex flex-col items-center text-center space-y-6">
+                <div className="w-14 h-14 bg-red-600/10 rounded-full flex items-center justify-center border border-red-600/20">
+                  <MessageSquare className="w-7 h-7 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-white font-black uppercase text-lg mb-2 tracking-tighter italic">
+                    Terminal Privé
+                  </h3>
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest leading-relaxed">
+                    Messagerie sécurisée réservée aux licenciés, partenaires et staff.
+                    <br />
+                    <span className="text-zinc-600">Authentification requise.</span>
+                  </p>
+                </div>
+                <Link 
+                  href="/messagerie" 
+                  className="w-full bg-red-600/80 border border-red-600 text-white py-4 font-black uppercase tracking-[0.3em] hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center gap-2 group text-[11px]"
+                >
+                  Accéder à ma messagerie <MessageSquare className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                </Link>
+                <p className="text-[8px] text-zinc-600 uppercase tracking-widest">
+                  Espace réservé • Chiffrement bout en bout
+                </p>
+              </div>
+            </div>
+
           </div>
         </section>
 
