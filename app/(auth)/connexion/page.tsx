@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, Suspense } from 'react';
@@ -58,7 +59,7 @@ function LoginForm() {
     }
 
     // AUTHENTIFICATION : Pilotée par le projet MASTER (Le Cerveau)
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { error: authError, data: authData } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     });
@@ -67,14 +68,50 @@ function LoginForm() {
       console.error("Auth Failure:", authError.message);
       setError("ÉCHEC D'IDENTIFICATION : ACCÈS REFUSÉ.");
       setLoading(false);
-    } else {
-      /** * REDIRECTION : Vers l'espace joueur. 
-       * router.refresh() est vital ici pour forcer le middleware (proxy.ts)
-       * à re-analyser les cookies de session et la ville de l'utilisateur.
-       */
-      router.refresh();
-      router.push("/espace-joueur");
+      return;
     }
+
+    // ✅ Après authentification réussie, vérifier le type de compte
+    const userId = authData.user?.id;
+    let redirectUrl = "/espace-joueur"; // Par défaut pour les joueurs
+
+    if (userId) {
+      try {
+        // Vérifier si l'utilisateur est un compte messagerie
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        
+        if (supabaseUrl && supabaseKey) {
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+          
+          const { data: messagerieAccount } = await supabaseAdmin
+            .from("messagerie_accounts")
+            .select("role, status")
+            .eq("user_id", userId)
+            .maybeSingle();
+          
+          if (messagerieAccount && messagerieAccount.status === "active") {
+            // C'est un compte messagerie → rediriger vers la messagerie
+            redirectUrl = "/messagerie";
+            console.log(`✅ Connexion messagerie: ${email} → redirection vers /messagerie`);
+          } else {
+            console.log(`✅ Connexion joueur: ${email} → redirection vers /espace-joueur`);
+          }
+        }
+      } catch (err) {
+        console.error("Erreur vérification type compte:", err);
+        // En cas d'erreur, on reste sur la redirection par défaut (espace-joueur)
+      }
+    }
+
+    /**
+     * REDIRECTION : Vers l'espace approprié (joueur ou messagerie)
+     * router.refresh() est vital ici pour forcer le middleware (proxy.ts)
+     * à re-analyser les cookies de session.
+     */
+    router.refresh();
+    router.push(redirectUrl);
   };
 
   return (

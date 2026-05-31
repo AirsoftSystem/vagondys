@@ -581,5 +581,129 @@ SELECT
 FROM athletes a;
 
 -- ==========================================================
+-- 17. TABLE pending_messagerie_requests (Demandes d'inscription à la messagerie privée)
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.pending_messagerie_requests CASCADE;
+CREATE TABLE public.pending_messagerie_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    company TEXT,
+    phone TEXT,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_email ON pending_messagerie_requests(email);
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_messagerie_requests(status);
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
+
+-- RLS
+ALTER TABLE public.pending_messagerie_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Insertion libre pour les demandes" ON public.pending_messagerie_requests
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Service role full access" ON public.pending_messagerie_requests
+    FOR ALL TO service_role USING (true);
+
+CREATE POLICY "Staff authenticated read requests" ON public.pending_messagerie_requests
+    FOR SELECT USING (
+        auth.role() = 'authenticated' 
+        AND auth.email() LIKE '%@vagondys.com'
+    );
+
+CREATE POLICY "Staff authenticated update requests" ON public.pending_messagerie_requests
+    FOR UPDATE USING (
+        auth.role() = 'authenticated' 
+        AND auth.email() LIKE '%@vagondys.com'
+    );
+
+-- Trigger pour updated_at
+DROP TRIGGER IF EXISTS trigger_pending_messagerie_requests_updated_at ON pending_messagerie_requests;
+CREATE TRIGGER trigger_pending_messagerie_requests_updated_at
+    BEFORE UPDATE ON pending_messagerie_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ==========================================================
+-- 18. TABLE messagerie_accounts (Comptes validés pour la messagerie privée)
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.messagerie_accounts CASCADE;
+CREATE TABLE public.messagerie_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    company TEXT,
+    phone TEXT,
+    dossier_ref TEXT UNIQUE,
+    role TEXT NOT NULL DEFAULT 'partner' CHECK (role IN ('partner', 'supplier', 'provider', 'admin')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    last_login_at TIMESTAMPTZ,
+    created_by TEXT
+);
+
+-- Index
+CREATE UNIQUE INDEX IF NOT EXISTS idx_messagerie_accounts_user_id ON messagerie_accounts(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_messagerie_accounts_dossier_ref_unique ON messagerie_accounts(dossier_ref);
+CREATE INDEX IF NOT EXISTS idx_messagerie_accounts_email ON messagerie_accounts(email);
+CREATE INDEX IF NOT EXISTS idx_messagerie_accounts_status ON messagerie_accounts(status);
+CREATE INDEX IF NOT EXISTS idx_messagerie_accounts_role ON messagerie_accounts(role);
+
+-- RLS
+ALTER TABLE public.messagerie_accounts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role full access" ON public.messagerie_accounts
+    FOR ALL TO service_role USING (true);
+
+CREATE POLICY "User can read own account" ON public.messagerie_accounts
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Staff authenticated read all accounts" ON public.messagerie_accounts
+    FOR SELECT USING (
+        auth.role() = 'authenticated' 
+        AND auth.email() LIKE '%@vagondys.com'
+    );
+
+CREATE POLICY "Staff authenticated update accounts" ON public.messagerie_accounts
+    FOR UPDATE USING (
+        auth.role() = 'authenticated' 
+        AND auth.email() LIKE '%@vagondys.com'
+    );
+
+-- Trigger pour updated_at
+DROP TRIGGER IF EXISTS trigger_messagerie_accounts_updated_at ON messagerie_accounts;
+CREATE TRIGGER trigger_messagerie_accounts_updated_at
+    BEFORE UPDATE ON messagerie_accounts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ==========================================================
+-- 19. INSERTION DE L'ADMIN DANS MESSAGERIE_ACCOUNTS
+-- ==========================================================
+
+INSERT INTO public.messagerie_accounts (user_id, email, full_name, role, dossier_ref, created_by)
+SELECT 
+    '00000000-0000-0000-0000-000000000001'::UUID,
+    'admin@vagondys.com',
+    'Administrateur VAGONDYS',
+    'admin',
+    'VGD-ADMIN001',
+    'system'
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.messagerie_accounts WHERE email = 'admin@vagondys.com'
+);
+
+-- ==========================================================
 -- FIN DU SCRIPT
 -- ==========================================================

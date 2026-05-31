@@ -1,0 +1,328 @@
+
+import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { sendGeneralEmail } from "@/lib/email/gmail";
+import { createClient } from "@supabase/supabase-js";
+
+/**
+ * Interface pour la demande
+ */
+interface PendingRequest {
+  id: string;
+  full_name: string;
+  email: string;
+  company: string | null;
+  phone: string | null;
+  reason: string;
+  status: string;
+}
+
+/**
+ * API d’approbation des demandes d’inscription à la messagerie privée
+ * POST /api/messagerie/approve
+ * Body: { requestId, action, notes? }
+ * 
+ * Action: 'approve' ou 'reject'
+ * 
+ * Sécurité : Seul le staff/admin peut appeler cette API
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Connexion à Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Variables Supabase manquantes");
+      return NextResponse.json(
+        { error: "Configuration serveur invalide" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // 2. Récupérer l’utilisateur authentifié (via cookie de session)
+    // Pour une API Route, on doit créer un client avec les cookies
+    const { createServerClient } = await import("@supabase/ssr");
+    const { cookies } = await import("next/headers");
+    
+    const cookieStore = await cookies();
+    const supabaseServer = createServerClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set() {},
+        remove() {},
+      },
+    });
+    
+    const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
+    // 3. Vérifier que l’utilisateur est staff (email @vagondys.com ou dans staff_registry)
+    const userEmail = user.email?.toLowerCase() || "";
+    const isStaff = userEmail.endsWith("@vagondys.com");
+    
+    if (!isStaff) {
+      // Vérification supplémentaire dans staff_registry
+      const { data: staffRecord } = await supabaseAdmin
+        .from("staff_registry")
+        .select("email")
+        .eq("email", userEmail)
+        .maybeSingle();
+      
+      if (!staffRecord) {
+        return NextResponse.json(
+          { error: "Accès réservé au staff" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 4. Récupération des paramètres
+    const body = await request.json();
+    const { requestId, action, notes } = body;
+
+    if (!requestId || !action || !["approve", "reject"].includes(action)) {
+      return NextResponse.json(
+        { error: "Paramètres invalides. requestId et action (approve/reject) requis" },
+        { status: 400 }
+      );
+    }
+
+    // 5. Récupérer la demande
+    const { data: pendingRequest, error: fetchError } = await supabaseAdmin
+      .from("pending_messagerie_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (fetchError || !pendingRequest) {
+      return NextResponse.json(
+        { error: "Demande introuvable" },
+        { status: 404 }
+      );
+    }
+
+    const requestData = pendingRequest as PendingRequest;
+
+    if (requestData.status !== "pending") {
+      return NextResponse.json(
+        { error: `Cette demande a déjà été ${requestData.status === "approved" ? "approuvée" : "rejetée"}` },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    if (action === "reject") {
+      // Rejet de la demande
+      const { error: updateError } = await supabaseAdmin
+        .from("pending_messagerie_requests")
+        .update({
+          status: "rejected",
+          reviewed_by: user.email,
+          reviewed_at: now,
+          updated_at: now,
+        })
+        .eq("id", requestId);
+
+      if (updateError) {
+        console.error("Erreur mise à jour demande rejetée:", updateError);
+        return NextResponse.json(
+          { error: "Erreur lors du rejet de la demande" },
+          { status: 500 }
+        );
+      }
+
+      // Email de rejet
+      const rejectHtml = `
+        <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
+          <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
+            Demande <span style="color:#dc2626;">non retenue</span>
+          </h1>
+          <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
+            Référence : ${requestId.substring(0, 8)}
+          </p>
+          <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+            <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Motif :</p>
+            <p style="font-size:12px; color:#a1a1aa;">${notes || "Votre demande n’a pas été retenue par notre équipe."}</p>
+          </div>
+          <p style="margin-top:20px; font-size:10px; color:#52525b;">
+            Vous pouvez soumettre une nouvelle demande ultérieurement.
+          </p>
+        </div>
+      `;
+
+      await sendGeneralEmail(
+        requestData.email,
+        "VAGONDYS - Demande d’accès messagerie privée",
+        `Votre demande a été rejetée.`,
+        rejectHtml,
+        "no-reply@vagondys.com"
+      ).catch(console.error);
+
+      return NextResponse.json({ success: true, message: "Demande rejetée" });
+    }
+
+    // 6. APPROBATION DE LA DEMANDE
+    // Génération d’un dossier_ref unique
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const generateSegment = (length: number) => {
+      let result = "";
+      for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
+    };
+    const dossierRef = `VGD-MSG-${generateSegment(6)}`;
+
+    // Génération d’un token de confirmation
+    const confirmationToken = randomUUID();
+
+    // 7. Création du compte Supabase Auth
+    const tempPassword = generateSegment(12);
+    const { data: authData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+      email: requestData.email,
+      password: tempPassword,
+      email_confirm: false,
+      user_metadata: {
+        full_name: requestData.full_name,
+        company: requestData.company,
+        role: "partner",
+        account_type: "messagerie",
+      },
+    });
+
+    if (createUserError) {
+      console.error("Erreur création utilisateur Auth:", createUserError);
+      return NextResponse.json(
+        { error: "Erreur lors de la création du compte utilisateur" },
+        { status: 500 }
+      );
+    }
+
+    const userId = authData.user.id;
+
+    // 8. Insertion dans messagerie_accounts
+    const { error: insertAccountError } = await supabaseAdmin
+      .from("messagerie_accounts")
+      .insert({
+        user_id: userId,
+        email: requestData.email,
+        full_name: requestData.full_name,
+        company: requestData.company,
+        phone: requestData.phone,
+        dossier_ref: dossierRef,
+        role: "partner",
+        status: "active",
+        created_by: user.email,
+        created_at: now,
+      });
+
+    if (insertAccountError) {
+      console.error("Erreur insertion messagerie_accounts:", insertAccountError);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: "Erreur lors de l’enregistrement du compte" },
+        { status: 500 }
+      );
+    }
+
+    // 9. Mise à jour de la demande
+    const { error: updateError } = await supabaseAdmin
+      .from("pending_messagerie_requests")
+      .update({
+        status: "approved",
+        reviewed_by: user.email,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq("id", requestId);
+
+    if (updateError) {
+      console.error("Erreur mise à jour demande approuvée:", updateError);
+      // Non bloquant
+    }
+
+    // 10. Envoi de l’email de confirmation
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+    const confirmUrl = `${frontendUrl}/api/messagerie/confirm?token=${confirmationToken}&email=${encodeURIComponent(requestData.email)}`;
+
+    const welcomeHtml = `
+      <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
+        <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
+          Accès <span style="color:#22c55e;">accordé</span>
+        </h1>
+        <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
+          Référence Dossier : ${dossierRef}
+        </p>
+        <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Votre demande a été acceptée.</p>
+          <p style="font-size:12px; color:#a1a1aa;">
+            Vous pouvez dès à présent activer votre compte en cliquant sur le lien ci-dessous.
+          </p>
+        </div>
+        <a href="${confirmUrl}" style="background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:12px; font-weight:bold; border-radius:8px; display:inline-block; margin:20px 0;">
+          ACTIVER MON COMPTE
+        </a>
+        <p style="font-size:10px; color:#52525b;">
+          Ce lien expire dans 48 heures.
+        </p>
+        <hr style="margin:30px 0; border-color:#18181b;" />
+        <p style="font-size:9px; color:#52525b;">
+          Une fois activé, vous pourrez vous connecter avec votre adresse email et définir votre mot de passe.
+        </p>
+      </div>
+    `;
+
+    await sendGeneralEmail(
+      requestData.email,
+      "VAGONDYS - Votre accès à la messagerie privée",
+      `Votre demande a été approuvée. Activez votre compte : ${confirmUrl}`,
+      welcomeHtml,
+      "no-reply@vagondys.com"
+    ).catch(console.error);
+
+    // 11. Stocker le token de confirmation
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 48);
+
+    const { error: tokenError } = await supabaseAdmin
+      .from("email_confirmations")
+      .insert({
+        user_id: userId,
+        email: requestData.email,
+        token: confirmationToken,
+        expires_at: expiresAt.toISOString(),
+        used: false,
+      });
+
+    if (tokenError) {
+      console.error("Erreur insertion token confirmation:", tokenError);
+      // Non bloquant
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Demande approuvée. Un email de confirmation a été envoyé.",
+      dossier_ref: dossierRef,
+    });
+  } catch (error) {
+    console.error("Erreur API messagerie/approve:", error);
+    return NextResponse.json(
+      { error: "Erreur interne du serveur" },
+      { status: 500 }
+    );
+  }
+}
