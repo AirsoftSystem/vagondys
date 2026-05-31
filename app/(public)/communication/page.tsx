@@ -133,7 +133,7 @@ export default function CommunicationPage() {
                   </p>
                 </div>
                 <Link 
-                  href="/messagerie" 
+                  href="/messagerie/connexion" 
                   className="w-full bg-red-600/80 border border-red-600 text-white py-4 font-black uppercase tracking-[0.3em] hover:bg-white hover:text-black hover:border-white transition-all flex items-center justify-center gap-2 group text-[11px]"
                 >
                   Accéder à ma messagerie <MessageSquare className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />

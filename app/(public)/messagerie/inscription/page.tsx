@@ -258,6 +258,14 @@ export default function MessagerieInscriptionPage() {
             {loading ? "Envoi en cours..." : "Soumettre ma demande"}
           </button>
 
+          {/* Lien vers la connexion */}
+          <p className="text-center text-[9px] text-zinc-600 uppercase tracking-widest">
+            Déjà un compte ?{" "}
+            <Link href="/messagerie/connexion" className="text-red-600 hover:text-red-500 transition-colors">
+              Se connecter
+            </Link>
+          </p>
+
           <p className="text-[8px] text-zinc-600 text-center uppercase tracking-widest">
             Votre demande sera traitée manuellement par notre administration.
           </p>
