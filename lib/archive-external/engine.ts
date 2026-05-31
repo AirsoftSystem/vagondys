@@ -7,6 +7,15 @@ import { HistoryRow } from "./types";
 import { gzipSync, gunzipSync } from 'zlib';
 
 /**
+ * Interface étendue locale pour supporter file_url/file_key
+ * (en attendant la mise à jour de types.ts)
+ */
+interface ExtendedHistoryRow extends HistoryRow {
+  file_url?: string | null;
+  file_key?: string | null;
+}
+
+/**
  * Interface pour un message dans le fil de discussion
  */
 interface ThreadMessage {
@@ -19,6 +28,8 @@ interface ThreadMessage {
   id?: string;
   agent_email?: string;
   document_url?: string | null;
+  file_url?: string | null;
+  file_key?: string | null;
   dossier_ref?: string;
 }
 
@@ -259,6 +270,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ CORRECTION : Suppression des entrées en double dans communication_replies lors de l'archivage
  * ✅ NOUVELLE CORRECTION : Fusion avec l'archive existante au lieu d'ignorer ou écraser
  * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
+ * ✅ AJOUT : Support de file_url et file_key dans l'archive
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -400,13 +412,15 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       is_initial: index === 0 && messagesHistory.length > 0
     }));
     
-    // Ajouter les réponses staff
-    const staffMessages: ThreadMessage[] = finalHistory.map((h: HistoryRow) => ({
+    // Ajouter les réponses staff avec support file_url/file_key (via interface étendue)
+    const staffMessages: ThreadMessage[] = finalHistory.map((h: ExtendedHistoryRow) => ({
       id: h.id,
       created_at: h.created_at,
       agent_email: h.agent_email,
       content: h.content,
       document_url: h.document_url ?? null,
+      file_url: h.file_url ?? null,
+      file_key: h.file_key ?? null,
       dossier_ref: h.dossier_ref ?? ref
     }));
     
@@ -444,12 +458,14 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       city_code: archiveCity,
       country_code: archiveCountry
     },
-    echanges_staff: deduplicateMessages(finalHistory.map(h => ({
+    echanges_staff: deduplicateMessages(finalHistory.map((h: ExtendedHistoryRow) => ({
       id: h.id,
       created_at: h.created_at,
       agent_email: h.agent_email,
       content: h.content,
       document_url: h.document_url ?? null,
+      file_url: h.file_url ?? null,
+      file_key: h.file_key ?? null,
       dossier_ref: h.dossier_ref ?? ref
     }))),
     fil_de_discussion: fullThread,

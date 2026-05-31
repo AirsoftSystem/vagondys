@@ -9,7 +9,8 @@ import { Turnstile } from '@marsidev/react-turnstile';
 
 // IMPORTS LOCAUX
 import { submitContact } from "./actions";
-import SubmitButton from "./SubmitButton"; 
+import SubmitButton from "./SubmitButton";
+import FileUploader from "@/components/FileUploader";
 
 /**
  * COMPOSANT INTERNE : ContactFormContent
@@ -31,6 +32,10 @@ function ContactFormContent() {
   // Références aux selects pour récupérer les valeurs actuelles
   const [currentCountry, setCurrentCountry] = useState<string>("FR");
   const [currentCity, setCurrentCity] = useState<string>("NANTES");
+
+  // ✅ État pour stocker l'URL du fichier uploadé
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string>("");
+  const [uploadedFileKey, setUploadedFileKey] = useState<string>("");
 
   // ✅ NOUVEAU : Géolocalisation par IP pour déterminer la ville la plus proche
   useEffect(() => {
@@ -171,6 +176,11 @@ function ContactFormContent() {
 
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrentCity(e.target.value);
+  };
+
+  const handleFileUpload = (data: { url: string; key: string }) => {
+    setUploadedFileUrl(data.url);
+    setUploadedFileKey(data.key);
   };
 
   return (
@@ -387,6 +397,20 @@ function ContactFormContent() {
               placeholder="SAISISSEZ VOTRE TRANSMISSION ICI..."
               className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm h-48 resize-none"
             />
+          </div>
+
+          {/* ✅ UPLOAD DE FICHIER */}
+          <div className="space-y-2">
+            <label className="block text-[10px] uppercase text-zinc-500 font-black tracking-widest">Pièce jointe (optionnel)</label>
+            <FileUploader
+              context="contact"
+              dossierRef={dossierRef !== "0" ? dossierRef : null}
+              onUpload={handleFileUpload}
+              buttonText="Joindre un fichier"
+            />
+            {/* Champs cachés pour transmettre l'URL et la clé du fichier */}
+            <input type="hidden" name="file_url" value={uploadedFileUrl} />
+            <input type="hidden" name="file_key" value={uploadedFileKey} />
           </div>
 
           {/* SÉCURITÉ TURNSTILE */}

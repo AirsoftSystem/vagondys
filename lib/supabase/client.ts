@@ -81,7 +81,9 @@ export interface GitHubArchiveData {
     created_at: string;
     agent_email: string;
     content: string;
-    document_url?: string | null; 
+    document_url?: string | null;
+    file_url?: string | null;
+    file_key?: string | null;
     dossier_ref: string;
   }>;
   fil_de_discussion: Array<{
@@ -89,7 +91,9 @@ export interface GitHubArchiveData {
     sender: string;
     content: string;
     created_at: string;
-    document_url?: string | null; 
+    document_url?: string | null;
+    file_url?: string | null;
+    file_key?: string | null;
     is_initial?: boolean;
   }>;
   date_archivage: string;

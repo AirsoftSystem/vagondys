@@ -8,6 +8,7 @@ interface HistoryMessage {
   agent_email: string;
   content: string;
   document_url?: string | null;
+  file_key?: string | null;
   dossier_ref: string;
 }
 
@@ -29,6 +30,7 @@ interface GenericMessage {
   sender?: string;
   id?: string;
   document_url?: string | null;
+  file_key?: string | null;
   dossier_ref?: string;
   role?: string;
   is_initial?: boolean;
@@ -89,6 +91,7 @@ export async function POST(req: Request) {
       message,
       agentEmail,
       docLink,
+      fileKey,
       dossierRef,
       cityCode,
       countryCode
@@ -287,7 +290,7 @@ export async function POST(req: Request) {
                   </div>
                   <div style="display:none !important; font-size:0px;">ID-${uniqueSalt}</div>
                 </td>
-              </tr>
+              </table>
             </table>
           </body>
           </html>
@@ -311,6 +314,7 @@ export async function POST(req: Request) {
       agent_email: cleanAgentEmail,
       content: message,
       document_url: docLink || null,
+      file_key: fileKey || null,
       dossier_ref: cleanDossierRef,
       city: stationName || activeCity || 'NANTES',
       country: activeCountry
@@ -357,7 +361,7 @@ export async function POST(req: Request) {
       
       // ✅ Construire le fullThread complet (messages client + réponses staff)
       const clientMessages = (finalSignal.payload?.messages_history || []) as ClientMessage[];
-      const staffMessages = (allReplies || []) as HistoryMessage[];
+      const staffMessagesForArchive = (allReplies || []) as HistoryMessage[];
       
       // Créer le fil de discussion complet
       const fullThreadMessages = [
@@ -382,12 +386,13 @@ export async function POST(req: Request) {
           is_initial: idx === 0
         })),
         // Réponses staff
-        ...staffMessages.map((reply) => ({
+        ...staffMessagesForArchive.map((reply) => ({
           id: reply.id,
           created_at: reply.created_at,
           agent_email: reply.agent_email,
           content: reply.content,
           document_url: reply.document_url || null,
+          file_key: reply.file_key || null,
           dossier_ref: reply.dossier_ref
         }))
       ];
@@ -401,7 +406,7 @@ export async function POST(req: Request) {
       
       const archivePayload = {
         message: finalSignal,
-        history: staffMessages,
+        history: staffMessagesForArchive,
         purgeActive: false,
         city_code: stationName || activeCity || finalSignal.payload?.city || 'NANTES',
         country_code: activeCountry || finalSignal.payload?.country || 'FR',

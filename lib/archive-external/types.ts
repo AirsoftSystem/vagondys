@@ -1,3 +1,4 @@
+
 /**
  * TYPES DE BASE & UTILITAIRES
  * Correction : Utilisation de unknown au lieu de any
@@ -24,6 +25,8 @@ export interface HistoryRow {
   agent_email: string;
   content: string;
   document_url?: string | null;
+  file_url?: string | null;
+  file_key?: string | null;
   dossier_ref?: string | null;
 }
 

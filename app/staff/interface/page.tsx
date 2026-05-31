@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
+import FileUploader from "@/components/FileUploader";
 
 interface SignalMessage {
   id: string;
@@ -95,7 +96,8 @@ export default function StaffMessagesPage() {
   // États pour l'historique et les réponses
   const [replyingTo, setReplyingTo] = useState<SignalMessage | null>(null);
   const [replyContent, setReplyContent] = useState("");
-  const [documentLink, setDocumentLink] = useState("");
+  const [uploadedFileUrl, setUploadedFileUrl] = useState("");
+  const [uploadedFileKey, setUploadedFileKey] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
   const [isMarkingRead, setIsMarkingRead] = useState<string | null>(null);
@@ -504,6 +506,11 @@ export default function StaffMessagesPage() {
     }
   };
 
+  const handleFileUpload = (data: { url: string; key: string }) => {
+    setUploadedFileUrl(data.url);
+    setUploadedFileKey(data.key);
+  };
+
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!replyingTo || !replyContent || !userEmail) return;
@@ -524,7 +531,8 @@ export default function StaffMessagesPage() {
           subject: replyingTo.payload.subject,
           message: cleanContent,
           agentEmail: userEmail,
-          docLink: documentLink,
+          docLink: uploadedFileUrl,
+          fileKey: uploadedFileKey,
           dossierRef: replyingTo.dossier_ref,
           cityCode: userCity,
           silent: false
@@ -558,7 +566,8 @@ export default function StaffMessagesPage() {
       window.dispatchEvent(new CustomEvent('staff-message-updated'));
       
       setReplyContent("");
-      setDocumentLink("");
+      setUploadedFileUrl("");
+      setUploadedFileKey("");
       
       if (replyingTo.dossier_ref) {
         await fetchHistoryAndLinks(replyingTo.dossier_ref);
@@ -867,14 +876,13 @@ export default function StaffMessagesPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                      <LinkIcon className="w-3 h-3" /> Pièce jointe (URL)
+                      <LinkIcon className="w-3 h-3" /> Pièce jointe (optionnel)
                     </label>
-                    <input 
-                      type="url" 
-                      value={documentLink}
-                      onChange={(e) => setDocumentLink(e.target.value)}
-                      className="w-full bg-black border border-neutral-800 rounded-xl p-4 text-[11px] text-white focus:border-red-600 outline-none font-mono"
-                      placeholder="https://..."
+                    <FileUploader
+                      context="staff"
+                      dossierRef={replyingTo.dossier_ref}
+                      onUpload={handleFileUpload}
+                      buttonText="Joindre un fichier"
                     />
                   </div>                  
                   <div className="bg-red-600/5 p-4 rounded-xl border border-red-600/10 flex items-center gap-3 self-end">
