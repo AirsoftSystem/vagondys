@@ -207,19 +207,9 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ Fonction utilitaire pour normaliser une date (supprime les millisecondes pour la comparaison)
-  const normalizeDate = (dateStr: string): string => {
-    try {
-      const date = new Date(dateStr);
-      // Normaliser au format ISO sans millisecondes ni fuseau
-      return date.toISOString().split('.')[0]; // "2026-05-30T22:50:12"
-    } catch {
-      return dateStr;
-    }
-  };
-
-  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date normalisée (évite les collisions de dates)
+  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date
   // ✅ AJOUT : Extraction des messages client depuis fil_de_discussion de l'archive GitHub
+  // ✅ NOUVELLE CORRECTION : Dédoublonnage par contenu (garder le plus récent) pour éliminer les artefacts
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -247,40 +237,25 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      // ✅ CORRECTION : Dédoublonnage par clé unique basée sur la date normalisée + contenu complet
-      // Cela évite les problèmes de millisecondes ou de formats différents
-      const getMessageKey = (msg: { created_at: string; content: string }) => {
-        const normalizedDate = normalizeDate(msg.created_at);
-        return `${normalizedDate}_${msg.content}`;
-      };
+      // ✅ ÉTAPE 1 : Collecter tous les messages (base + GitHub)
+      const allRawMessages: ExtendedHistoryMessage[] = [];
       
-      const messageMap = new Map<string, ExtendedHistoryMessage>();
+      // Ajouter les messages de la base STAFF
+      formattedHistory.forEach(msg => allRawMessages.push(msg));
       
-      // Ajouter les messages de la base STAFF (prioritaires)
-      formattedHistory.forEach(msg => {
-        const key = getMessageKey(msg);
-        if (!messageMap.has(key)) {
-          messageMap.set(key, msg);
-        }
-      });
-      
-      // ✅ AJOUT : Ajouter les messages client depuis l'archive GitHub (fil_de_discussion)
+      // Ajouter les messages client depuis l'archive GitHub (fil_de_discussion)
       if (archivedData && archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
         archivedData.fil_de_discussion.forEach(msg => {
-          // Ne prendre que les messages client (role === "public")
           if (msg.role === "public" && msg.content && msg.created_at) {
-            const key = getMessageKey({ created_at: msg.created_at, content: msg.content });
-            if (!messageMap.has(key)) {
-              messageMap.set(key, {
-                id: `github_client_${normalizeDate(msg.created_at)}`,
-                created_at: msg.created_at,
-                agent_email: "CLIENT",
-                content: msg.content,
-                dossier_ref: ref,
-                document_url: null,
-                is_initial: msg.is_initial === true
-              });
-            }
+            allRawMessages.push({
+              id: `github_client_${msg.created_at}`,
+              created_at: msg.created_at,
+              agent_email: "CLIENT",
+              content: msg.content,
+              dossier_ref: ref,
+              document_url: null,
+              is_initial: msg.is_initial === true
+            });
           }
         });
         console.log(`📦 GitHub: ${archivedData.fil_de_discussion.filter(m => m.role === "public").length} messages client ajoutés depuis fil_de_discussion`);
@@ -289,25 +264,35 @@ export default function StaffMessagesPage() {
       // Ajouter les messages staff depuis GitHub (echanges_staff)
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         archivedData.echanges_staff.forEach(h => {
-          const key = getMessageKey(h);
-          if (!messageMap.has(key)) {
-            messageMap.set(key, {
-              id: h.id,
-              created_at: h.created_at,
-              agent_email: h.agent_email,
-              content: h.content,
-              dossier_ref: h.dossier_ref,
-              document_url: h.document_url || null,
-              is_initial: false
-            });
-          }
+          allRawMessages.push({
+            id: h.id,
+            created_at: h.created_at,
+            agent_email: h.agent_email,
+            content: h.content,
+            dossier_ref: h.dossier_ref,
+            document_url: h.document_url || null,
+            is_initial: false
+          });
         });
         setGithubArchive(archivedData);
       }
       
-      // Convertir la Map en tableau et trier par date (du plus récent au plus ancien)
-      const mergedHistory = Array.from(messageMap.values());
+      // ✅ ÉTAPE 2 : Dédoublonner par contenu (garder le message le plus récent pour chaque contenu)
+      // Cela élimine les artefacts comme les messages avec la date du signal
+      const uniqueByContentMap = new Map<string, ExtendedHistoryMessage>();
+      
+      allRawMessages.forEach(msg => {
+        const existing = uniqueByContentMap.get(msg.content);
+        if (!existing || new Date(msg.created_at).getTime() > new Date(existing.created_at).getTime()) {
+          uniqueByContentMap.set(msg.content, msg);
+        }
+      });
+      
+      // Convertir en tableau et trier par date (du plus récent au plus ancien)
+      const mergedHistory = Array.from(uniqueByContentMap.values());
       mergedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      console.log(`🧹 Dédoublonnage par contenu: ${allRawMessages.length} messages → ${mergedHistory.length} messages uniques`);
       
       setHistoryMessages(mergedHistory);
       
@@ -364,7 +349,7 @@ export default function StaffMessagesPage() {
           id: `archived-${archivedData.dossier.dossier_ref}`
         };
         
-        // ✅ Extraire également les messages client depuis fil_de_discussion pour l'affichage immédiat
+        // ✅ Extraire et dédoublonner les messages par contenu
         const allMessages: ExtendedHistoryMessage[] = [];
         
         // Ajouter les messages staff
@@ -383,7 +368,7 @@ export default function StaffMessagesPage() {
           archivedData.fil_de_discussion.forEach(msg => {
             if (msg.role === "public" && msg.content && msg.created_at) {
               allMessages.push({
-                id: `github_client_${normalizeDate(msg.created_at)}`,
+                id: `github_client_${msg.created_at}`,
                 created_at: msg.created_at,
                 agent_email: "CLIENT",
                 content: msg.content,
@@ -395,10 +380,20 @@ export default function StaffMessagesPage() {
           });
         }
         
-        // Trier par date (du plus récent au plus ancien)
-        allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        // ✅ Dédoublonner par contenu (garder le plus récent)
+        const uniqueMap = new Map<string, ExtendedHistoryMessage>();
+        allMessages.forEach(msg => {
+          const existing = uniqueMap.get(msg.content);
+          if (!existing || new Date(msg.created_at).getTime() > new Date(existing.created_at).getTime()) {
+            uniqueMap.set(msg.content, msg);
+          }
+        });
         
-        setHistoryMessages(allMessages);
+        // Trier par date (du plus récent au plus ancien)
+        const uniqueMessages = Array.from(uniqueMap.values());
+        uniqueMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        setHistoryMessages(uniqueMessages);
         setGithubArchive(archivedData);
         setReplyingTo(mockMsg);
         setLinkedDossiers([]);
