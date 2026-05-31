@@ -83,8 +83,9 @@ function SetPasswordContent() {
 
       setSuccess(true);
       
+      // ✅ REDIRECTION VERS LA PAGE DE CONNEXION MESSAGERIE
       setTimeout(() => {
-        router.push("/connexion?message=compte_active");
+        router.push("/messagerie/connexion?message=compte_active");
       }, 3000);
       
     } catch (err) {
