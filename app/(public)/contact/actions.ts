@@ -17,11 +17,7 @@ interface SignalPayload {
   messages_history?: Array<{
     content: string;
     created_at: string;
-    file_url?: string;
-    file_key?: string;
   }>;
-  file_url?: string;
-  file_key?: string;
 }
 
 // ✅ Définition des catégories qui vont directement à admin@vagondys.com
@@ -44,7 +40,6 @@ const CITY_FILTERED_SUBJECTS = [
 /**
  * ACTION 1 : Envoi du formulaire initial
  * Version adaptée pour l'Option B avec redirection intelligente selon l'objet
- * ✅ AJOUT : Gestion des fichiers joints (file_url, file_key)
  */
 export async function submitContact(formData: FormData) {
   
@@ -67,10 +62,6 @@ export async function submitContact(formData: FormData) {
   const message = String(formData.get("message") || "").trim();
   const originalCountry = String(formData.get("country") || "FR").trim().toUpperCase();
   const originalCity = String(formData.get("city") || "NANTES").trim().toUpperCase();
-  
-  // ✅ Récupération des champs fichier
-  const fileUrl = String(formData.get("file_url") || "").trim();
-  const fileKey = String(formData.get("file_key") || "").trim();
 
   const token = formData.get("cf-turnstile-response");
   if (!token) {
@@ -249,9 +240,7 @@ export async function submitContact(formData: FormData) {
       if (!alreadyExists) {
         messagesHistory.push({
           content: message,
-          created_at: new Date().toISOString(),
-          file_url: fileUrl || undefined,
-          file_key: fileKey || undefined
+          created_at: new Date().toISOString()
         });
       }
       
@@ -264,9 +253,7 @@ export async function submitContact(formData: FormData) {
         message: message,
         city: registryEntry?.city || targetCity,
         country: registryEntry?.country || targetCountry,
-        messages_history: messagesHistory,
-        file_url: fileUrl || existingPayload.file_url,
-        file_key: fileKey || existingPayload.file_key
+        messages_history: messagesHistory
       };
       
       const { data: updatedData, error: updateError } = await supabaseMaster
@@ -287,23 +274,11 @@ export async function submitContact(formData: FormData) {
       
     } else {
       // Création d'un nouveau signal (premier message)
-      const messagesHistoryEntry = [];
-      
-      // Ajouter le message initial avec éventuellement le fichier
-      messagesHistoryEntry.push({
-        content: message,
-        created_at: new Date().toISOString(),
-        file_url: fileUrl || undefined,
-        file_key: fileKey || undefined
-      });
-      
       const insertPayload: SignalPayload = { 
         name, email, phone, subject, message,
         city: registryEntry?.city || targetCity,
         country: registryEntry?.country || targetCountry,
-        messages_history: messagesHistoryEntry,
-        file_url: fileUrl || undefined,
-        file_key: fileKey || undefined
+        messages_history: []
       };
       
       const { data: newData, error: dbError } = await supabaseMaster
@@ -330,14 +305,6 @@ export async function submitContact(formData: FormData) {
     // 6. ENVOI DE L'EMAIL
     const confirmLink = `${siteUrl}/api/confirm-signal?service=${encodeURIComponent(subject)}&city=${targetCity}&country=${targetCountry}&id=${insertData.id}`;
 
-    // ✅ Ajout de la pièce jointe dans l'email si présente
-    const fileAttachmentHtml = fileUrl ? `
-      <div style="margin-top:15px; padding:10px; border:1px solid #dc2626; background:#09090b; border-radius:8px;">
-        <p style="font-size:9px; color:#dc2626; text-transform:uppercase; margin-bottom:5px;">Pièce jointe :</p>
-        <a href="${fileUrl}" style="color:#dc2626; font-size:10px; word-break:break-all;">${fileUrl}</a>
-      </div>
-    ` : '';
-
     const htmlContent = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
@@ -349,7 +316,6 @@ export async function submitContact(formData: FormData) {
         <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
           <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Message à valider :</p>
           <p style="font-size:12px; font-style:italic; color:#a1a1aa;">"${message}"</p>
-          ${fileAttachmentHtml}
         </div>
         <a href="${confirmLink}" style="background:#dc2626; color:white; padding:20px 40px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px;">
           ACTIVER LA TRANSMISSION
@@ -360,7 +326,7 @@ export async function submitContact(formData: FormData) {
       </div>
     `;
 
-    const textContent = `Protocole Sécurisé - Référence Dossier: ${dossier_ref}\n\nMessage à valider: "${message}"\n${fileUrl ? `\nPièce jointe: ${fileUrl}\n` : ''}\nActivez votre transmission ici: ${confirmLink}`;
+    const textContent = `Protocole Sécurisé - Référence Dossier: ${dossier_ref}\n\nMessage à valider: "${message}"\n\nActivez votre transmission ici: ${confirmLink}`;
 
     try {
       await sendGeneralEmail(
@@ -386,7 +352,6 @@ export async function submitContact(formData: FormData) {
  * ACTION 2 : Envoi d'une réponse (Espace Client/Discussion)
  * ✅ CORRECTION : Plus d'insertion dans communication_replies pour les messages client
  * Les messages client sont déjà stockés dans messages_history, pas besoin de dupliquer
- * ✅ AJOUT : Gestion des fichiers joints
  */
 export async function submitReply(formData: FormData) {
   const dossier_ref = String(formData.get("dossier_ref") || "").trim();
@@ -396,10 +361,6 @@ export async function submitReply(formData: FormData) {
   const cityParam = String(formData.get("city") || "NANTES").trim().toUpperCase();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const countryParam = String(formData.get("country") || "FR").trim().toUpperCase();
-  
-  // ✅ Récupération des champs fichier
-  const fileUrl = String(formData.get("file_url") || "").trim();
-  const fileKey = String(formData.get("file_key") || "").trim();
 
   if (!dossier_ref || !content) throw new Error("Données manquantes.");
 
@@ -433,18 +394,14 @@ export async function submitReply(formData: FormData) {
       if (!alreadyExists) {
         messagesHistory.push({
           content: content,
-          created_at: new Date().toISOString(),
-          file_url: fileUrl || undefined,
-          file_key: fileKey || undefined
+          created_at: new Date().toISOString()
         });
       }
       
       const updatedPayload = {
         ...existingPayload,
         message: content,
-        messages_history: messagesHistory,
-        file_url: fileUrl || existingPayload.file_url,
-        file_key: fileKey || existingPayload.file_key
+        messages_history: messagesHistory
       };
       
       // Mettre à jour le payload avec l'historique
