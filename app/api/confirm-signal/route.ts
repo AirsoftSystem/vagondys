@@ -327,12 +327,33 @@ export async function GET(request: NextRequest) {
       (msg) => msg.content === currentMessageForEmail
     );
     
-    const updatedMessagesHistory = currentMessageExists
+    let updatedMessagesHistory = currentMessageExists
       ? existingMessagesHistory
       : [...existingMessagesHistory, {
           content: currentMessageForEmail,
           created_at: new Date().toISOString()
         }];
+    
+    // ✅ NOUVELLE CORRECTION : Nettoyer l'historique pour garder un seul message par contenu (le plus récent)
+    // Cela évite les doublons comme "Demande d'inscription au Tournoi" avec deux dates différentes
+    const cleanedMessagesHistory = (() => {
+      const map = new Map<string, { content: string; created_at: string }>();
+      updatedMessagesHistory.forEach(msg => {
+        const existing = map.get(msg.content);
+        if (!existing || new Date(msg.created_at).getTime() > new Date(existing.created_at).getTime()) {
+          map.set(msg.content, msg);
+        }
+      });
+      const cleaned = Array.from(map.values());
+      cleaned.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      return cleaned;
+    })();
+    
+    // Si le nettoyage a supprimé des messages, on log
+    if (cleanedMessagesHistory.length !== updatedMessagesHistory.length) {
+      console.log(`🧹 confirm-signal: nettoyage historique - avant: ${updatedMessagesHistory.length}, après: ${cleanedMessagesHistory.length}`);
+      updatedMessagesHistory = cleanedMessagesHistory;
+    }
 
     const cleanPayload: SignalPayload = {
       ...p,

@@ -122,33 +122,32 @@ async function fetchExistingArchive(
 }
 
 /**
- * Fusionne deux historiques de messages sans doublons
+ * ✅ CORRECTION : Fusionne deux historiques de messages en gardant un seul message par contenu (le plus récent)
+ * Cela évite les doublons comme "Demande d'inscription au Tournoi" avec deux dates différentes
  */
 function mergeMessagesHistory(
   existing: Array<{ content: string; created_at: string }>,
   incoming: Array<{ content: string; created_at: string }>
 ): Array<{ content: string; created_at: string }> {
+  // Utiliser le contenu comme clé, garder le message avec la date la plus récente
   const map = new Map<string, { content: string; created_at: string }>();
   
-  // Ajouter les messages existants
-  existing.forEach(msg => {
-    const key = `${msg.created_at}_${msg.content}`;
-    if (!map.has(key)) {
-      map.set(key, msg);
+  // Fonction pour ajouter un message en gardant le plus récent
+  const addMessage = (msg: { content: string; created_at: string }) => {
+    const existing = map.get(msg.content);
+    if (!existing || new Date(msg.created_at).getTime() > new Date(existing.created_at).getTime()) {
+      map.set(msg.content, msg);
     }
-  });
+  };
   
-  // Ajouter les nouveaux messages
-  incoming.forEach(msg => {
-    const key = `${msg.created_at}_${msg.content}`;
-    if (!map.has(key)) {
-      map.set(key, msg);
-    }
-  });
+  existing.forEach(addMessage);
+  incoming.forEach(addMessage);
   
   // Convertir en tableau et trier par date (croissant)
   const merged = Array.from(map.values());
   merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  
+  console.log(`📦 mergeMessagesHistory: ${existing.length} + ${incoming.length} → ${merged.length} messages (dédupliqué par contenu)`);
   
   return merged;
 }
@@ -259,6 +258,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ CORRECTION : Utilisation de la ville du payload pour le chemin d'archivage
  * ✅ CORRECTION : Suppression des entrées en double dans communication_replies lors de l'archivage
  * ✅ NOUVELLE CORRECTION : Fusion avec l'archive existante au lieu d'ignorer ou écraser
+ * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -338,7 +338,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   
   // ✅ FUSION avec l'archive existante si présente
   if (existingArchive) {
-    // Fusionner messages_history
+    // Fusionner messages_history (avec dédoublonnage par contenu)
     const existingMessagesHistory = existingArchive.dossier_complet?.payload?.messages_history || [];
     const incomingMessagesHistory = payload?.messages_history || [];
     const mergedMessagesHistory = mergeMessagesHistory(existingMessagesHistory, incomingMessagesHistory);
@@ -353,7 +353,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     const mergedReplies = mergeStaffReplies(existingReplies, finalHistory);
     finalHistory = mergedReplies;
     
-    console.log(`📦 Archivage: fusion effectuée - messages: ${existingMessagesHistory.length} → ${mergedMessagesHistory.length}, réponses: ${existingReplies.length} → ${mergedReplies.length}`);
+    console.log(`📦 Archivage: fusion effectuée - messages: ${existingMessagesHistory.length} + ${incomingMessagesHistory.length} → ${mergedMessagesHistory.length}, réponses: ${existingReplies.length} → ${mergedReplies.length}`);
   }
 
   // Construction du fil de discussion avec dédoublonnage
