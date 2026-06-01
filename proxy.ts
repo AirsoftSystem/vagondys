@@ -113,12 +113,6 @@ export async function proxy(request: NextRequest) {
   if (host.includes('admin.vagondys.com')) {
     console.log(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
     
-    // ✅ RÉÉCRITURE : /login → /admin-login (page pleine)
-    if (pathname === '/login') {
-      console.log(`🔄 Réécriture de /login vers /admin-login`)
-      return NextResponse.rewrite(new URL('/admin-login', request.url))
-    }
-    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -138,28 +132,38 @@ export async function proxy(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     
     const userEmail = user?.email?.toLowerCase() || null
-    const isAdminLoginPage = pathname === '/login'
+    const isAdminLoginPage = pathname === '/admin/login'
     const isAdminApi = pathname.startsWith('/api/')
     const isAdminStatic = pathname.startsWith('/_next')
     
     // Vérifier que l'utilisateur est admin@vagondys.com
     const isAdminUser = userEmail === 'admin@vagondys.com'
     
-    // ✅ Si l'utilisateur est admin, tout est autorisé
-    if (isAdminUser) {
-      console.log(`✅ Admin authentifié, accès autorisé à ${pathname}`)
+    if (!isAdminUser && !isAdminLoginPage && !isAdminApi && !isAdminStatic) {
+      console.log(`🔒 Admin non authentifié, redirection vers /admin/login`)
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    
+    if (user) {
+      const city = await getAthleteCity(userEmail!)
+      const country = await getAthleteCountry(userEmail!)
+      if (city) {
+        response.headers.set('x-vgd-city', city)
+        response.headers.set('x-vgd-country', country || 'FR')
+      }
+    }
+    
+    // Règle 7 : Réécritures pour admin
+    if (pathname === '/' || pathname === '/admin') {
+      return NextResponse.rewrite(new URL('/admin', request.url))
+    }
+    
+    if (pathname.startsWith('/admin')) {
       return response
     }
     
-    // Rediriger vers la page de login si non authentifié
-    if (!isAdminLoginPage && !isAdminApi && !isAdminStatic) {
-      console.log(`🔒 Admin non authentifié, redirection vers /login`)
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-    
-    // Redirection de la racine vers /dashboard
-    if (pathname === '/' || pathname === '/admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (!pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
+      return NextResponse.rewrite(new URL(`/admin${pathname}`, request.url))
     }
     
     return response

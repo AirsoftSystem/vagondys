@@ -1375,9 +1375,6 @@ VAGONDYS/
 ┃  ┣━ (admin)/                                     ✅ EXISTANT
 ┃  ┃  ┣━ dashboard/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ login/                                    ✅ EXISTANT
-┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┗━ layout.tsx                                ✅ EXISTANT
 ┃  ┣━ (auth)/                                      ✅ EXISTANT
 ┃  ┃  ┣━ activation-reussie/                       ✅ EXISTANT
@@ -1468,6 +1465,10 @@ VAGONDYS/
 ┃  ┃  ┣━ tournois/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
+┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
+┃  ┃
+┃  ┣━ admin-login/                                 ✅ EXISTANT
+┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
 ┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT

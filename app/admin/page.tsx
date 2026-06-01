@@ -1,17 +1,9 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Users,
-  Building2,
-  MessageSquare,
-  Database,
-  Activity,
-  AlertTriangle,
-  RefreshCcw
-} from "lucide-react";
+import { RefreshCcw, Users, Building2, MessageSquare, Database, Activity, AlertTriangle } from "lucide-react";
 
 interface GlobalStats {
   totalAthletes: number;
@@ -46,8 +38,61 @@ export default function AdminDashboardPage() {
   });
   const [cityStats, setCityStats] = useState<CityStats[]>([]);
 
-  // Fonction loadStats (avec useCallback pour stabilité)
-  const loadStats = useCallback(async () => {
+  // Vérifier l'authentification et charger les stats
+  useEffect(() => {
+    let isMounted = true;
+
+    const init = async () => {
+      try {
+        // Vérifier l'authentification
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          router.push("/admin/login");
+          return;
+        }
+
+        if (user.email !== "admin@vagondys.com") {
+          router.push("/admin/login");
+          return;
+        }
+
+        // Charger les statistiques
+        if (!isMounted) return;
+        setLoading(true);
+
+        const response = await fetch("/api/admin/stats");
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erreur chargement stats");
+        }
+
+        if (isMounted) {
+          setGlobalStats(data.global);
+          setCityStats(data.cities || []);
+        }
+      } catch (err) {
+        console.error("Erreur init admin:", err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Erreur inconnue");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    init();
+
+    return () => { isMounted = false; };
+  }, [router]);
+
+  const handleRefresh = async () => {
     setLoading(true);
     setError(null);
 
@@ -62,44 +107,12 @@ export default function AdminDashboardPage() {
       setGlobalStats(data.global);
       setCityStats(data.cities || []);
     } catch (err) {
-      console.error("Erreur loadStats:", err);
+      console.error("Erreur refresh:", err);
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Vérifier l’authentification admin
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          router.push("/login");
-          return;
-        }
-
-        // Vérifier que c’est bien admin@vagondys.com
-        if (user.email !== "admin@vagondys.com") {
-          router.push("/login");
-          return;
-        }
-
-        await loadStats();
-      } catch (err) {
-        console.error("Erreur auth:", err);
-        router.push("/login");
-      }
-    };
-
-    checkAuth();
-  }, [router, loadStats]);
+  };
 
   if (loading) {
     return (
@@ -119,11 +132,11 @@ export default function AdminDashboardPage() {
             Tableau de bord <span className="text-red-600">Global</span>
           </h1>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-            Vue d’ensemble de l’ensemble du réseau VAGONDYS
+            Vue d&apos;ensemble de l&apos;ensemble du réseau VAGONDYS
           </p>
         </div>
         <button
-          onClick={loadStats}
+          onClick={handleRefresh}
           className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest"
         >
           <RefreshCcw className="w-4 h-4" />
@@ -161,7 +174,9 @@ export default function AdminDashboardPage() {
           </div>
           <p className="text-2xl font-black text-white">{globalStats.activeAthletes}</p>
           <p className="text-[8px] text-zinc-600 mt-1">
-            {Math.round((globalStats.activeAthletes / globalStats.totalAthletes) * 100)}% du total
+            {globalStats.totalAthletes > 0 
+              ? Math.round((globalStats.activeAthletes / globalStats.totalAthletes) * 100) 
+              : 0}% du total
           </p>
         </div>
 
@@ -249,11 +264,15 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <progress 
-                          value={rate} 
-                          max="100" 
-                          className="w-20 h-1.5 rounded-full [&::-webkit-progress-bar]:bg-zinc-800 [&::-webkit-progress-value]:bg-green-500 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-green-500"
-                        />
+                        <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full bg-green-500 rounded-full w-[calc(1%*var(--rate))]`}
+                            {...{ "data-rate": rate }}
+                            ref={(el) => {
+                              if (el) el.style.setProperty("--rate", String(rate));
+                            }}
+                          />
+                        </div>
                         <span className="text-[8px] text-zinc-500">{rate}%</span>
                       </div>
                     </td>

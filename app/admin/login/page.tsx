@@ -2,14 +2,14 @@
 "use client";
 
 import { useState } from "react";
-import { createAdminClient } from "@/lib/supabase/client";
-import { Lock, Mail, Loader2, ShieldCheck } from "lucide-react";
+import { createStaffClient } from "@/lib/supabase/client";
+import { Lock, Mail, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 /**
  * PAGE DE CONNEXION ADMIN
- * Réservée à admin@vagondys.com
- * Accessible via admin.vagondys.com
+ * Copie de la page staff/login qui fonctionne
+ * Accessible via admin.vagondys.com/admin/login
  */
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -22,33 +22,26 @@ export default function AdminLoginPage() {
     setLoading(true);
     setErrorMsg(null);
 
-    const trimmedEmail = email.toLowerCase().trim();
-    const trimmedPassword = password.trim();
-
-    // Vérification que c'est bien l'email admin
-    if (trimmedEmail !== "admin@vagondys.com") {
-      setErrorMsg("ACCÈS RÉSERVÉ À L'ADMINISTRATEUR.");
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createAdminClient();
+    const supabase = createStaffClient();
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: trimmedPassword,
+        email: email.toLowerCase().trim(),
+        password: password.trim(),
       });
 
       if (error) {
-        console.error("Erreur connexion admin:", error.message);
-        setErrorMsg("IDENTIFIANTS INCORRECTS.");
+        setErrorMsg("ACCÈS REFUSÉ : IDENTIFIANTS INCORRECTS.");
         setLoading(false);
-        return;
-      }
-
-      if (data?.user) {
-        window.location.href = "/dashboard";
+      } else if (data?.user) {
+        // Vérifier que l'utilisateur est bien admin@vagondys.com
+        if (data.user.email !== "admin@vagondys.com") {
+          await supabase.auth.signOut();
+          setErrorMsg("ACCÈS RÉSERVÉ À L'ADMINISTRATEUR.");
+          setLoading(false);
+          return;
+        }
+        window.location.href = "/admin";
       }
     } catch (err) {
       console.error("Erreur critique login admin:", err);
@@ -60,13 +53,8 @@ export default function AdminLoginPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-black text-neutral-100 px-6 py-10">
       
-      {/* Effet de fond */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/5 rounded-full blur-[120px]" />
-      </div>
-
       {/* Header */}
-      <div className="flex flex-col items-center mb-8 md:mb-12 text-center relative z-10">
+      <div className="flex flex-col items-center mb-8 md:mb-12 text-center">
         <div className="relative w-32 h-32 md:w-44 md:h-44 mb-6 md:mb-8">
           <Image
             src="/logo/vagondys-mark.png"
@@ -85,7 +73,7 @@ export default function AdminLoginPage() {
       </div>
 
       {/* Formulaire */}
-      <div className="w-full max-w-sm border-t border-neutral-800 bg-neutral-950/50 p-8 md:p-10 rounded-2xl shadow-2xl relative z-10">
+      <div className="w-full max-w-sm border-t border-neutral-800 bg-neutral-950/50 p-8 md:p-10 rounded-2xl shadow-2xl">
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-widest text-neutral-500 ml-1">
@@ -95,11 +83,10 @@ export default function AdminLoginPage() {
               <Mail className="absolute left-3 top-3.5 w-4 h-4 text-neutral-700" />
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@vagondys.com"
-                required
                 className="w-full pl-10 pr-4 py-3 bg-black border border-neutral-800 text-white rounded-lg focus:border-red-500 outline-none transition-all placeholder:text-neutral-800 text-sm"
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -112,11 +99,10 @@ export default function AdminLoginPage() {
               <Lock className="absolute left-3 top-3.5 w-4 h-4 text-neutral-700" />
               <input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required
                 className="w-full pl-10 pr-4 py-3 bg-black border border-neutral-800 text-white rounded-lg focus:border-red-500 outline-none transition-all placeholder:text-neutral-800 text-sm"
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -135,15 +121,13 @@ export default function AdminLoginPage() {
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <ShieldCheck className="w-4 h-4" />
+              "ENTRER DANS L'ADMINISTRATION"
             )}
-            {loading ? "CONNEXION..." : "ACCÉDER À L'ADMINISTRATION"}
           </button>
         </form>
       </div>
 
-      {/* Footer */}
-      <p className="mt-10 md:mt-12 text-[9px] md:text-[10px] uppercase tracking-[0.4em] md:tracking-[0.5em] text-neutral-700 text-center relative z-10">
+      <p className="mt-10 md:mt-12 text-[9px] md:text-[10px] uppercase tracking-[0.4em] md:tracking-[0.5em] text-neutral-700 text-center">
         Supervision Globale • Toutes les stations
       </p>
     </main>
