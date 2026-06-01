@@ -113,6 +113,12 @@ export async function proxy(request: NextRequest) {
   if (host.includes('admin.vagondys.com')) {
     console.log(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
     
+    // ✅ RÉÉCRITURE : /login → /admin-login (page pleine)
+    if (pathname === '/login') {
+      console.log(`🔄 Réécriture de /login vers /admin-login`)
+      return NextResponse.rewrite(new URL('/admin-login', request.url))
+    }
+    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
