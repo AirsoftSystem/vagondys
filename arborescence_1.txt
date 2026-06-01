@@ -1372,6 +1372,12 @@ VAGONDYS/
 ┃  ┗━ staff-actions.ts                             ✅ EXISTANT (Contient le Server Action)
 ┃
 ┣━ app/                                            ✅ EXISTANT
+┃  ┣━ (admin)/                                     ✅ EXISTANT
+┃  ┃  ┣━ dashboard/                                ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ login/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┗━ layout.tsx                                ✅ EXISTANT
 ┃  ┣━ (auth)/                                      ✅ EXISTANT
 ┃  ┃  ┣━ activation-reussie/                       ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
@@ -1447,6 +1453,13 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ mentions-legales/                         ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
+┃  ┃  ┃  ┣━ connexion/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ inscription/                           ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
+┃  ┃  ┃     ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┣━ politique-de-confidentialite/             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ sponsors/                                 ✅ EXISTANT
@@ -1457,6 +1470,9 @@ VAGONDYS/
 ┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT
+┃  ┃  ┣━ admin/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ stats/                                 ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
 ┃  ┃  ┃  ┣━ restore/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
@@ -1479,6 +1495,15 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ force-admin/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
+┃  ┃  ┃  ┣━ approve/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ confirm/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ request/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ notify-read/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ player/                                   ✅ EXISTANT
@@ -1487,6 +1512,10 @@ VAGONDYS/
 ┃  ┃  ┣━ record-match/                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ slots/                                    ✅ EXISTANT
+┃  ┃  ┃  ┣━ [id]/                                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ staff/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
@@ -1506,7 +1535,9 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ record-result/                         ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
-┃  ┃  ┗━ upload-document/                          ✅ EXISTANT
+┃  ┃  ┣━ upload-document/                          ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┗━ upload-temp/                              ✅ EXISTANT
 ┃  ┃     ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ staff/                                       ✅ EXISTANT
