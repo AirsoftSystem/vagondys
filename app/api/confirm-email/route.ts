@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWelcomeAthleteEmail, sendStaffNotificationEmail } from "@/lib/email/gmail";
 import { getAthleteCity, getAthleteCountry, consumeEmailToken, syncAthleteReference, masterAdmin } from "@/lib/supabase/master";
-import { generateVGDReference } from "@/lib/utils/references";
 
 /**
  * Route GET /api/confirm-email?token=...
@@ -25,6 +24,19 @@ interface EmailConfirmationRecord {
   used: boolean;
   used_at: string | null;
   created_at: string;
+}
+
+/**
+ * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
+ * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
+ */
+function generateVGDReference(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VGD-${result}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -116,12 +128,12 @@ export async function GET(request: NextRequest) {
     const userId = record.user_id;
     if (userId) {
       
-      // ✅ CORRECTION : Génération de matricule unique avec vérification DB
+      // --- GÉNÉRATION DE MATRICULE UNIQUE AVEC VÉRIFICATION DB ---
       let newDossierRef = "";
+      let isRefUnique = false;
       let attempts = 0;
-      const maxAttempts = 5;
 
-      while (attempts < maxAttempts) {
+      while (!isRefUnique && attempts < 5) {
         newDossierRef = generateVGDReference();
         const { data: existingRef } = await supabaseAdmin
           .from("athletes")
@@ -130,13 +142,9 @@ export async function GET(request: NextRequest) {
           .maybeSingle();
         
         if (!existingRef) {
-          break;
+          isRefUnique = true;
         }
         attempts++;
-      }
-      
-      if (attempts >= maxAttempts) {
-        console.error("Impossible de générer une référence unique après plusieurs tentatives");
       }
 
       // Récupération sécurisée des infos de l'athlète

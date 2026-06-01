@@ -595,6 +595,7 @@ CREATE TABLE public.pending_messagerie_requests (
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by TEXT,
     reviewed_at TIMESTAMPTZ,
+    reference TEXT,                                       -- ✅ AJOUT : Référence unique VGD-XXXXXXXX
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -603,6 +604,7 @@ CREATE TABLE public.pending_messagerie_requests (
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_email ON pending_messagerie_requests(email);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_messagerie_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_reference ON pending_messagerie_requests(reference);  -- ✅ AJOUT
 
 -- RLS
 ALTER TABLE public.pending_messagerie_requests ENABLE ROW LEVEL SECURITY;
