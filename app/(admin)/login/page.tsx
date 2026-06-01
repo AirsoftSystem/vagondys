@@ -51,9 +51,8 @@ export default function AdminLoginPage() {
       }
 
       if (data?.user) {
-        // Redirection vers le dashboard admin
-        // Le middleware se chargera de la protection
-        window.location.href = "/admin/dashboard";
+        // ✅ CORRECTION : redirection vers /dashboard (plus /admin/dashboard)
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Erreur critique login admin:", err);
