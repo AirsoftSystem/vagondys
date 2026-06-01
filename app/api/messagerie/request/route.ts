@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
+import { generateVGDReference } from "@/lib/utils/references";
 
 /**
  * API d’envoi de demande d’inscription à la messagerie privée
@@ -112,6 +113,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ✅ CORRECTION : Générer une vraie référence VAGONDYS au lieu d'utiliser l'UUID tronqué
+    const requestReference = generateVGDReference();
+
     // 6. Insertion de la demande
     const newRequest = {
       id: randomUUID(),
@@ -121,6 +125,7 @@ export async function POST(request: NextRequest) {
       phone: phone?.trim() || null,
       reason: reason.trim(),
       status: "pending",
+      reference: requestReference, // ✅ AJOUT : Stocker la vraie référence
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -147,7 +152,7 @@ export async function POST(request: NextRequest) {
           Demande <span style="color:#22c55e;">enregistrée</span>
         </h1>
         <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
-          Référence : ${newRequest.id.substring(0, 8)}
+          Référence : ${requestReference}
         </p>
         <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
           <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Votre demande a bien été reçue.</p>
@@ -165,7 +170,7 @@ export async function POST(request: NextRequest) {
     await sendGeneralEmail(
       email,
       "VAGONDYS - Demande d’accès messagerie privée",
-      `Bonjour ${full_name},\n\nVotre demande a bien été enregistrée. Notre équipe l'examinera sous 48h.\n\nRéférence : ${newRequest.id.substring(0, 8)}`,
+      `Bonjour ${full_name},\n\nVotre demande a bien été enregistrée. Notre équipe l'examinera sous 48h.\n\nRéférence : ${requestReference}`,
       confirmationHtml,
       "no-reply@vagondys.com"
     ).catch(console.error);
@@ -180,7 +185,7 @@ export async function POST(request: NextRequest) {
         <p><strong>Téléphone :</strong> ${phone || "Non renseigné"}</p>
         <p><strong>Motif :</strong> ${reason}</p>
         <hr />
-        <p><strong>Référence :</strong> ${newRequest.id.substring(0, 8)}</p>
+        <p><strong>Référence :</strong> ${requestReference}</p>
         <a href="${frontendUrl}/staff/admin/messagerie" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; display:inline-block; margin-top:20px;">
           Voir la demande
         </a>
@@ -190,7 +195,7 @@ export async function POST(request: NextRequest) {
     await sendGeneralEmail(
       adminEmail,
       "🚨 VAGONDYS - Nouvelle demande messagerie privée",
-      `Nouvelle demande de ${full_name} (${email})`,
+      `Nouvelle demande de ${full_name} (${email}) - Réf: ${requestReference}`,
       adminHtml,
       "no-reply@vagondys.com"
     ).catch(console.error);
@@ -199,7 +204,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Demande envoyée avec succès",
-      requestId: newRequest.id,
+      reference: requestReference,
     });
   } catch (error) {
     console.error("Erreur API messagerie/request:", error);

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
+import { generateVGDReference } from "@/lib/utils/references";
 
 /**
  * Interface pour la demande
@@ -15,6 +16,7 @@ interface PendingRequest {
   phone: string | null;
   reason: string;
   status: string;
+  reference?: string;
 }
 
 /**
@@ -45,7 +47,6 @@ export async function POST(request: NextRequest) {
     });
 
     // 2. Récupérer l’utilisateur authentifié (via cookie de session)
-    // Pour une API Route, on doit créer un client avec les cookies
     const { createServerClient } = await import("@supabase/ssr");
     const { cookies } = await import("next/headers");
     
@@ -69,12 +70,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Vérifier que l’utilisateur est staff (email @vagondys.com ou dans staff_registry)
+    // 3. Vérifier que l’utilisateur est staff
     const userEmail = user.email?.toLowerCase() || "";
     const isStaff = userEmail.endsWith("@vagondys.com");
     
     if (!isStaff) {
-      // Vérification supplémentaire dans staff_registry
       const { data: staffRecord } = await supabaseAdmin
         .from("staff_registry")
         .select("email")
@@ -125,6 +125,9 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
+    // Récupérer la référence (soit depuis la base, soit générer une nouvelle)
+    const requestReference = requestData.reference || `VGD-${requestData.id.substring(0, 8).toUpperCase()}`;
+
     if (action === "reject") {
       // Rejet de la demande
       const { error: updateError } = await supabaseAdmin
@@ -145,14 +148,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Email de rejet
+      // ✅ CORRECTION : Utiliser la vraie référence au lieu de l'UUID tronqué
       const rejectHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
           <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
             Demande <span style="color:#dc2626;">non retenue</span>
           </h1>
           <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
-            Référence : ${requestId.substring(0, 8)}
+            Référence : ${requestReference}
           </p>
           <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
             <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Motif :</p>
@@ -176,7 +179,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. APPROBATION DE LA DEMANDE
-    // Génération d’un dossier_ref unique
+    // ✅ CORRECTION : Utiliser la fonction unifiée pour générer une référence standard VGD-XXXXXXXX
+    const dossierRef = generateVGDReference();
+
+    // Génération d’un token de confirmation
+    const confirmationToken = randomUUID();
+
+    // Génération d'un mot de passe temporaire
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const generateSegment = (length: number) => {
       let result = "";
@@ -185,13 +194,9 @@ export async function POST(request: NextRequest) {
       }
       return result;
     };
-    const dossierRef = `VGD-MSG-${generateSegment(6)}`;
-
-    // Génération d’un token de confirmation
-    const confirmationToken = randomUUID();
+    const tempPassword = generateSegment(12);
 
     // 7. Création du compte Supabase Auth
-    const tempPassword = generateSegment(12);
     const { data: authData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email: requestData.email,
       password: tempPassword,
@@ -239,7 +244,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. Mise à jour de la demande
+    // 9. Mise à jour de la demande avec la référence
     const { error: updateError } = await supabaseAdmin
       .from("pending_messagerie_requests")
       .update({
@@ -247,18 +252,19 @@ export async function POST(request: NextRequest) {
         reviewed_by: user.email,
         reviewed_at: now,
         updated_at: now,
+        reference: dossierRef, // ✅ AJOUT : Stocker la référence
       })
       .eq("id", requestId);
 
     if (updateError) {
       console.error("Erreur mise à jour demande approuvée:", updateError);
-      // Non bloquant
     }
 
     // 10. Envoi de l’email de confirmation
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
     const confirmUrl = `${frontendUrl}/api/messagerie/confirm?token=${confirmationToken}&email=${encodeURIComponent(requestData.email)}`;
 
+    // ✅ CORRECTION : Utiliser la vraie référence dans l'email
     const welcomeHtml = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
@@ -310,7 +316,6 @@ export async function POST(request: NextRequest) {
 
     if (tokenError) {
       console.error("Erreur insertion token confirmation:", tokenError);
-      // Non bloquant
     }
 
     return NextResponse.json({
