@@ -59,6 +59,30 @@ export function createStaffClient(cityCode?: string, countryCode: string = 'FR')
 }
 
 /**
+ * CLIENT CLIENT-SIDE : ADMINISTRATION (admin.vagondys.com)
+ * Identique à createStaffClient, dédié au sous-domaine admin
+ */
+export function createAdminClient() {
+  // Récupération des variables UNIQUES (plus de MASTER)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Log pour tracer l'utilisation
+  console.log(`createAdminClient: Connexion admin (admin.vagondys.com)`);
+
+  // Sécurité anti-crash
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("VAGONDYS_ADMIN_NETWORK_ERROR: Configuration Supabase Admin manquante pour l'initialisation du client.");
+    return createBrowserClient(
+      supabaseUrl || 'https://placeholder.supabase.co',
+      supabaseKey || 'placeholder'
+    );
+  }
+
+  return createBrowserClient(supabaseUrl, supabaseKey);
+}
+
+/**
  * INTERFACES DE COHÉSION POUR LES ARCHIVES (Typage Strict)
  */
 export interface GitHubArchiveData {

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/client";
 import { Lock, Mail, Loader2, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 
@@ -32,10 +32,7 @@ export default function AdminLoginPage() {
       return;
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createAdminClient();
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -51,7 +48,6 @@ export default function AdminLoginPage() {
       }
 
       if (data?.user) {
-        // ✅ CORRECTION : redirection vers /dashboard (plus /admin/dashboard)
         window.location.href = "/dashboard";
       }
     } catch (err) {
