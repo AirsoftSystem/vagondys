@@ -1,23 +1,76 @@
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 /**
- * API de récupération des demandes d’inscription à la messagerie privée
- * GET /api/staff/messagerie-requests
+ * API d’envoi de demande d’inscription à la messagerie privée
+ * POST /api/messagerie/request
+ * Body: { full_name, email, company, phone, reason, turnstileToken }
  * 
- * Sécurité : Réservé au staff (email @vagondys.com ou dans staff_registry)
+ * Accessible au public (avec validation Turnstile)
  */
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
-    // 1. Vérification des variables d’environnement
+    // 1. Récupération des paramètres
+    const body = await request.json();
+    const { full_name, email, company, phone, reason, turnstileToken } = body;
+
+    // 2. Validation des champs obligatoires
+    if (!full_name || !email || !reason) {
+      return NextResponse.json(
+        { error: "Nom complet, email et motif sont requis" },
+        { status: 400 }
+      );
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      return NextResponse.json(
+        { error: "Adresse email invalide" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Vérification Turnstile (anti-bot)
+    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+    if (!turnstileSecret) {
+      console.error("Turnstile secret manquant");
+      return NextResponse.json(
+        { error: "Configuration de sécurité manquante" },
+        { status: 500 }
+      );
+    }
+
+    if (!turnstileToken) {
+      return NextResponse.json(
+        { error: "Validation anti-bot requise" },
+        { status: 400 }
+      );
+    }
+
+    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: turnstileSecret,
+        response: turnstileToken,
+      }),
+    });
+
+    const verifyData = await verifyRes.json();
+    if (!verifyData.success) {
+      return NextResponse.json(
+        { error: "Échec de la validation anti-bot" },
+        { status: 403 }
+      );
+    }
+
+    // 4. Connexion à Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       console.error("Variables Supabase manquantes");
       return NextResponse.json(
         { error: "Configuration serveur invalide" },
@@ -25,70 +78,131 @@ export async function GET() {
       );
     }
 
-    // 2. Récupérer l’utilisateur authentifié (via cookie de session)
-    const cookieStore = await cookies();
-    const supabaseServer = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Non authentifié" },
-        { status: 401 }
-      );
-    }
-
-    // 3. Vérifier que l’utilisateur est staff
-    const userEmail = user.email?.toLowerCase() || "";
-    const isStaffEmail = userEmail.endsWith("@vagondys.com");
-
-    let isStaff = isStaffEmail;
-
-    if (!isStaff) {
-      // Vérification supplémentaire dans staff_registry
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: staffRecord } = await supabaseAdmin
-        .from("staff_registry")
-        .select("email")
-        .eq("email", userEmail)
-        .maybeSingle();
-
-      isStaff = !!staffRecord;
-    }
-
-    if (!isStaff) {
-      return NextResponse.json(
-        { error: "Accès réservé au staff" },
-        { status: 403 }
-      );
-    }
-
-    // 4. Récupérer les demandes (ordre chronologique inverse)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: requests, error: fetchError } = await supabaseAdmin
+    // 5. Vérifier si une demande existe déjà pour cet email (en attente ou approuvée)
+    const { data: existingRequests, error: checkError } = await supabaseAdmin
       .from("pending_messagerie_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("id, status")
+      .eq("email", email.toLowerCase())
+      .in("status", ["pending", "approved"]);
 
-    if (fetchError) {
-      console.error("Erreur récupération demandes:", fetchError);
+    if (checkError) {
+      console.error("Erreur vérification demande existante:", checkError);
+    }
+
+    if (existingRequests && existingRequests.length > 0) {
+      const hasPending = existingRequests.some(r => r.status === "pending");
+      const hasApproved = existingRequests.some(r => r.status === "approved");
+
+      if (hasPending) {
+        return NextResponse.json(
+          { error: "Une demande est déjà en attente de validation pour cet email." },
+          { status: 400 }
+        );
+      }
+
+      if (hasApproved) {
+        return NextResponse.json(
+          { error: "Un compte existe déjà pour cet email. Veuillez vous connecter." },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 6. Insertion de la demande
+    const newRequest = {
+      id: randomUUID(),
+      full_name: full_name.trim(),
+      email: email.toLowerCase().trim(),
+      company: company?.trim() || null,
+      phone: phone?.trim() || null,
+      reason: reason.trim(),
+      status: "pending",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: insertError } = await supabaseAdmin
+      .from("pending_messagerie_requests")
+      .insert([newRequest]);
+
+    if (insertError) {
+      console.error("Erreur insertion demande:", insertError);
       return NextResponse.json(
-        { error: "Erreur lors de la récupération des demandes" },
+        { error: "Erreur lors de l'enregistrement de la demande" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ requests: requests || [] });
+    // 7. Envoi d’un email de confirmation au demandeur
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@vagondys.com";
+
+    const confirmationHtml = `
+      <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
+        <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
+          Demande <span style="color:#22c55e;">enregistrée</span>
+        </h1>
+        <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
+          Référence : ${newRequest.id.substring(0, 8)}
+        </p>
+        <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+          <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Votre demande a bien été reçue.</p>
+          <p style="font-size:12px; color:#a1a1aa;">
+            Notre équipe examinera votre demande dans les plus brefs délais.
+            Vous recevrez un email de confirmation une fois votre compte activé.
+          </p>
+        </div>
+        <p style="font-size:10px; color:#52525b;">
+          Délai de traitement estimé : 48h ouvrées.
+        </p>
+      </div>
+    `;
+
+    await sendGeneralEmail(
+      email,
+      "VAGONDYS - Demande d’accès messagerie privée",
+      `Bonjour ${full_name},\n\nVotre demande a bien été enregistrée. Notre équipe l'examinera sous 48h.\n\nRéférence : ${newRequest.id.substring(0, 8)}`,
+      confirmationHtml,
+      "no-reply@vagondys.com"
+    ).catch(console.error);
+
+    // 8. Envoi d’un email à l’admin pour notification
+    const adminHtml = `
+      <div style="background:black; color:white; padding:20px; font-family:sans-serif;">
+        <h2 style="color:#dc2626;">📩 Nouvelle demande messagerie privée</h2>
+        <p><strong>Demandeur :</strong> ${full_name}</p>
+        <p><strong>Email :</strong> ${email}</p>
+        <p><strong>Société :</strong> ${company || "Non renseignée"}</p>
+        <p><strong>Téléphone :</strong> ${phone || "Non renseigné"}</p>
+        <p><strong>Motif :</strong> ${reason}</p>
+        <hr />
+        <p><strong>Référence :</strong> ${newRequest.id.substring(0, 8)}</p>
+        <a href="${frontendUrl}/staff/admin/messagerie" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; display:inline-block; margin-top:20px;">
+          Voir la demande
+        </a>
+      </div>
+    `;
+
+    await sendGeneralEmail(
+      adminEmail,
+      "🚨 VAGONDYS - Nouvelle demande messagerie privée",
+      `Nouvelle demande de ${full_name} (${email})`,
+      adminHtml,
+      "no-reply@vagondys.com"
+    ).catch(console.error);
+
+    // 9. Réponse succès
+    return NextResponse.json({
+      success: true,
+      message: "Demande envoyée avec succès",
+      requestId: newRequest.id,
+    });
   } catch (error) {
-    console.error("Erreur API staff/messagerie-requests:", error);
+    console.error("Erreur API messagerie/request:", error);
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }

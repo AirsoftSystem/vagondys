@@ -38,58 +38,6 @@ interface GlobalRequestsStats {
   rejected: number;
 }
 
-// Données de démonstration (seront remplacées par l'API réelle)
-const DEMO_REQUESTS: MessagerieRequest[] = [
-  {
-    id: "1",
-    full_name: "Jean Dupont",
-    email: "jean.dupont@fournisseur.com",
-    company: "Airsoft Pro Shop",
-    phone: "0612345678",
-    reason: "Demande d'accès à la messagerie privée pour communication avec les équipes VAGONDYS",
-    status: "pending",
-    reviewed_by: null,
-    reviewed_at: null,
-    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "2",
-    full_name: "Maria Garcia",
-    email: "maria.garcia@eventos.es",
-    company: "Eventos Airsoft España",
-    phone: "34912345678",
-    reason: "Organisation d'événements et besoin de coordination avec les villes françaises",
-    status: "pending",
-    reviewed_by: null,
-    reviewed_at: null,
-    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "3",
-    full_name: "Thomas Martin",
-    email: "thomas.martin@equipement.fr",
-    company: "Équipement Airsoft",
-    phone: "0678901234",
-    reason: "Partenariat pour fourniture de matériel",
-    status: "approved",
-    reviewed_by: "admin@vagondys.com",
-    reviewed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "4",
-    full_name: "Sophie Bernard",
-    email: "sophie@mediasport.fr",
-    company: "Media Sport",
-    phone: "0645123789",
-    reason: "Couverture médiatique des compétitions",
-    status: "rejected",
-    reviewed_by: "admin@vagondys.com",
-    reviewed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
-
 export default function AdminMessageriePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -109,27 +57,30 @@ export default function AdminMessageriePage() {
   const [selectedRequest, setSelectedRequest] = useState<MessagerieRequest | null>(null);
   const [approveNotes, setApproveNotes] = useState("");
 
-  // Charger les demandes
+  // ✅ CORRECTION 1 : Charger les demandes depuis l'API réelle
   const loadRequests = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // TODO: Remplacer par l'API réelle
-      // const response = await fetch("/api/admin/messagerie-requests");
-      // const data = await response.json();
+      const response = await fetch("/api/staff/messagerie-requests");
       
-      // Simulation API
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur chargement demandes");
+      }
       
-      setRequests(DEMO_REQUESTS);
+      const data = await response.json();
+      const allRequests = data.requests || [];
+      
+      setRequests(allRequests);
       
       // Calculer les stats globales
       const stats: GlobalRequestsStats = {
-        total: DEMO_REQUESTS.length,
-        pending: DEMO_REQUESTS.filter(r => r.status === "pending").length,
-        approved: DEMO_REQUESTS.filter(r => r.status === "approved").length,
-        rejected: DEMO_REQUESTS.filter(r => r.status === "rejected").length
+        total: allRequests.length,
+        pending: allRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
+        approved: allRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
+        rejected: allRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
       };
       setGlobalStats(stats);
       
@@ -188,38 +139,28 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // Approuver une demande
+  // ✅ CORRECTION 2 : Approuver une demande avec appel API réel
   const handleApprove = async (request: MessagerieRequest) => {
     setProcessingId(request.id);
     try {
-      // TODO: Appeler l'API d'approbation
-      // const response = await fetch("/api/messagerie/approve", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ requestId: request.id, notes: approveNotes })
-      // });
-      
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mettre à jour localement
-      setRequests(prev => prev.map(r => 
-        r.id === request.id 
-          ? { ...r, status: "approved", reviewed_by: "admin@vagondys.com", reviewed_at: new Date().toISOString() }
-          : r
-      ));
-      
-      // Recalculer les stats
-      const updatedRequests = requests.map(r => 
-        r.id === request.id 
-          ? { ...r, status: "approved" as const }
-          : r
-      );
-      setGlobalStats({
-        total: updatedRequests.length,
-        pending: updatedRequests.filter(r => r.status === "pending").length,
-        approved: updatedRequests.filter(r => r.status === "approved").length,
-        rejected: updatedRequests.filter(r => r.status === "rejected").length
+      const response = await fetch("/api/messagerie/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          requestId: request.id, 
+          action: "approve",
+          notes: approveNotes 
+        }),
       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors de l'approbation");
+      }
+      
+      // Recharger les demandes après approbation
+      await loadRequests();
       
       setShowApproveModal(false);
       setSelectedRequest(null);
@@ -227,30 +168,40 @@ export default function AdminMessageriePage() {
       
     } catch (err) {
       console.error("Erreur approbation:", err);
-      alert("Erreur lors de l'approbation");
+      alert(err instanceof Error ? err.message : "Erreur lors de l'approbation");
     } finally {
       setProcessingId(null);
     }
   };
 
-  // Rejeter une demande
+  // ✅ CORRECTION 3 : Rejeter une demande avec appel API réel
   const handleReject = async (request: MessagerieRequest) => {
     if (!confirm(`Refuser la demande de ${request.full_name} ?`)) return;
     
     setProcessingId(request.id);
     try {
-      // TODO: Appeler l'API de rejet
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const response = await fetch("/api/messagerie/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          requestId: request.id, 
+          action: "reject",
+          notes: `Demande refusée par l'administrateur.`
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors du rejet");
+      }
       
-      setRequests(prev => prev.map(r => 
-        r.id === request.id 
-          ? { ...r, status: "rejected", reviewed_by: "admin@vagondys.com", reviewed_at: new Date().toISOString() }
-          : r
-      ));
+      // Recharger les demandes après rejet
+      await loadRequests();
       
     } catch (err) {
       console.error("Erreur rejet:", err);
-      alert("Erreur lors du rejet");
+      alert(err instanceof Error ? err.message : "Erreur lors du rejet");
     } finally {
       setProcessingId(null);
     }

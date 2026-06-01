@@ -1412,8 +1412,16 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ utils/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┗━ formatters.ts                      ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┗━ inscription/                              ✅ EXISTANT
-┃  ┃     ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ inscription/                              ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┗━ messagerie/                               ✅ EXISTANT
+┃  ┃     ┣━ components/                            ✅ EXISTANT
+┃  ┃     ┃  ┣━ MessageInput.tsx                    ✅ EXISTANT
+┃  ┃     ┃  ┣━ MessageList.tsx                     ✅ EXISTANT
+┃  ┃     ┃  ┗━ MessageThread.tsx                   ✅ EXISTANT
+┃  ┃     ┣━ actions.ts                             ✅ EXISTANT
+┃  ┃     ┣━ layout.tsx                             ✅ EXISTANT
+┃  ┃     ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ (public)/                                    ✅ EXISTANT
 ┃  ┃  ┣━ bareme/                                   ✅ EXISTANT
@@ -1535,10 +1543,22 @@ VAGONDYS/
 ┃  ┃     ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ staff/                                       ✅ EXISTANT
-┃  ┃  ┣━ admin-dashboard/                          ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ admin-verification/                       ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ admin/                                    ✅ EXISTANT
+┃  ┃  ┃  ┣━ configuration/                         ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ logs/                                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ messagerie/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ staff/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ verification/                          ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ villes/                                ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ layout.tsx                             ✅ EXISTANT
 ┃  ┃  ┣━ competitions/                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ components/                               ✅ EXISTANT
@@ -1552,7 +1572,7 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┣━ Badge.tsx                           ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┣━ Card.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ LoadingSpinner.ts                   ✅ EXISTANT
-┃  ┃  ┃  ┗━ GameHistory.tsx                        ✅ EXISTANT
+┃  ┃  ┃  ┗━ AdminSidebar.tsx                       ✅ EXISTANT
 ┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
 ┃  ┃  ┣━ interface/                                ✅ EXISTANT
