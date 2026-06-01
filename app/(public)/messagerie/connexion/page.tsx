@@ -14,7 +14,7 @@ import {
   ChevronRight,
   MessageSquare
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { createVagondysClient } from "@/lib/supabase/client";
 
 /**
  * Composant de connexion (isolé pour useSearchParams)
@@ -30,10 +30,8 @@ function MessagerieLoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // ✅ CORRECTION : Utiliser createVagondysClient() au lieu de createClient direct
+  const supabase = createVagondysClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,19 +58,21 @@ function MessagerieLoginContent() {
         throw new Error("Erreur de connexion");
       }
 
-      // Vérifier que l’utilisateur a bien un compte messagerie
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-
-      const { data: messagerieAccount } = await supabaseAdmin
-        .from("messagerie_accounts")
-        .select("status")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
-
-      if (!messagerieAccount || messagerieAccount.status !== "active") {
+      // ✅ CORRECTION : Utiliser createAdminClient ou createVagondysClient pour la vérification
+      // createVagondysClient utilise la clé anon, mais pour vérifier messagerie_accounts,
+      // il faut utiliser le service role (côté serveur uniquement)
+      // → On va utiliser une approche différente : vérifier via l'API plutôt qu'en client direct
+      
+      // Solution : Appeler une API route qui vérifiera avec le service role
+      const checkResponse = await fetch("/api/messagerie/check-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user.id }),
+      });
+      
+      const checkResult = await checkResponse.json();
+      
+      if (!checkResponse.ok || !checkResult.isActive) {
         await supabase.auth.signOut();
         throw new Error("Accès non autorisé. Compte messagerie non actif.");
       }
