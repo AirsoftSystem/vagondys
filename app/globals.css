@@ -224,7 +224,3 @@ footer svg line {
 .animate-pulse-scale {
   animation: pulse-scale 1s ease-in-out infinite;
 }
-
-.dynamic-width {
-  width: var(--w);
-}

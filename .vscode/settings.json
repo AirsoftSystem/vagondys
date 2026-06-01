@@ -5,8 +5,5 @@
   "stylelint.enable": false,
   "files.associations": {
     "*.css": "postcss"
-  },
-  "webhint.hints": {
-    "no-inline-styles": "off"
   }
 }
