@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { createStaffClient } from "@/lib/supabase/client";
 
 export default function AdminVerificationPage() {
   const router = useRouter();
@@ -14,14 +14,11 @@ export default function AdminVerificationPage() {
   const [error, setError] = useState<string | null>(null);
   const [adminPasswordHash, setAdminPasswordHash] = useState<string | null>(null);
 
-  // Récupérer le mot de passe depuis Supabase
+  // Récupérer le mot de passe depuis Supabase (avec client staff authentifié)
   useEffect(() => {
     const fetchAdminPassword = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createStaffClient();
         const { data, error } = await supabase
           .from("admin_config")
           .select("value")
