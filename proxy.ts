@@ -132,7 +132,6 @@ export async function proxy(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     
     const userEmail = user?.email?.toLowerCase() || null
-    // ✅ CORRECTION : page de login à /login (pas /admin/login)
     const isAdminLoginPage = pathname === '/login'
     const isAdminApi = pathname.startsWith('/api/')
     const isAdminStatic = pathname.startsWith('/_next')
@@ -140,20 +139,21 @@ export async function proxy(request: NextRequest) {
     // Vérifier que l'utilisateur est admin@vagondys.com
     const isAdminUser = userEmail === 'admin@vagondys.com'
     
-    // ✅ CORRECTION : redirection vers /login (pas /admin/login)
-    if (!isAdminUser && !isAdminLoginPage && !isAdminApi && !isAdminStatic) {
+    // ✅ Si l'utilisateur est admin, tout est autorisé
+    if (isAdminUser) {
+      console.log(`✅ Admin authentifié, accès autorisé à ${pathname}`)
+      return response
+    }
+    
+    // Rediriger vers la page de login si non authentifié
+    if (!isAdminLoginPage && !isAdminApi && !isAdminStatic) {
       console.log(`🔒 Admin non authentifié, redirection vers /login`)
       return NextResponse.redirect(new URL('/login', request.url))
     }
     
-    // ✅ CORRECTION : redirection vers /dashboard (pas /admin/dashboard)
+    // Redirection de la racine vers /dashboard
     if (pathname === '/' || pathname === '/admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-    
-    // Réécritures pour admin
-    if (pathname.startsWith('/dashboard')) {
-      return response
     }
     
     return response
