@@ -7,7 +7,8 @@ import { getAthleteCity, getAthleteCountry } from './lib/supabase/master'
 
 /**
  * PROXY / MIDDLEWARE - VERSION NEXT.JS 16 (VERCEL)
- * Gestion du routage entre le site Public, le sous-domaine Staff et le sous-domaine Admin.
+ * Gestion du routage entre le site Public et le sous-domaine Staff.
+ * + PROTECTION RENFORCÉE DE L'ARBORESCENCE
  * Version adaptée pour l'Option B (un seul projet Supabase)
  */
 export async function proxy(request: NextRequest) {
@@ -25,7 +26,7 @@ export async function proxy(request: NextRequest) {
   // RÈGLE 0 : ÉCRANS TV (LIVE_CONTROLS)
   // ============================================================
   if (pathname.startsWith('/staff/live_controls')) {
-    console.error(`🖥️ Écran TV: ${pathname} - accès direct`)
+    console.log(`🖥️ Écran TV: ${pathname} - accès direct`)
     return response
   }
 
@@ -56,7 +57,7 @@ export async function proxy(request: NextRequest) {
   })
 
   if (isBlocked) {
-    console.error(`🚫 Accès bloqué: ${pathname}`)
+    console.log(`🚫 Accès bloqué: ${pathname}`)
     return new NextResponse('Accès interdit', { status: 403 })
   }
 
@@ -106,146 +107,65 @@ export async function proxy(request: NextRequest) {
   }
 
   // ============================================================
-  // RÈGLE 4 : ISOLATION DES SOUS-DOMAINES
+  // RÈGLE 4 : ISOLATION DU DOMAINE PUBLIC
   // ============================================================
-
-  // --- SOUS-DOMAINE ADMIN ---
-  if (host.includes('admin.vagondys.com')) {
-    console.error(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
-    
-    // 🔍 LOG : Afficher tous les cookies reçus
-    console.error(`🔍 Cookies reçus pour admin:`)
-    request.cookies.getAll().forEach(cookie => {
-      console.error(`   - ${cookie.name}: ${cookie.value.substring(0, 50)}...`)
-    })
-    
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name) => request.cookies.get(name)?.value,
-          set: (name, value, options) => {
-            response.cookies.set({ name, value, ...options })
-          },
-          remove: (name, options) => {
-            response.cookies.set({ name, value: '', ...options })
-          },
-        },
-      }
-    )
-    
-    const { data: { user }, error: getUserError } = await supabase.auth.getUser()
-    
-    // 🔍 LOG : Résultat de getUser()
-    console.error(`🔍 getUser() result:`)
-    console.error(`   - user: ${user?.email || 'null'}`)
-    console.error(`   - error: ${getUserError?.message || 'none'}`)
-    
-    const userEmail = user?.email?.toLowerCase() || null
-    const isAdminLoginPage = pathname === '/admin/login'
-    const isAdminApi = pathname.startsWith('/api/')
-    const isAdminStatic = pathname.startsWith('/_next')
-    
-    // Vérifier que l'utilisateur est admin@vagondys.com
-    const isAdminUser = userEmail === 'admin@vagondys.com'
-    
-    // 🔍 LOG : Décision du middleware
-    console.error(`🔍 Décision admin: isAdminUser=${isAdminUser}, isAdminLoginPage=${isAdminLoginPage}, pathname=${pathname}`)
-    
-    if (!isAdminUser && !isAdminLoginPage && !isAdminApi && !isAdminStatic) {
-      console.error(`🔒 Admin non authentifié, redirection vers /admin/login`)
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-    
-    if (user) {
-      const city = await getAthleteCity(userEmail!)
-      const country = await getAthleteCountry(userEmail!)
-      if (city) {
-        response.headers.set('x-vgd-city', city)
-        response.headers.set('x-vgd-country', country || 'FR')
-      }
-    }
-    
-    // Règle 7 : Réécritures pour admin
-    if (pathname === '/' || pathname === '/admin') {
-      return NextResponse.rewrite(new URL('/admin', request.url))
-    }
-    
-    if (pathname.startsWith('/admin')) {
-      return response
-    }
-    
-    if (!pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
-      return NextResponse.rewrite(new URL(`/admin${pathname}`, request.url))
-    }
-    
-    return response
-  }
-
-  // --- SOUS-DOMAINE STAFF ---
-  if (host.includes('staff.vagondys.com')) {
-    console.error(`👔 Sous-domaine staff détecté: ${host}${pathname}`)
-    
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name) => request.cookies.get(name)?.value,
-          set: (name, value, options) => {
-            response.cookies.set({ name, value, ...options })
-          },
-          remove: (name, options) => {
-            response.cookies.set({ name, value: '', ...options })
-          },
-        },
-      }
-    )
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    const userEmail = user?.email?.toLowerCase() || null
-    const isStaffLoginPage = pathname === '/staff/login' || pathname === '/login'
-    const isStaffApi = pathname.startsWith('/api/')
-    const isStaffStatic = pathname.startsWith('/_next')
-    
-    // Vérifier que l'utilisateur est staff (email @vagondys.com)
-    const isStaffUser = userEmail?.endsWith('@vagondys.com') === true
-    
-    if (!isStaffUser && !isStaffLoginPage && !isStaffApi && !isStaffStatic) {
-      console.error(`🔒 Staff non authentifié, redirection vers /staff/login`)
-      return NextResponse.redirect(new URL('/staff/login', request.url))
-    }
-    
-    if (user) {
-      const city = await getAthleteCity(userEmail!)
-      const country = await getAthleteCountry(userEmail!)
-      if (city) {
-        response.headers.set('x-vgd-city', city)
-        response.headers.set('x-vgd-country', country || 'FR')
-      }
-    }
-    
-    // Règle 7 : Réécritures pour staff
-    if (pathname === '/' || pathname === '/staff') {
-      return NextResponse.rewrite(new URL('/staff', request.url))
-    }
-    
-    if (pathname.startsWith('/staff')) {
-      return response
-    }
-    
-    if (!pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
-      return NextResponse.rewrite(new URL(`/staff${pathname}`, request.url))
-    }
-    
+  if (!host.includes('staff.vagondys.com')) {
     return response
   }
 
   // ============================================================
-  // RÈGLE 5 : DOMAINE PUBLIC (vagondys.com)
+  // RÈGLE 5 & 6 : AUTHENTIFICATION STAFF
   // ============================================================
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => request.cookies.get(name)?.value,
+        set: (name, value, options) => {
+          response.cookies.set({ name, value, ...options })
+        },
+        remove: (name, options) => {
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const userEmail = user?.email?.toLowerCase() || null
+  const isLoginPage = pathname === '/staff/login' || pathname === '/login'
+  const isStaffRoot = pathname === '/staff' || pathname === '/staff/'
+  
+  if (!userEmail && !isLoginPage && !isStaffRoot) {
+    return NextResponse.redirect(new URL('/staff/login', request.url))
+  }
+
+  if (user) {
+    const city = await getAthleteCity(userEmail!)
+    const country = await getAthleteCountry(userEmail!)
+    if (city) {
+      response.headers.set('x-vgd-city', city)
+      response.headers.set('x-vgd-country', country || 'FR')
+    }
+  }
+
+  // ============================================================
+  // RÈGLE 7 : RÉÉCRITURES
+  // ============================================================
+  if (pathname === '/') {
+    return NextResponse.rewrite(new URL('/staff', request.url))
+  }
+
+  if (pathname.startsWith('/staff')) {
+    return response
+  }
+
+  if (!pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
+    return NextResponse.rewrite(new URL(`/staff${pathname}`, request.url))
+  }
+
   return response
 }
 
