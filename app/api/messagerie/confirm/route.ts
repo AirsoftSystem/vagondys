@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
  * GET /api/messagerie/confirm?token=xxx&email=xxx
  * 
  * Vérifie le token, active le compte, puis redirige vers une page de définition du mot de passe
+ * 
+ * ✅ CORRECTION : Récupère la référence dossier_ref depuis messagerie_accounts
+ * ✅ AJOUT : Archivage GitHub après activation (comme pour les athlètes)
  */
 export async function GET(request: NextRequest) {
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -76,6 +79,25 @@ export async function GET(request: NextRequest) {
 
     const userId = userData.user.id;
 
+    // ✅ CORRECTION : Récupérer la référence depuis messagerie_accounts AVANT activation
+    const { data: messagerieAccount, error: accountFetchError } = await supabaseAdmin
+      .from("messagerie_accounts")
+      .select("dossier_ref, full_name, company")
+      .eq("user_id", userId)
+      .single();
+
+    if (accountFetchError || !messagerieAccount) {
+      console.error("Compte messagerie introuvable:", accountFetchError);
+      return NextResponse.redirect(
+        new URL("/connexion?error=account_not_found", frontendUrl)
+      );
+    }
+
+    const dossierRef = messagerieAccount.dossier_ref;
+    const fullName = messagerieAccount.full_name;
+
+    console.log(`✅ Activation compte messagerie: ${email} -> ${dossierRef}`);
+
     // 4. Marquer le token comme utilisé
     const { error: updateTokenError } = await supabaseAdmin
       .from("email_confirmations")
@@ -90,7 +112,11 @@ export async function GET(request: NextRequest) {
     // 5. Mettre à jour le compte messagerie (statut actif)
     const { error: updateAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
-      .update({ status: "active", updated_at: now.toISOString() })
+      .update({ 
+        status: "active", 
+        updated_at: now.toISOString(),
+        last_login_at: now.toISOString()
+      })
       .eq("user_id", userId);
 
     if (updateAccountError) {
@@ -108,8 +134,43 @@ export async function GET(request: NextRequest) {
       console.error("Erreur confirmation email Auth:", updateAuthError);
     }
 
+    // ✅ AJOUT : Archivage GitHub (comme pour les athlètes dans confirm-email)
+    try {
+      const archivePayload = {
+        message: {
+          dossier_ref: dossierRef,
+          created_at: now.toISOString(),
+          payload: {
+            name: fullName,
+            email: email.toLowerCase(),
+            company: messagerieAccount.company || null,
+            subject: "ACTIVATION COMPTE MESSAGERIE",
+            message: `Compte messagerie activé le ${now.toLocaleString()}`,
+            type: "messagerie_confirmation",
+          },
+        },
+        history: [],
+        purgeActive: false,
+        city_code: "MASTER",
+        country_code: "FR",
+      };
+
+      const archiveRes = await fetch(`${frontendUrl}/api/archive-external`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(archivePayload),
+      });
+
+      if (!archiveRes.ok) {
+        console.error("Erreur archivage GitHub confirmation:", await archiveRes.text());
+      } else {
+        console.log(`✅ Archivage GitHub réussi pour ${dossierRef} (confirmation)`);
+      }
+    } catch (archiveErr) {
+      console.error("Erreur lors de l'archivage GitHub (confirmation):", archiveErr);
+    }
+
     // 7. Rediriger vers la page de définition du mot de passe
-    // Le token de confirmation est passé pour permettre la réinitialisation
     const setPasswordUrl = new URL("/messagerie/set-password", frontendUrl);
     setPasswordUrl.searchParams.set("token", token);
     setPasswordUrl.searchParams.set("email", email.toLowerCase());

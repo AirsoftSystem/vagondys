@@ -3,7 +3,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
-import { generateVGDReference } from "@/lib/utils/references";
+
+/**
+ * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
+ * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
+ * Copié depuis app/api/confirm-email/route.ts (version originale)
+ */
+function generateVGDReference(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VGD-${result}`;
+}
 
 /**
  * Interface pour la demande
@@ -16,7 +29,6 @@ interface PendingRequest {
   phone: string | null;
   reason: string;
   status: string;
-  reference?: string;
 }
 
 /**
@@ -27,6 +39,8 @@ interface PendingRequest {
  * Action: 'approve' ou 'reject'
  * 
  * Sécurité : Seul le staff/admin peut appeler cette API
+ * 
+ * ✅ CORRECTION : Génération de la référence UNIQUE ici (comme confirm-email)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -125,8 +139,8 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // Récupérer la référence (soit depuis la base, soit générer une nouvelle)
-    const requestReference = requestData.reference || `VGD-${requestData.id.substring(0, 8).toUpperCase()}`;
+    // ✅ CORRECTION : Utiliser l'ID tronqué pour l'affichage temporaire (pas de colonne reference)
+    const displayId = requestId.substring(0, 8).toUpperCase();
 
     if (action === "reject") {
       // Rejet de la demande
@@ -148,14 +162,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // ✅ CORRECTION : Utiliser la vraie référence au lieu de l'UUID tronqué
       const rejectHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
           <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
             Demande <span style="color:#dc2626;">non retenue</span>
           </h1>
           <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
-            Référence : ${requestReference}
+            Référence : ${displayId}
           </p>
           <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
             <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Motif :</p>
@@ -179,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. APPROBATION DE LA DEMANDE
-    // ✅ CORRECTION : Utiliser la fonction unifiée pour générer une référence standard VGD-XXXXXXXX
+    // ✅ CORRECTION : Générer la référence UNIQUE ici (fonction locale, pas d'import)
     const dossierRef = generateVGDReference();
 
     // Génération d’un token de confirmation
@@ -244,7 +257,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. Mise à jour de la demande avec la référence
+    // 9. Mise à jour de la demande (sans champ reference qui n'existe pas)
     const { error: updateError } = await supabaseAdmin
       .from("pending_messagerie_requests")
       .update({
@@ -252,7 +265,6 @@ export async function POST(request: NextRequest) {
         reviewed_by: user.email,
         reviewed_at: now,
         updated_at: now,
-        reference: dossierRef, // ✅ AJOUT : Stocker la référence
       })
       .eq("id", requestId);
 
@@ -264,7 +276,6 @@ export async function POST(request: NextRequest) {
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
     const confirmUrl = `${frontendUrl}/api/messagerie/confirm?token=${confirmationToken}&email=${encodeURIComponent(requestData.email)}`;
 
-    // ✅ CORRECTION : Utiliser la vraie référence dans l'email
     const welcomeHtml = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
@@ -316,6 +327,42 @@ export async function POST(request: NextRequest) {
 
     if (tokenError) {
       console.error("Erreur insertion token confirmation:", tokenError);
+    }
+
+    // ✅ AJOUT : Archivage GitHub (comme pour les athlètes)
+    try {
+      const archivePayload = {
+        message: {
+          dossier_ref: dossierRef,
+          created_at: now,
+          payload: {
+            name: requestData.full_name,
+            email: requestData.email,
+            company: requestData.company,
+            phone: requestData.phone,
+            reason: requestData.reason,
+            type: "messagerie_request",
+          },
+        },
+        history: [],
+        purgeActive: false,
+        city_code: "MASTER",
+        country_code: "FR",
+      };
+
+      const archiveRes = await fetch(`${frontendUrl}/api/archive-external`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(archivePayload),
+      });
+
+      if (!archiveRes.ok) {
+        console.error("Erreur archivage GitHub:", await archiveRes.text());
+      } else {
+        console.log(`✅ Archivage GitHub réussi pour ${dossierRef}`);
+      }
+    } catch (archiveErr) {
+      console.error("Erreur lors de l'archivage GitHub:", archiveErr);
     }
 
     return NextResponse.json({
