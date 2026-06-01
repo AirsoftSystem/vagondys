@@ -705,5 +705,49 @@ WHERE NOT EXISTS (
 );
 
 -- ==========================================================
+-- 20. TABLE admin_config (Configuration administration)
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.admin_config CASCADE;
+CREATE TABLE public.admin_config (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_admin_config_key ON admin_config(key);
+
+-- RLS
+ALTER TABLE public.admin_config ENABLE ROW LEVEL SECURITY;
+
+-- Les utilisateurs authentifiés (staff) peuvent lire la config
+CREATE POLICY "Authenticated users can read admin_config"
+    ON public.admin_config
+    FOR SELECT
+    TO authenticated
+    USING (true);
+
+-- Seul le service role peut modifier la config
+CREATE POLICY "Service role full access admin_config"
+    ON public.admin_config
+    FOR ALL
+    TO service_role
+    USING (true);
+
+-- Trigger pour updated_at
+DROP TRIGGER IF EXISTS trigger_admin_config_updated_at ON admin_config;
+CREATE TRIGGER trigger_admin_config_updated_at
+    BEFORE UPDATE ON admin_config
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Insertion du mot de passe admin par défaut
+INSERT INTO public.admin_config (key, value)
+VALUES ('admin_password', 'AdminVGD2026!')
+ON CONFLICT (key) DO NOTHING;
+
+-- ==========================================================
 -- FIN DU SCRIPT
 -- ==========================================================

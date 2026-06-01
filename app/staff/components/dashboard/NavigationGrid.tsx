@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -11,8 +12,9 @@ import {
   Users,
   CalendarCheck,
   Calendar,
-  Star, // 👈 AJOUTÉ pour Notoriété
-  Award // 👈 AJOUTÉ pour Tournois
+  Star,
+  Award,
+  ShieldCheck  // 👈 AJOUTÉ pour ADMIN
 } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
@@ -71,7 +73,7 @@ export default function NavigationGrid({
       border: "border-green-500/20",
       badge: newAthletesCount
     },
-    // 👇 NOUVEAU : Tournois
+    // 👇 Tournois
     {
       id: 'quick-tournois',
       title: "TOURNOIS",
@@ -82,7 +84,7 @@ export default function NavigationGrid({
       bg: "bg-orange-500/10",
       border: "border-orange-500/20"
     },
-    // 👇 NOUVEAU : Notoriété
+    // 👇 Notoriété
     {
       id: 'quick-notoriete',
       title: "NOTORIÉTÉ",
@@ -92,6 +94,17 @@ export default function NavigationGrid({
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
       border: "border-yellow-500/20"
+    },
+    // 👇 ADMIN - Supervision globale
+    {
+      id: 'quick-admin',
+      title: "ADMIN",
+      description: "Supervision globale",
+      href: "/staff/admin-verification",
+      icon: ShieldCheck,
+      color: "text-red-600",
+      bg: "bg-red-600/10",
+      border: "border-red-600/20"
     }
   ];
 
