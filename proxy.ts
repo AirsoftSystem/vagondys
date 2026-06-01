@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
   // RÈGLE 0 : ÉCRANS TV (LIVE_CONTROLS)
   // ============================================================
   if (pathname.startsWith('/staff/live_controls')) {
-    console.log(`🖥️ Écran TV: ${pathname} - accès direct`)
+    console.error(`🖥️ Écran TV: ${pathname} - accès direct`)
     return response
   }
 
@@ -56,7 +56,7 @@ export async function proxy(request: NextRequest) {
   })
 
   if (isBlocked) {
-    console.log(`🚫 Accès bloqué: ${pathname}`)
+    console.error(`🚫 Accès bloqué: ${pathname}`)
     return new NextResponse('Accès interdit', { status: 403 })
   }
 
@@ -111,12 +111,12 @@ export async function proxy(request: NextRequest) {
 
   // --- SOUS-DOMAINE ADMIN ---
   if (host.includes('admin.vagondys.com')) {
-    console.log(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
+    console.error(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
     
     // 🔍 LOG : Afficher tous les cookies reçus
-    console.log(`🔍 Cookies reçus pour admin:`)
+    console.error(`🔍 Cookies reçus pour admin:`)
     request.cookies.getAll().forEach(cookie => {
-      console.log(`   - ${cookie.name}: ${cookie.value.substring(0, 50)}...`)
+      console.error(`   - ${cookie.name}: ${cookie.value.substring(0, 50)}...`)
     })
     
     const supabase = createServerClient(
@@ -138,9 +138,9 @@ export async function proxy(request: NextRequest) {
     const { data: { user }, error: getUserError } = await supabase.auth.getUser()
     
     // 🔍 LOG : Résultat de getUser()
-    console.log(`🔍 getUser() result:`)
-    console.log(`   - user: ${user?.email || 'null'}`)
-    console.log(`   - error: ${getUserError?.message || 'none'}`)
+    console.error(`🔍 getUser() result:`)
+    console.error(`   - user: ${user?.email || 'null'}`)
+    console.error(`   - error: ${getUserError?.message || 'none'}`)
     
     const userEmail = user?.email?.toLowerCase() || null
     const isAdminLoginPage = pathname === '/admin/login'
@@ -151,10 +151,10 @@ export async function proxy(request: NextRequest) {
     const isAdminUser = userEmail === 'admin@vagondys.com'
     
     // 🔍 LOG : Décision du middleware
-    console.log(`🔍 Décision admin: isAdminUser=${isAdminUser}, isAdminLoginPage=${isAdminLoginPage}, pathname=${pathname}`)
+    console.error(`🔍 Décision admin: isAdminUser=${isAdminUser}, isAdminLoginPage=${isAdminLoginPage}, pathname=${pathname}`)
     
     if (!isAdminUser && !isAdminLoginPage && !isAdminApi && !isAdminStatic) {
-      console.log(`🔒 Admin non authentifié, redirection vers /admin/login`)
+      console.error(`🔒 Admin non authentifié, redirection vers /admin/login`)
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
     
@@ -185,7 +185,7 @@ export async function proxy(request: NextRequest) {
 
   // --- SOUS-DOMAINE STAFF ---
   if (host.includes('staff.vagondys.com')) {
-    console.log(`👔 Sous-domaine staff détecté: ${host}${pathname}`)
+    console.error(`👔 Sous-domaine staff détecté: ${host}${pathname}`)
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -214,7 +214,7 @@ export async function proxy(request: NextRequest) {
     const isStaffUser = userEmail?.endsWith('@vagondys.com') === true
     
     if (!isStaffUser && !isStaffLoginPage && !isStaffApi && !isStaffStatic) {
-      console.log(`🔒 Staff non authentifié, redirection vers /staff/login`)
+      console.error(`🔒 Staff non authentifié, redirection vers /staff/login`)
       return NextResponse.redirect(new URL('/staff/login', request.url))
     }
     
