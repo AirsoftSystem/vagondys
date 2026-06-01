@@ -46,7 +46,7 @@ export default function AdminDashboardPage() {
   });
   const [cityStats, setCityStats] = useState<CityStats[]>([]);
 
-  // Fonction de chargement des stats
+  // Fonction de chargement des stats (temps réel)
   const loadStats = async () => {
     setLoading(true);
     setError(null);
@@ -69,12 +69,12 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Vérifier l’authentification admin (via sessionStorage) et charger les stats
+  // Vérifier l'authentification admin (via sessionStorage) et charger les stats
   useEffect(() => {
     const init = async () => {
       const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
       if (!isAuthenticated) {
-        router.push("/staff/admin-verification");
+        router.push("/staff/admin/verification");
         return;
       }
       await loadStats();

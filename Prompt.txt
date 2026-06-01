@@ -622,3 +622,531 @@ VAGONDYS_ARCHIVES/
 **Ce prompt décrit l'intégralité du projet VAGONDYS après unification, de l'architecture aux fichiers modifiés, en passant par les flux et les résolutions de problèmes.**
 
 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+Félicitations ! La page `https://staff.vagondys.com/staff/admin-dashboard` s’affiche normalement (le contenu est le dashboard), ce qui confirme que toute la chaîne d’authentification admin fonctionne.
+
+Voici le **prompt ultra complet** de tout ce que nous avons fait depuis le début, en mettant l’accent sur la **messagerie privée** et **l’administration**.
+
+---
+
+## PROMPT ULTRA COMPLET – PROJET VAGONDYS (MESSAGERIE & ADMIN)
+
+### 1. CONTEXTE INITIAL
+
+**Projet** : VAGONDYS – Maison d’élite d’airsoft  
+**Objectif** : Refonte complète 100% FREE (puis PAYANT)  
+**Problème de départ** : Architecture multi-villes non unifiée (12 comptes GitHub, 25+ projets Supabase)
+
+**Solution retenue** : Option B (unifiée)
+- 1 seul compte GitHub
+- 1 seul repo `VGD-Tech/VAGONDYS_ARCHIVES`
+- 1 seul projet Supabase `VGD-Tech`
+- Colonne `city` pour filtrer par ville
+
+---
+
+### 2. MESSAGERIE PRIVÉE (Partenaires, fournisseurs, prestataires)
+
+#### 2.1 Tables SQL ajoutées
+
+| Table | Rôle |
+|-------|------|
+| `pending_messagerie_requests` | Demandes d’inscription en attente |
+| `messagerie_accounts` | Comptes validés pour accéder à la messagerie |
+
+#### 2.2 Flux complet
+
+```
+1. Utilisateur → /messagerie/inscription (formulaire public)
+         ↓
+2. POST /api/messagerie/request → enregistre dans pending_messagerie_requests
+         ↓
+3. Email envoyé à admin@vagondys.com
+         ↓
+4. Admin → /staff/messagerie-requests (interface staff)
+         ↓
+5. Admin clique « Approuver » → POST /api/messagerie/approve
+         ↓
+6. Création compte Auth + messagerie_accounts + email confirmation
+         ↓
+7. Utilisateur clique sur lien → GET /api/messagerie/confirm
+         ↓
+8. Redirection vers /messagerie/set-password?token=xxx&email=xxx
+         ↓
+9. Utilisateur définit son mot de passe → POST /api/messagerie/set-password
+         ↓
+10. Redirection vers /messagerie/connexion?message=compte_active
+         ↓
+11. Connexion → /messagerie/connexion
+         ↓
+12. Redirection automatique vers /messagerie (dashboard messagerie)
+```
+
+#### 2.3 Fichiers créés pour la messagerie privée
+
+| Fichier | Rôle |
+|---------|------|
+| `app/(public)/messagerie/inscription/page.tsx` | Formulaire public d’inscription |
+| `app/(public)/messagerie/connexion/page.tsx` | Page de connexion dédiée |
+| `app/(public)/messagerie/set-password/page.tsx` | Définition du mot de passe |
+| `app/api/messagerie/request/route.ts` | API de demande d’inscription |
+| `app/api/messagerie/approve/route.ts` | API d’approbation (admin/staff) |
+| `app/api/messagerie/confirm/route.ts` | API de confirmation email |
+| `app/api/messagerie/set-password/route.ts` | API de définition mot de passe |
+| `app/api/staff/messagerie-requests/route.ts` | API de listing des demandes |
+| `app/staff/messagerie-requests/page.tsx` | Interface staff pour gérer les demandes |
+
+#### 2.4 Modifications existantes
+
+| Fichier | Action |
+|---------|--------|
+| `app/(public)/communication/page.tsx` | Ajout du bouton « Terminal Privé » vers `/messagerie/connexion` |
+| `app/(auth)/connexion/page.tsx` | Redirection automatique vers `/messagerie` si compte messagerie |
+
+---
+
+### 3. ADMINISTRATION (Super Admin)
+
+#### 3.1 Tables SQL ajoutées
+
+| Table | Rôle |
+|-------|------|
+| `admin_config` | Stocke le mot de passe admin (`key` = `admin_password`) |
+
+#### 3.2 Flux complet
+
+```
+Staff connecté → NavigationGrid → Bouton « ADMIN »
+         ↓
+/staff/admin-verification (mot de passe)
+         ↓
+createStaffClient() → lit admin_config dans Supabase
+         ↓
+sessionStorage.setItem("admin_authenticated", "true")
+         ↓
+/staff/admin-dashboard (stats globales)
+```
+
+#### 3.3 Fichiers créés pour l’administration
+
+| Fichier | Rôle |
+|---------|------|
+| `app/staff/admin-verification/page.tsx` | Page de vérification par mot de passe |
+| `app/staff/admin-dashboard/page.tsx` | Dashboard admin (stats globales) |
+| `app/api/admin/stats/route.ts` | API de statistiques globales |
+
+#### 3.4 Modifications existantes
+
+| Fichier | Action |
+|---------|--------|
+| `app/staff/components/dashboard/NavigationGrid.tsx` | Ajout du bouton « ADMIN » dans quickActions |
+
+---
+
+### 4. RÉSUMÉ DES API CRÉÉES
+
+| API | Méthode | Rôle |
+|-----|---------|------|
+| `/api/messagerie/request` | POST | Demande d’inscription |
+| `/api/messagerie/approve` | POST | Approbation par admin |
+| `/api/messagerie/confirm` | GET | Confirmation email |
+| `/api/messagerie/set-password` | POST | Définition du mot de passe |
+| `/api/staff/messagerie-requests` | GET | Liste des demandes |
+| `/api/admin/stats` | GET | Statistiques globales |
+
+---
+
+### 5. STRUCTURE FINALE DES DOSSIERS
+
+```
+app/
+┣━ (admin)/                           ← (abandonné, plus utilisé)
+┣━ (auth)/
+┃  ┣━ connexion/page.tsx              ← MODIFIÉ (redirection messagerie)
+┃  ┗━ ...
+┣━ (public)/
+┃  ┣━ communication/page.tsx          ← MODIFIÉ (terminal privé)
+┃  ┣━ messagerie/
+┃  ┃  ┣━ connexion/page.tsx           ← CRÉÉ
+┃  ┃  ┣━ inscription/page.tsx         ← CRÉÉ
+┃  ┃  ┗━ set-password/page.tsx        ← CRÉÉ
+┃  ┗━ ...
+┣━ api/
+┃  ┣━ admin/
+┃  ┃  ┗━ stats/route.ts               ← CRÉÉ
+┃  ┣━ messagerie/
+┃  ┃  ┣━ approve/route.ts             ← CRÉÉ
+┃  ┃  ┣━ confirm/route.ts             ← CRÉÉ
+┃  ┃  ┣━ request/route.ts             ← CRÉÉ
+┃  ┃  ┗━ set-password/route.ts        ← CRÉÉ
+┃  ┗━ staff/
+┃     ┗━ messagerie-requests/route.ts ← CRÉÉ
+┗━ staff/
+   ┣━ admin-dashboard/page.tsx        ← CRÉÉ
+   ┣━ admin-verification/page.tsx     ← CRÉÉ
+   ┣━ components/dashboard/
+   ┃  ┗━ NavigationGrid.tsx           ← MODIFIÉ (bouton ADMIN)
+   ┗━ messagerie-requests/page.tsx    ← CRÉÉ
+```
+
+---
+
+### 6. SCRIPT SQL FINAL (AJOUTS)
+
+```sql
+-- Tables pour messagerie privée
+CREATE TABLE pending_messagerie_requests (...);
+CREATE TABLE messagerie_accounts (...);
+
+-- Table pour administration
+CREATE TABLE admin_config (...);
+INSERT INTO admin_config (key, value) VALUES ('admin_password', 'AdminVGD2026!');
+```
+
+---
+
+### 7. LIENS UTILES
+
+| Service | URL |
+|---------|-----|
+| Messagerie inscription | `https://vagondys.com/messagerie/inscription` |
+| Messagerie connexion | `https://vagondys.com/messagerie/connexion` |
+| Interface staff (demandes messagerie) | `https://staff.vagondys.com/staff/messagerie-requests` |
+| Admin verification | `https://staff.vagondys.com/staff/admin-verification` |
+| Admin dashboard | `https://staff.vagondys.com/staff/admin-dashboard` |
+
+---
+
+### 8. MOTS DE PASSE PAR DÉFAUT
+
+| Service | Mot de passe |
+|---------|--------------|
+| Admin (super admin) | `AdminVGD2026!` |
+
+---
+
+**Ce prompt décrit l’intégralité des fonctionnalités de messagerie privée et d’administration ajoutées au projet VAGONDYS.**
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Users,
+  Building2,
+  MessageSquare,
+  Database,
+  Activity,
+  AlertTriangle,
+  RefreshCcw
+} from "lucide-react";
+
+interface GlobalStats {
+  totalAthletes: number;
+  totalCities: number;
+  totalStaff: number;
+  totalMessages: number;
+  pendingMessagerieRequests: number;
+  activeAthletes: number;
+  newAthletesThisMonth: number;
+}
+
+interface CityStats {
+  name: string;
+  country: string;
+  athletes: number;
+  active: number;
+  messages: number;
+}
+
+export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [globalStats, setGlobalStats] = useState<GlobalStats>({
+    totalAthletes: 0,
+    totalCities: 0,
+    totalStaff: 0,
+    totalMessages: 0,
+    pendingMessagerieRequests: 0,
+    activeAthletes: 0,
+    newAthletesThisMonth: 0
+  });
+  const [cityStats, setCityStats] = useState<CityStats[]>([]);
+
+  // Fonction de chargement des stats
+  const loadStats = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/admin/stats");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur chargement stats");
+      }
+
+      setGlobalStats(data.global);
+      setCityStats(data.cities || []);
+    } catch (err) {
+      console.error("Erreur loadStats:", err);
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Vérifier l’authentification admin (via sessionStorage) et charger les stats
+  useEffect(() => {
+    const init = async () => {
+      const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
+      if (!isAuthenticated) {
+        router.push("/staff/admin-verification");
+        return;
+      }
+      await loadStats();
+    };
+    init();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCcw className="w-8 h-8 text-red-600 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      
+      {/* En-tête */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black uppercase tracking-tighter">
+            Tableau de bord <span className="text-red-600">Global</span>
+          </h1>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+            Vue d&apos;ensemble de l&apos;ensemble du réseau VAGONDYS
+          </p>
+        </div>
+        <button
+          onClick={loadStats}
+          className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest"
+        >
+          <RefreshCcw className="w-4 h-4" />
+          Actualiser
+        </button>
+      </div>
+
+      {/* Erreur */}
+      {error && (
+        <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
+          <AlertTriangle className="w-5 h-5" />
+          <p className="text-[10px] font-black uppercase tracking-widest">{error}</p>
+        </div>
+      )}
+
+      {/* Cartes statistiques globales */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-blue-500/10 rounded-xl">
+              <Users className="w-5 h-5 text-blue-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Athlètes</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.totalAthletes}</p>
+          <p className="text-[8px] text-green-500 mt-1">+{globalStats.newAthletesThisMonth} ce mois</p>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-green-500/10 rounded-xl">
+              <Activity className="w-5 h-5 text-green-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Actifs</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.activeAthletes}</p>
+          <p className="text-[8px] text-zinc-600 mt-1">
+            {globalStats.totalAthletes > 0 
+              ? Math.round((globalStats.activeAthletes / globalStats.totalAthletes) * 100) 
+              : 0}% du total
+          </p>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-purple-500/10 rounded-xl">
+              <Building2 className="w-5 h-5 text-purple-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Villes</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.totalCities}</p>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-yellow-500/10 rounded-xl">
+              <MessageSquare className="w-5 h-5 text-yellow-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Messages</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.totalMessages}</p>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-red-500/10 rounded-xl">
+              <Users className="w-5 h-5 text-red-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Staff</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.totalStaff}</p>
+        </div>
+
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-orange-500/10 rounded-xl">
+              <Database className="w-5 h-5 text-orange-500" />
+            </div>
+            <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Demandes</span>
+          </div>
+          <p className="text-2xl font-black text-white">{globalStats.pendingMessagerieRequests}</p>
+          <p className="text-[8px] text-zinc-600 mt-1">Messagerie en attente</p>
+        </div>
+      </div>
+
+      {/* Tableau des villes */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+        <div className="p-5 border-b border-zinc-800">
+          <h2 className="text-sm font-black uppercase tracking-tighter">
+            Statistiques <span className="text-red-600">par ville</span>
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-black/30">
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Ville</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Athlètes</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Actifs</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Messages</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Taux</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cityStats.map((city, idx) => {
+                const rate = city.athletes > 0 
+                  ? Math.round((city.active / city.athletes) * 100) 
+                  : 0;
+                return (
+                  <tr key={idx} className="border-b border-zinc-800/50 hover:bg-white/5 transition-colors">
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white">{city.name}</span>
+                        <span className="text-[8px] text-zinc-600">{city.country}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm font-black text-white">{city.athletes}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm font-black text-green-500">{city.active}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm font-black text-yellow-500">{city.messages}</span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full w-(--rate-width)"
+                            data-percentage={`${rate}%`}
+                          />
+                        </div>
+                        <span className="text-[8px] text-zinc-500">{rate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

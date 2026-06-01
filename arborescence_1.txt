@@ -1535,6 +1535,10 @@ VAGONDYS/
 ┃  ┃     ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ staff/                                       ✅ EXISTANT
+┃  ┃  ┣━ admin-dashboard/                          ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ admin-verification/                       ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ competitions/                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ components/                               ✅ EXISTANT

@@ -64,7 +64,8 @@ export default function AdminVerificationPage() {
     if (password.trim() === adminPasswordHash) {
       // Stocker dans sessionStorage que l'admin est authentifié
       sessionStorage.setItem("admin_authenticated", "true");
-      router.push("/staff/admin-dashboard");
+      // Redirection vers le nouveau chemin du dashboard admin
+      router.push("/staff/admin/dashboard");
     } else {
       setError("Mot de passe incorrect.");
       setPassword("");
