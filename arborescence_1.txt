@@ -1372,10 +1372,6 @@ VAGONDYS/
 ┃  ┗━ staff-actions.ts                             ✅ EXISTANT (Contient le Server Action)
 ┃
 ┣━ app/                                            ✅ EXISTANT
-┃  ┣━ (admin)/                                     ✅ EXISTANT
-┃  ┃  ┣━ dashboard/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┗━ layout.tsx                                ✅ EXISTANT
 ┃  ┣━ (auth)/                                      ✅ EXISTANT
 ┃  ┃  ┣━ activation-reussie/                       ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
@@ -1465,10 +1461,6 @@ VAGONDYS/
 ┃  ┃  ┣━ tournois/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
-┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
-┃  ┃
-┃  ┣━ admin-login/                                 ✅ EXISTANT
-┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
 ┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT
