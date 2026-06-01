@@ -113,6 +113,12 @@ export async function proxy(request: NextRequest) {
   if (host.includes('admin.vagondys.com')) {
     console.log(`👑 Sous-domaine admin détecté: ${host}${pathname}`)
     
+    // 🔍 LOG : Afficher tous les cookies reçus
+    console.log(`🔍 Cookies reçus pour admin:`)
+    request.cookies.getAll().forEach(cookie => {
+      console.log(`   - ${cookie.name}: ${cookie.value.substring(0, 50)}...`)
+    })
+    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -129,7 +135,12 @@ export async function proxy(request: NextRequest) {
       }
     )
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser()
+    
+    // 🔍 LOG : Résultat de getUser()
+    console.log(`🔍 getUser() result:`)
+    console.log(`   - user: ${user?.email || 'null'}`)
+    console.log(`   - error: ${getUserError?.message || 'none'}`)
     
     const userEmail = user?.email?.toLowerCase() || null
     const isAdminLoginPage = pathname === '/admin/login'
@@ -138,6 +149,9 @@ export async function proxy(request: NextRequest) {
     
     // Vérifier que l'utilisateur est admin@vagondys.com
     const isAdminUser = userEmail === 'admin@vagondys.com'
+    
+    // 🔍 LOG : Décision du middleware
+    console.log(`🔍 Décision admin: isAdminUser=${isAdminUser}, isAdminLoginPage=${isAdminLoginPage}, pathname=${pathname}`)
     
     if (!isAdminUser && !isAdminLoginPage && !isAdminApi && !isAdminStatic) {
       console.log(`🔒 Admin non authentifié, redirection vers /admin/login`)
