@@ -96,11 +96,12 @@ export default function NavigationGrid({
       border: "border-yellow-500/20"
     },
     // 👇 ADMIN - Supervision globale
+    // ✅ CORRECTION : Nouveau chemin vers la page de vérification admin
     {
       id: 'quick-admin',
       title: "ADMIN",
       description: "Supervision globale",
-      href: "/staff/admin-verification",
+      href: "/staff/admin/verification",
       icon: ShieldCheck,
       color: "text-red-600",
       bg: "bg-red-600/10",
