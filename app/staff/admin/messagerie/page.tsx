@@ -38,6 +38,7 @@ interface MessagerieRequest {
   reviewed_at: string | null;
   created_at: string;
   dossier_ref?: string | null;
+  city?: string | null;
   // ✅ AJOUT : Champs KBis
   kbis_url?: string | null;
   kbis_key?: string | null;
@@ -66,6 +67,26 @@ interface ConversationMessage {
   sender_name: string;
   is_staff: boolean;
   file_url?: string | null;
+}
+
+// ✅ Interface pour les réponses staff
+interface StaffReply {
+  id: string;
+  created_at: string;
+  agent_email: string;
+  content: string;
+  dossier_ref: string;
+  document_url?: string | null;
+}
+
+// Interface pour les données brutes de l'API (remplacement de any)
+interface StaffReplyRaw {
+  id: string;
+  created_at: string;
+  agent_email: string;
+  content: string;
+  dossier_ref: string;
+  document_url?: string | null;
 }
 
 // ✅ FONCTION DE FORMATAGE DE DATE
@@ -137,7 +158,7 @@ export default function AdminMessageriePage() {
   const [modalReplyContent, setModalReplyContent] = useState("");
   const [modalSendingReply, setModalSendingReply] = useState(false);
 
-  // ✅ ÉTATS POUR L'ARCHIVAGE GITHUB (suppression de isArchiving/setIsArchiving inutilisés)
+  // ✅ ÉTATS POUR L'ARCHIVAGE GITHUB
   const [searchGitHubRef, setSearchGitHubRef] = useState("");
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoringRef, setRestoringRef] = useState<string | null>(null);
@@ -154,7 +175,6 @@ export default function AdminMessageriePage() {
       const response = await fetch("/api/staff/messagerie-requests");
       
       if (!response.ok) {
-        // ✅ GESTION DE L'ERREUR 401 (non authentifié)
         if (response.status === 401) {
           router.push("/staff/admin/verification");
           return;
@@ -220,6 +240,27 @@ export default function AdminMessageriePage() {
     }
   };
 
+  // ✅ RÉCUPÉRER LES RÉPONSES STAFF (communication_replies)
+  const getStaffReplies = async (dossierRef: string): Promise<StaffReply[]> => {
+    try {
+      const response = await fetch(`/api/staff/history?ref=${encodeURIComponent(dossierRef)}`);
+      if (response.ok) {
+        const data = await response.json();
+        return (data.history || []).map((h: StaffReplyRaw) => ({
+          id: h.id,
+          created_at: h.created_at,
+          agent_email: h.agent_email,
+          content: h.content,
+          dossier_ref: dossierRef,
+          document_url: h.document_url || null
+        }));
+      }
+    } catch (err) {
+      console.warn("Erreur récupération réponses staff:", err);
+    }
+    return [];
+  };
+
   // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION
   const loadConversationMessages = useCallback(async (email: string) => {
     setLoadingMessages(true);
@@ -246,7 +287,7 @@ export default function AdminMessageriePage() {
     }
   }, []);
 
-  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire) - Version standard
+  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire)
   const handleSendReply = async () => {
     if (!selectedRequest || !replyContent.trim()) return;
     
@@ -266,7 +307,6 @@ export default function AdminMessageriePage() {
       
       if (!sendResponse.ok) throw new Error("Erreur envoi message");
       
-      // Recharger les messages
       await loadConversationMessages(selectedRequest.email);
       setReplyContent("");
       
@@ -295,7 +335,6 @@ export default function AdminMessageriePage() {
       
       if (!sendResponse.ok) throw new Error("Erreur envoi message");
       
-      // Recharger les messages dans le modal
       const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${modalConversationId}`);
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
@@ -306,7 +345,6 @@ export default function AdminMessageriePage() {
         setModalMessages(formattedMessages);
       }
       
-      // Recharger aussi dans la vue compacte
       await loadConversationMessages(selectedRequest.email);
       setModalReplyContent("");
       
@@ -474,7 +512,7 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort)
+  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort) - VERSION CORRIGÉE
   const handleArchiveToGitHub = async (request: MessagerieRequest) => {
     if (!request.dossier_ref) {
       alert("Ce dossier n'a pas encore de référence. Approuvez-le d'abord.");
@@ -485,7 +523,7 @@ export default function AdminMessageriePage() {
     
     setProcessingId(request.id);
     try {
-      // Récupérer les messages de la conversation
+      // 1. Récupérer les messages de la conversation
       const conversationId = await getConversationId(request.email);
       let conversationMessages: ConversationMessage[] = [];
       
@@ -500,7 +538,10 @@ export default function AdminMessageriePage() {
         }
       }
       
-      // Construire le payload pour l'archivage
+      // 2. Récupérer les réponses staff
+      const staffReplies = await getStaffReplies(request.dossier_ref);
+      
+      // 3. Construire le payload pour l'archivage (format compatible avec l'API)
       const archivePayload = {
         message: {
           dossier_ref: request.dossier_ref,
@@ -508,28 +549,26 @@ export default function AdminMessageriePage() {
           payload: {
             name: request.full_name,
             email: request.email,
+            phone: request.phone || null,
+            subject: "MESSAGERIE_REQUEST",
+            message: request.reason,
             company: request.company,
-            phone: request.phone,
-            reason: request.reason,
             kbis_url: request.kbis_url,
             kbis_key: request.kbis_key,
             kbis_validated: request.kbis_validated,
             kbis_scan_result: request.kbis_scan_result,
             status: request.status,
             reviewed_by: request.reviewed_by,
-            reviewed_at: request.reviewed_at
+            reviewed_at: request.reviewed_at,
+            messages_history: conversationMessages.filter(m => !m.is_staff).map(m => ({
+              content: m.content,
+              created_at: m.created_at
+            }))
           }
         },
-        history: conversationMessages.filter(m => m.is_staff).map(m => ({
-          id: m.id,
-          created_at: m.created_at,
-          agent_email: m.sender_email,
-          content: m.content,
-          document_url: m.file_url || null,
-          dossier_ref: request.dossier_ref
-        })),
+        history: staffReplies,
         purgeActive: true,
-        city_code: "MASTER",
+        city_code: request.city || "MASTER",
         country_code: "FR",
         fullThread: conversationMessages.map(m => ({
           role: m.is_staff ? "staff" : "public",
@@ -539,6 +578,8 @@ export default function AdminMessageriePage() {
           document_url: m.file_url || null
         }))
       };
+      
+      console.log(`📦 Archivage GitHub pour ${request.dossier_ref} avec purgeActive=true`);
       
       const response = await fetch("/api/archive-external", {
         method: "POST",
@@ -552,9 +593,16 @@ export default function AdminMessageriePage() {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
       
-      // Rafraîchir la liste
+      // ✅ Vérifier que la purge a bien été effectuée
+      if (result.purged === true) {
+        console.log(`✅ Purge effectuée pour ${request.dossier_ref}`);
+      } else {
+        console.warn(`⚠️ Purge non confirmée pour ${request.dossier_ref}, résultat:`, result);
+      }
+      
+      // Rafraîchir la liste (la demande devrait disparaître)
       await loadRequests();
-      alert(`Dossier ${request.dossier_ref} archivé avec succès dans le Coffre-Fort GitHub.`);
+      alert(`Dossier ${request.dossier_ref} archivé avec succès dans le Coffre-Fort GitHub et purgé des données locales.`);
       
     } catch (err) {
       console.error("Erreur archivage GitHub:", err);
@@ -575,7 +623,6 @@ export default function AdminMessageriePage() {
     setRestoringRef(searchGitHubRef.trim().toUpperCase());
     
     try {
-      // Appel à l'API de restauration
       const response = await fetch("/api/archive-external/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -592,7 +639,6 @@ export default function AdminMessageriePage() {
         throw new Error(result.error || "Erreur lors de la restauration");
       }
       
-      // Rafraîchir la liste
       await loadRequests();
       alert(`Dossier ${searchGitHubRef.trim().toUpperCase()} restauré avec succès depuis le Coffre-Fort GitHub.`);
       setSearchGitHubRef("");
@@ -857,7 +903,6 @@ export default function AdminMessageriePage() {
                               <p className="text-[10px] text-zinc-400">
                                 <strong className="text-white">Société:</strong> {request.company || "Non renseigné"}
                               </p>
-                              {/* ✅ AJOUT : Affichage du N° Dossier / Référence */}
                               <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
                                 <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
                                 <span className="font-mono text-white">{request.dossier_ref || "En attente d'approbation"}</span>
@@ -873,7 +918,6 @@ export default function AdminMessageriePage() {
                               </div>
                             </div>
                             
-                            {/* ✅ AFFICHAGE DU KBis */}
                             {request.kbis_url && (
                               <div className="space-y-2">
                                 <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
@@ -908,7 +952,6 @@ export default function AdminMessageriePage() {
                               </div>
                             )}
                             
-                            {/* ✅ ACTIONS SUPPRÉMENTAIRES */}
                             <div className="flex flex-wrap gap-2">
                               {request.status !== "pending" && (
                                 <button
@@ -930,7 +973,6 @@ export default function AdminMessageriePage() {
                                 Supprimer définitivement
                               </button>
                               
-                              {/* ✅ BOUTON COFFRE-FORT GITHUB */}
                               <button
                                 onClick={() => handleArchiveToGitHub(request)}
                                 disabled={processingId === request.id || !request.dossier_ref}
@@ -951,7 +993,6 @@ export default function AdminMessageriePage() {
                                 Échanges avec le demandeur
                               </h4>
                               <div className="flex items-center gap-2">
-                                {/* ✅ BOUTON POUR AGRANDIR */}
                                 <button
                                   onClick={() => openExpandedModal(request)}
                                   className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
@@ -963,7 +1004,6 @@ export default function AdminMessageriePage() {
                               </div>
                             </div>
                             
-                            {/* Messages existants */}
                             <div className="bg-black/30 rounded-xl border border-zinc-800 p-3 max-h-[300px] overflow-y-auto space-y-3">
                               {loadingMessages ? (
                                 <div className="text-center py-4">
@@ -1009,7 +1049,6 @@ export default function AdminMessageriePage() {
                               )}
                             </div>
                             
-                            {/* ✅ Formulaire de réponse - TOUJOURS AFFICHÉ */}
                             <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
                               <textarea
                                 value={replyContent}
@@ -1036,7 +1075,6 @@ export default function AdminMessageriePage() {
                           </div>
                         </div>
                         
-                        {/* Actions principales (Approuver/Refuser) */}
                         {request.status === "pending" && (
                           <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-800">
                             <button
@@ -1078,12 +1116,11 @@ export default function AdminMessageriePage() {
         </div>
       </div>
 
-      {/* ✅ MODAL D'EXPANSION POUR LE FIL DE DISCUSSION */}
+      {/* MODAL D'EXPANSION POUR LE FIL DE DISCUSSION */}
       {isModalOpen && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={closeExpandedModal} />
           <div className="relative w-full max-w-4xl max-h-[90vh] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col">
-            {/* En-tête du modal */}
             <div className="flex items-center justify-between p-5 border-b border-zinc-800">
               <div>
                 <h2 className="text-lg font-black uppercase tracking-tighter">
@@ -1102,7 +1139,6 @@ export default function AdminMessageriePage() {
               </button>
             </div>
             
-            {/* Corps du modal - Liste des messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[60vh]">
               {modalMessages.length === 0 ? (
                 <div className="text-center py-8">
@@ -1156,7 +1192,6 @@ export default function AdminMessageriePage() {
               )}
             </div>
             
-            {/* Zone de saisie */}
             <div className="p-5 border-t border-zinc-800 space-y-3">
               <textarea
                 value={modalReplyContent}
