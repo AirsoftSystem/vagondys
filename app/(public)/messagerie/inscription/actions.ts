@@ -22,7 +22,7 @@ interface ScanResult {
  * 
  * Copie le modèle de contact/actions.ts qui fonctionne parfaitement
  * - Récupère le token Turnstile directement via formData (pas de stockage React)
- * - Ne vérifie PAS le token auprès de Cloudflare (comme Contact)
+ * - Vérifie UNIQUEMENT l'existence du token (pas de vérification Cloudflare, comme Contact)
  * - Gère l'upload KBis, le scan antivirus, l'insertion en base et les emails
  */
 export async function submitMessagerieRequest(formData: FormData) {
@@ -43,7 +43,8 @@ export async function submitMessagerieRequest(formData: FormData) {
   // ==========================================================
   const turnstileToken = formData.get("cf-turnstile-response");
   
-  // Vérification que le token existe (pas de vérification Cloudflare, comme Contact)
+  // ✅ UNIQUEMENT vérification de l'existence du token (pas de validation Cloudflare)
+  // Comme dans contact/actions.ts, on ne fait PAS d'appel à Cloudflare
   if (!turnstileToken) {
     console.error("❌ Token Turnstile manquant");
     redirect("/messagerie/inscription?error=security_error");
