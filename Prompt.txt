@@ -1157,4 +1157,23 @@ export default function AdminDashboardPage() {
 
 
 
-ALTER TABLE pending_messagerie_requests ADD COLUMN reference TEXT;
+Analyse les images car tout est parfaitement rempli et le : "Captchat > Cloudflare > VALIDE" , et pourtant : "Échec de la validation anti-bot" , ou est-ce du parce que l'on a pas encore mis à jour : "IA & Antivirus" comme cité auparavant : "6.3. Validation antivirus
+Options possibles :
+ClamAV (open-source) – Installation sur le serveur
+VirusTotal API (payant) – Appel API externe
+Cloudflare Scanner (intégré à R2)
+6.4. Validation IA (authenticité du document)
+Vérifier que le fichier n’est pas corrompu
+Extraire les métadonnées
+Option : appeler une API externe (ex: Google Document AI, AWS Textract) > 1. Frontend → upload fichier vers /api/upload-temp (existe déjà)
+2. Frontend → submit formulaire avec URL du fichier
+3. API /messagerie/request → valider le fichier (antivirus + IA)
+4. Si valide → stocker définitivement dans R2, sauvegarder URL
+5. Si invalide → rejeter la demande, supprimer le fichier temporaire" ou "Tu proposais aussi dans associer 3 voir plus pour une solution Hyper Top Protection , donc tu vas réanalyser très profondément les fichiers et codes et ensuite réfléchir bien avant de faire quoi que ce soit et ensuite quel(s) fichier(s) corriger , mais ne fais aucun code ici
+
+
+
+
+
+
+
