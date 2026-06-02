@@ -53,7 +53,9 @@ function sanitizeFilename(filename: string): string {
  *   - file: File
  *   - context: 'contact' | 'staff'
  *   - dossierRef?: string (optionnel)
- *   - cf-turnstile-response?: string (pour public)
+ * 
+ * ✅ CORRECTION : Suppression de la vérification Turnstile (comme dans Contact)
+ * La vérification est désormais faite par la Server Action lors de la soumission finale
  */
 export async function POST(req: NextRequest) {
   try {
@@ -71,7 +73,6 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null;
     const context = formData.get('context') as string | null;
     const dossierRef = formData.get('dossierRef') as string | null;
-    const turnstileToken = formData.get('cf-turnstile-response') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'Fichier manquant' }, { status: 400 });
@@ -81,27 +82,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Contexte invalide (contact ou staff requis)' }, { status: 400 });
     }
 
-    // 3. Vérification Turnstile pour le contexte public
-    if (context === 'contact') {
-      if (!turnstileToken) {
-        return NextResponse.json({ error: 'Validation Turnstile requise' }, { status: 400 });
-      }
-
-      const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-      if (turnstileSecret) {
-        const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ secret: turnstileSecret, response: turnstileToken }),
-        });
-        const verifyData = await verifyRes.json();
-        if (!verifyData.success) {
-          return NextResponse.json({ error: 'Validation Turnstile échouée' }, { status: 403 });
-        }
-      }
-    }
-
-    // 4. Validation du fichier
+    // 3. Validation du fichier
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: `Type de fichier non supporté. Types acceptés : ${ALLOWED_MIME_TYPES.join(', ')}` },
@@ -116,14 +97,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Préparation des paramètres pour R2Client.uploadPlayerDocument
+    // 4. Préparation des paramètres pour R2Client.uploadPlayerDocument
     // Signature exacte : (playerId, city, category, file, originalFilename)
     const playerId = dossierRef && dossierRef !== 'temp' ? dossierRef : `temp_${Date.now()}`;
     const city = context; // 'contact' ou 'staff'
     const category = 'temp';
     const originalFilename = sanitizeFilename(file.name);
 
-    // 6. Upload vers R2 (via R2Client existant)
+    // 5. Upload vers R2 (via R2Client existant)
     const { key, signedUrl } = await R2Client.uploadPlayerDocument(
       playerId,
       city,
@@ -132,7 +113,7 @@ export async function POST(req: NextRequest) {
       originalFilename
     );
 
-    // 7. Retourner l’URL signée
+    // 6. Retourner l’URL signée
     return NextResponse.json({
       success: true,
       key,
