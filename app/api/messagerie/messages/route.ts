@@ -165,6 +165,8 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/messagerie/messages
  * Envoie un nouveau message
+ * 
+ * ✅ AJOUT : Notification email au partenaire lorsque le staff envoie un message
  */
 export async function POST(request: NextRequest) {
   try {
@@ -288,8 +290,62 @@ export async function POST(request: NextRequest) {
       // Non bloquant
     }
 
-    // 8. Envoyer une notification email (optionnel)
-    // Si le message vient d’un partenaire, notifier le staff
+    // ✅ 8. Envoyer une notification email au partenaire lorsque le staff envoie un message
+    // Si le message vient du staff, notifier le partenaire
+    if (isStaff) {
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+      const participantEmail = conversation.participant_email;
+      const participantName = conversation.participant_name;
+      
+      // Ne pas inclure le contenu du message dans l'email pour des raisons de sécurité
+      const notificationHtml = `
+        <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
+          <div style="margin-bottom:30px;">
+            <div style="display:inline-block; padding:10px 20px; border:1px solid #dc2626; border-radius:8px; margin-bottom:20px;">
+              <span style="color:#dc2626; font-size:12px; font-weight:900; letter-spacing:3px;">VAGONDYS</span>
+            </div>
+          </div>
+          <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic; margin-bottom:20px;">
+            Nouveau <span style="color:#22c55e;">message</span>
+          </h1>
+          <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
+            Référence Dossier : ${conversation.dossier_ref}
+          </p>
+          <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+            <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">
+              Vous avez reçu un nouveau message de la part de l'équipe VAGONDYS.
+            </p>
+            <p style="font-size:11px; color:#a1a1aa; line-height:1.6;">
+              Connectez-vous à votre messagerie privée pour consulter et répondre à ce message.
+            </p>
+          </div>
+          <a href="${frontendUrl}/messagerie" style="background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block; margin:20px 0;">
+            ACCÉDER À MA MESSAGERIE
+          </a>
+          <p style="margin-top:30px; font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
+            Cet email est généré automatiquement. Merci de ne pas y répondre.
+          </p>
+          <hr style="margin:30px 0; border-color:#18181b;" />
+          <p style="font-size:7px; color:#52525b;">
+            VAGONDYS - Messagerie sécurisée
+          </p>
+        </div>
+      `;
+
+      const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${frontendUrl}/messagerie\n\nRéférence dossier : ${conversation.dossier_ref}`;
+
+      await sendGeneralEmail(
+        participantEmail,
+        "📩 VAGONDYS - Nouveau message dans votre messagerie",
+        textContent,
+        notificationHtml,
+        "no-reply@vagondys.com"
+      ).catch(console.error);
+      
+      console.log(`📧 Email de notification envoyé à ${participantEmail} (nouveau message staff)`);
+    }
+    
+    // Si le message vient d’un partenaire, notifier le staff (conserve l'existant)
     if (!isStaff) {
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
       

@@ -18,6 +18,9 @@ interface MessageInputProps {
 
 /**
  * Composant de saisie de message avec upload de fichiers intégré
+ * 
+ * ✅ CORRECTION : La touche Entrée crée une nouvelle ligne (comportement natif du textarea)
+ * ✅ Envoi uniquement via le bouton ou Ctrl+Entrée / Cmd+Entrée
  */
 export default function MessageInput({
   dossierRef,
@@ -45,11 +48,15 @@ export default function MessageInput({
     }
   };
 
+  // ✅ CORRECTION : Entrée seule = nouvelle ligne (comportement par défaut)
+  // ✅ Ctrl+Entrée ou Cmd+Entrée = envoie le message
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Ctrl+Enter (Windows/Linux) ou Cmd+Enter (Mac) → envoie
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       handleSend();
     }
+    // Enter seul → ne fait rien de spécial (comportement natif = nouvelle ligne)
   };
 
   const handleFileUpload = (data: { url: string; key: string }) => {
@@ -90,8 +97,8 @@ export default function MessageInput({
           onClick={handleSend}
           disabled={isDisabled || (!message.trim() && !uploadedFileUrl)}
           className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed px-5 rounded-xl transition-all flex items-center justify-center"
-          title="Envoyer le message"
-          aria-label="Envoyer le message"
+          title="Envoyer le message (Ctrl+Entrée)"
+          aria-label="Envoyer le message (Ctrl+Entrée)"
         >
           {isSending ? (
             <RefreshCcw className="w-4 h-4 animate-spin" />

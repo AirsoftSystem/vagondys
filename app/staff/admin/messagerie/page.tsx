@@ -20,7 +20,8 @@ import {
   Trash2,
   RotateCcw,
   Eye,
-  Reply
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -126,7 +127,13 @@ export default function AdminMessageriePage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
-  const [showReplyForm, setShowReplyForm] = useState(false);
+  
+  // ✅ ÉTAT POUR LE MODAL D'EXPANSION
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalConversationId, setModalConversationId] = useState<string | null>(null);
+  const [modalMessages, setModalMessages] = useState<ConversationMessage[]>([]);
+  const [modalReplyContent, setModalReplyContent] = useState("");
+  const [modalSendingReply, setModalSendingReply] = useState(false);
 
   // ✅ Ref pour éviter les appels multiples
   const hasLoadedRef = useRef(false);
@@ -170,7 +177,7 @@ export default function AdminMessageriePage() {
     }
   }, [router]);
 
-  // ✅ AJOUT : Vérification de l'authentification admin (sans appeler loadRequests directement)
+  // ✅ AJOUT : Vérification de l'authentification admin
   useEffect(() => {
     const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
     if (!isAuthenticated) {
@@ -178,7 +185,7 @@ export default function AdminMessageriePage() {
     }
   }, [router]);
 
-  // ✅ AJOUT : Chargement des données (séparé du useEffect de vérification)
+  // ✅ AJOUT : Chargement des données
   useEffect(() => {
     if (hasLoadedRef.current) return;
     const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
@@ -189,63 +196,72 @@ export default function AdminMessageriePage() {
     }
   }, [loadRequests]);
 
-  // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION
-  const loadConversationMessages = useCallback(async (requestId: string, email: string) => {
-    setLoadingMessages(true);
+  // ✅ RÉCUPÉRER L'ID DE CONVERSATION À PARTIR DE L'EMAIL
+  const getConversationId = async (email: string): Promise<string | null> => {
     try {
-      // Récupérer la conversation via l'API
       const response = await fetch(`/api/messagerie/conversations?email=${encodeURIComponent(email)}`);
       if (response.ok) {
         const data = await response.json();
         if (data.conversations && data.conversations.length > 0) {
-          const conversationId = data.conversations[0].id;
-          const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
-          if (messagesResponse.ok) {
-            const messagesData = await messagesResponse.json();
-            setMessages(messagesData.messages || []);
-          }
+          return data.conversations[0].id;
         }
+      }
+      return null;
+    } catch (err) {
+      console.error("Erreur récupération conversation ID:", err);
+      return null;
+    }
+  };
+
+  // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION
+  const loadConversationMessages = useCallback(async (email: string) => {
+    setLoadingMessages(true);
+    try {
+      const conversationId = await getConversationId(email);
+      if (conversationId) {
+        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
+        if (messagesResponse.ok) {
+          const messagesData = await messagesResponse.json();
+          const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+            ...msg,
+            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+          }));
+          setMessages(formattedMessages);
+        }
+      } else {
+        setMessages([]);
       }
     } catch (err) {
       console.error("Erreur chargement messages:", err);
+      setMessages([]);
     } finally {
       setLoadingMessages(false);
     }
   }, []);
 
-  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire)
+  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire) - Version standard
   const handleSendReply = async () => {
     if (!selectedRequest || !replyContent.trim()) return;
     
     setSendingReply(true);
     try {
-      // 1. Récupérer la conversation
-      const convResponse = await fetch(`/api/messagerie/conversations?email=${encodeURIComponent(selectedRequest.email)}`);
-      if (!convResponse.ok) throw new Error("Conversation introuvable");
+      const conversationId = await getConversationId(selectedRequest.email);
+      if (!conversationId) throw new Error("Conversation introuvable");
       
-      const convData = await convResponse.json();
-      if (!convData.conversations || convData.conversations.length === 0) {
-        throw new Error("Aucune conversation trouvée");
-      }
-      
-      const conversationId = convData.conversations[0].id;
-      
-      // 2. Envoyer le message
       const sendResponse = await fetch("/api/messagerie/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId,
-          content: replyContent,
+          content: replyContent.trim(),
         }),
       });
       
       if (!sendResponse.ok) throw new Error("Erreur envoi message");
       
-      // 3. Recharger les messages
-      await loadConversationMessages(selectedRequest.id, selectedRequest.email);
+      // Recharger les messages
+      await loadConversationMessages(selectedRequest.email);
       setReplyContent("");
-      setShowReplyForm(false);
       
     } catch (err) {
       console.error("Erreur envoi réponse:", err);
@@ -253,6 +269,85 @@ export default function AdminMessageriePage() {
     } finally {
       setSendingReply(false);
     }
+  };
+
+  // ✅ ENVOYER UNE RÉPONSE DEPUIS LE MODAL
+  const handleModalSendReply = async () => {
+    if (!selectedRequest || !modalReplyContent.trim() || !modalConversationId) return;
+    
+    setModalSendingReply(true);
+    try {
+      const sendResponse = await fetch("/api/messagerie/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: modalConversationId,
+          content: modalReplyContent.trim(),
+        }),
+      });
+      
+      if (!sendResponse.ok) throw new Error("Erreur envoi message");
+      
+      // Recharger les messages dans le modal
+      const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${modalConversationId}`);
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json();
+        const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+          ...msg,
+          is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+        }));
+        setModalMessages(formattedMessages);
+      }
+      
+      // Recharger aussi dans la vue compacte
+      await loadConversationMessages(selectedRequest.email);
+      setModalReplyContent("");
+      
+    } catch (err) {
+      console.error("Erreur envoi réponse modal:", err);
+      alert("Erreur lors de l'envoi de la réponse");
+    } finally {
+      setModalSendingReply(false);
+    }
+  };
+
+  // ✅ OUVRIR LE MODAL D'EXPANSION
+  const openExpandedModal = async (request: MessagerieRequest) => {
+    setSelectedRequest(request);
+    setIsModalOpen(true);
+    setModalReplyContent("");
+    
+    try {
+      const conversationId = await getConversationId(request.email);
+      if (conversationId) {
+        setModalConversationId(conversationId);
+        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
+        if (messagesResponse.ok) {
+          const messagesData = await messagesResponse.json();
+          const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+            ...msg,
+            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+          }));
+          setModalMessages(formattedMessages);
+        } else {
+          setModalMessages([]);
+        }
+      } else {
+        setModalConversationId(null);
+        setModalMessages([]);
+      }
+    } catch (err) {
+      console.error("Erreur chargement messages modal:", err);
+      setModalMessages([]);
+    }
+  };
+
+  // ✅ FERMER LE MODAL
+  const closeExpandedModal = () => {
+    setIsModalOpen(false);
+    setModalConversationId(null);
+    setModalMessages([]);
+    setModalReplyContent("");
   };
 
   // ✅ SUPPRIMER UNE DEMANDE
@@ -377,14 +472,11 @@ export default function AdminMessageriePage() {
     if (expandedRequest === request.id) {
       setExpandedRequest(null);
       setMessages([]);
-      setShowReplyForm(false);
     } else {
       setExpandedRequest(request.id);
       setSelectedRequest(request);
       setMessages([]);
-      setShowReplyForm(false);
-      // Charger les messages de la conversation
-      await loadConversationMessages(request.id, request.email);
+      await loadConversationMessages(request.email);
     }
   };
 
@@ -673,13 +765,17 @@ export default function AdminMessageriePage() {
                                 <MessageSquare className="w-3 h-3 text-red-600" />
                                 Échanges avec le demandeur
                               </h4>
-                              <button
-                                onClick={() => setShowReplyForm(!showReplyForm)}
-                                className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
-                              >
-                                <Reply className="w-3 h-3" />
-                                Répondre
-                              </button>
+                              <div className="flex items-center gap-2">
+                                {/* ✅ BOUTON POUR AGRANDIR */}
+                                <button
+                                  onClick={() => openExpandedModal(request)}
+                                  className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
+                                  title="Agrandir la conversation"
+                                >
+                                  <Maximize2 className="w-3 h-3" />
+                                  Agrandir
+                                </button>
+                              </div>
                             </div>
                             
                             {/* Messages existants */}
@@ -690,7 +786,7 @@ export default function AdminMessageriePage() {
                                 </div>
                               ) : messages.length === 0 ? (
                                 <p className="text-[8px] text-zinc-500 text-center py-4">
-                                  Aucun échange pour l&apos;instant.
+                                  Aucun échange pour l&apos;instant. Soyez le premier à répondre.
                                 </p>
                               ) : (
                                 messages.map((msg) => (
@@ -710,7 +806,7 @@ export default function AdminMessageriePage() {
                                         {new Date(msg.created_at).toLocaleString()}
                                       </span>
                                     </div>
-                                    <p className="text-[9px] text-zinc-300 wrap-break-word">
+                                    <p className="text-[9px] text-zinc-300 wrap-break-word whitespace-pre-wrap">
                                       {msg.content}
                                     </p>
                                     {msg.file_url && (
@@ -728,38 +824,30 @@ export default function AdminMessageriePage() {
                               )}
                             </div>
                             
-                            {/* Formulaire de réponse */}
-                            {showReplyForm && (
-                              <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
-                                <textarea
-                                  value={replyContent}
-                                  onChange={(e) => setReplyContent(e.target.value)}
-                                  placeholder="Saisissez votre réponse..."
-                                  rows={3}
-                                  className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-[10px] text-white focus:border-red-600 outline-none resize-none"
-                                />
-                                <div className="flex gap-2 justify-end">
-                                  <button
-                                    onClick={() => setShowReplyForm(false)}
-                                    className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-zinc-800 hover:bg-zinc-700 transition-colors"
-                                  >
-                                    Annuler
-                                  </button>
-                                  <button
-                                    onClick={handleSendReply}
-                                    disabled={sendingReply || !replyContent.trim()}
-                                    className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
-                                  >
-                                    {sendingReply ? (
-                                      <RefreshCcw className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <Send className="w-3 h-3" />
-                                    )}
-                                    Envoyer
-                                  </button>
-                                </div>
+                            {/* ✅ Formulaire de réponse - TOUJOURS AFFICHÉ */}
+                            <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
+                              <textarea
+                                value={replyContent}
+                                onChange={(e) => setReplyContent(e.target.value)}
+                                placeholder="Saisissez votre réponse..."
+                                rows={3}
+                                className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-[10px] text-white focus:border-red-600 outline-none resize-none"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={handleSendReply}
+                                  disabled={sendingReply || !replyContent.trim()}
+                                  className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                >
+                                  {sendingReply ? (
+                                    <RefreshCcw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Send className="w-3 h-3" />
+                                  )}
+                                  Envoyer
+                                </button>
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
                         
@@ -804,6 +892,118 @@ export default function AdminMessageriePage() {
           </table>
         </div>
       </div>
+
+      {/* ✅ MODAL D'EXPANSION POUR LE FIL DE DISCUSSION */}
+      {isModalOpen && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={closeExpandedModal} />
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col">
+            {/* En-tête du modal */}
+            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-tighter">
+                  Conversation avec <span className="text-red-600">{selectedRequest.full_name}</span>
+                </h2>
+                <p className="text-[8px] text-zinc-500 uppercase tracking-widest mt-1">
+                  {selectedRequest.email} • {selectedRequest.company || "Particulier"}
+                </p>
+              </div>
+              <button
+                onClick={closeExpandedModal}
+                className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                title="Fermer"
+              >
+                <Minimize2 className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+            
+            {/* Corps du modal - Liste des messages */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[60vh]">
+              {modalMessages.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageSquare className="w-8 h-8 text-zinc-700 mx-auto mb-3" />
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest">
+                    Aucun échange pour l&apos;instant.
+                  </p>
+                  <p className="text-[8px] text-zinc-600 mt-1">
+                    Soyez le premier à envoyer un message.
+                  </p>
+                </div>
+              ) : (
+                modalMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`p-3 rounded-xl ${
+                      msg.is_staff
+                        ? "bg-red-600/10 border-l-4 border-red-600 ml-4"
+                        : "bg-zinc-800/30 border-l-4 border-zinc-600 mr-4"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[8px] font-black uppercase text-zinc-500">
+                        {msg.sender_name} {msg.is_staff ? "(Staff VAGONDYS)" : "(Demandeur)"}
+                      </span>
+                      <span className="text-[7px] text-zinc-600">
+                        {new Date(msg.created_at).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-300 leading-relaxed wrap-break-word whitespace-pre-wrap">
+                      {msg.content}
+                    </p>
+                    {msg.file_url && (
+                      <a
+                        href={msg.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-[8px] text-red-600 hover:text-red-500"
+                      >
+                        📎 Voir le fichier joint
+                      </a>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Zone de saisie */}
+            <div className="p-5 border-t border-zinc-800 space-y-3">
+              <textarea
+                value={modalReplyContent}
+                onChange={(e) => setModalReplyContent(e.target.value)}
+                placeholder="Saisissez votre réponse..."
+                rows={3}
+                className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-[11px] text-white focus:border-red-600 outline-none resize-none"
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={closeExpandedModal}
+                  className="px-4 py-2 rounded-lg text-[9px] font-black uppercase bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={handleModalSendReply}
+                  disabled={modalSendingReply || !modalReplyContent.trim()}
+                  className="px-4 py-2 rounded-lg text-[9px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {modalSendingReply ? (
+                    <RefreshCcw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Send className="w-3 h-3" />
+                  )}
+                  Envoyer la réponse
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal d'approbation */}
       {showApproveModal && selectedRequest && (
