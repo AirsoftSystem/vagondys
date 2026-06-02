@@ -17,6 +17,9 @@ interface MessagerieLayoutProps {
 /**
  * Layout spécifique pour la section Messagerie
  * Ajoute une navigation contextuelle et un en-tête commun
+ * 
+ * ✅ CORRECTION : Lien Accueil redirige vers la page d'accueil publique (/)
+ * plutôt que vers l'espace joueur (réservé aux athlètes)
  */
 export default function MessagerieLayout({ children }: MessagerieLayoutProps) {
   const pathname = usePathname();
@@ -31,7 +34,7 @@ export default function MessagerieLayout({ children }: MessagerieLayoutProps) {
             {/* Fil d’Ariane */}
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
               <Link 
-                href="/espace-joueur" 
+                href="/" 
                 className="flex items-center gap-1 text-zinc-500 hover:text-white transition-colors"
               >
                 <Home className="w-3.5 h-3.5" />

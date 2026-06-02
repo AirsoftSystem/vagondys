@@ -12,14 +12,17 @@ import {
   Send, 
   ShieldCheck,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  FileText
 } from "lucide-react";
 import { Turnstile } from '@marsidev/react-turnstile';
+import FileUploader from "@/components/FileUploader";
 
 /**
  * PAGE D'INSCRIPTION À LA MESSAGERIE PRIVÉE
  * Réservée aux partenaires, fournisseurs, prestataires, etc.
  * La demande est soumise à validation par l'administrateur.
+ * * ✅ AJOUT : Champ KBis obligatoire avec upload de fichier
  */
 export default function MessagerieInscriptionPage() {
   
@@ -35,34 +38,60 @@ export default function MessagerieInscriptionPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  
+  // ✅ État pour le fichier KBis
+  const [kbisUrl, setKbisUrl] = useState<string>("");
+  const [kbisKey, setKbisKey] = useState<string>("");
+  const [kbisUploaded, setKbisUploaded] = useState(false);
+  const [kbisError, setKbisError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // ✅ Gestionnaire pour l'upload du fichier KBis
+  const handleKbisUpload = (data: { url: string; key: string }) => {
+    setKbisUrl(data.url);
+    setKbisKey(data.key);
+    setKbisUploaded(true);
+    setKbisError(null);
+    console.log("✅ KBis uploadé:", data.url);
+  };
+
+  const handleKbisError = (err: string) => {
+    setKbisError(err);
+    setKbisUploaded(false);
+    setKbisUrl("");
+    setKbisKey("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-
+    
     // Validation basique
     if (!formData.full_name.trim() || !formData.email.trim() || !formData.reason.trim()) {
       setError("Tous les champs obligatoires doivent être remplis.");
-      setLoading(false);
       return;
     }
 
     if (!formData.email.includes("@") || !formData.email.includes(".")) {
       setError("Adresse email invalide.");
-      setLoading(false);
+      return;
+    }
+
+    // ✅ Validation du fichier KBis (obligatoire)
+    if (!kbisUploaded || !kbisUrl) {
+      setError("Le justificatif KBis est obligatoire. Veuillez joindre votre extrait KBis.");
       return;
     }
 
     if (!turnstileToken) {
       setError("Veuillez compléter la vérification anti-bot.");
-      setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       const response = await fetch("/api/messagerie/request", {
@@ -71,6 +100,8 @@ export default function MessagerieInscriptionPage() {
         body: JSON.stringify({
           ...formData,
           turnstileToken,
+          kbisUrl: kbisUrl,
+          kbisKey: kbisKey,
         }),
       });
 
@@ -103,7 +134,7 @@ export default function MessagerieInscriptionPage() {
               Votre demande d&apos;accès à la messagerie privée a bien été transmise.
             </p>
             <p className="text-zinc-500 text-xs">
-      Un email de confirmation vous a été envoyé. Notre équipe examinera votre demande sous 48h.
+              Un email de confirmation vous a été envoyé. Notre équipe examinera votre demande sous 48h.
             </p>
             <Link
               href="/communication"
@@ -154,6 +185,13 @@ export default function MessagerieInscriptionPage() {
             <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
               <AlertTriangle className="w-5 h-5" />
               <p className="text-[11px] font-black uppercase tracking-widest">{error}</p>
+            </div>
+          )}
+
+          {kbisError && (
+            <div className="bg-orange-600/10 border border-orange-600/30 rounded-xl p-4 flex items-center gap-3 text-orange-500">
+              <AlertTriangle className="w-5 h-5" />
+              <p className="text-[10px] font-black uppercase tracking-widest">{kbisError}</p>
             </div>
           )}
 
@@ -235,6 +273,39 @@ export default function MessagerieInscriptionPage() {
             />
           </div>
 
+          {/* ✅ SECTION KBis (obligatoire) */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-red-600" />
+              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                Extrait KBis (obligatoire) *
+              </label>
+            </div>
+            
+            <div className="bg-black/50 border border-zinc-800 rounded-xl p-4">
+              <FileUploader
+                context="contact"
+                dossierRef="temp"
+                onUpload={handleKbisUpload}
+                onError={handleKbisError}
+                buttonText="Joindre mon extrait KBis"
+                disabled={loading}
+              />
+              
+              <div className="mt-3 text-[8px] text-zinc-600 uppercase tracking-wider">
+                <p>Formats acceptés : PDF, JPEG, PNG, WEBP (max 10 Mo)</p>
+                <p className="mt-1">Document officiel obligatoire pour validation du partenariat.</p>
+              </div>
+              
+              {kbisUploaded && (
+                <div className="mt-3 flex items-center gap-2 text-green-500">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span className="text-[8px] font-black uppercase">KBis téléchargé ✓</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Turnstile */}
           <div className="flex justify-center py-2">
             <Turnstile
@@ -247,7 +318,7 @@ export default function MessagerieInscriptionPage() {
           {/* Bouton d’envoi */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !kbisUploaded}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-5 rounded-xl uppercase tracking-[0.3em] text-[11px] transition-all flex items-center justify-center gap-3"
           >
             {loading ? (

@@ -596,6 +596,13 @@ CREATE TABLE public.pending_messagerie_requests (
     reviewed_by TEXT,
     reviewed_at TIMESTAMPTZ,
     reference TEXT,                                       -- ✅ AJOUT : Référence unique VGD-XXXXXXXX
+    
+    -- ✅ AJOUT : Colonnes pour le stockage du KBis et validation IA/antivirus
+    kbis_url TEXT,                                        -- URL du fichier KBis stocké dans R2
+    kbis_key TEXT,                                        -- Clé du fichier dans R2
+    kbis_validated BOOLEAN DEFAULT false,                 -- Validation IA (authenticité)
+    kbis_scan_result JSONB,                               -- Résultat complet du scan (antivirus + IA)
+    
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -604,7 +611,8 @@ CREATE TABLE public.pending_messagerie_requests (
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_email ON pending_messagerie_requests(email);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_messagerie_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_reference ON pending_messagerie_requests(reference);  -- ✅ AJOUT
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_reference ON pending_messagerie_requests(reference);
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_kbis_validated ON pending_messagerie_requests(kbis_validated);  -- ✅ AJOUT
 
 -- RLS
 ALTER TABLE public.pending_messagerie_requests ENABLE ROW LEVEL SECURITY;
