@@ -89,6 +89,9 @@ function MessagerieInscriptionContent() {
   const [kbisKey, setKbisKey] = useState<string>("");
   const [kbisUploaded, setKbisUploaded] = useState(false);
   const [kbisError, setKbisError] = useState<string | null>(null);
+  
+  // ✅ État pour le token Turnstile (solution explicite)
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -300,11 +303,15 @@ function MessagerieInscriptionContent() {
           {/* Champs hidden pour la Server Action */}
           <input type="hidden" name="kbisUrl" value={kbisUrl} />
           <input type="hidden" name="kbisKey" value={kbisKey} />
+          
+          {/* Champ hidden pour le token Turnstile (solution explicite) */}
+          <input type="hidden" name="cf-turnstile-response" value={turnstileToken} />
 
-          {/* Turnstile - sans onSuccess car le token est automatiquement dans formData */}
+          {/* Turnstile - avec onSuccess pour stocker le token dans l'état */}
           <div className="flex justify-center py-2">
             <Turnstile
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => setTurnstileToken(token)}
               options={{ theme: "dark", language: "fr" }}
             />
           </div>
@@ -312,7 +319,7 @@ function MessagerieInscriptionContent() {
           {/* Bouton d’envoi */}
           <button
             type="submit"
-            disabled={!kbisUploaded}
+            disabled={!kbisUploaded || !turnstileToken}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-5 rounded-xl uppercase tracking-[0.3em] text-[11px] transition-all flex items-center justify-center gap-3"
           >
             <Send className="w-4 h-4" />
