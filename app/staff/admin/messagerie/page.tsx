@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   MessageSquare,
   CheckCircle,
@@ -102,6 +103,7 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
 }
 
 export default function AdminMessageriePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requests, setRequests] = useState<MessagerieRequest[]>([]);
@@ -126,6 +128,9 @@ export default function AdminMessageriePage() {
   const [sendingReply, setSendingReply] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
 
+  // ✅ Ref pour éviter les appels multiples
+  const hasLoadedRef = useRef(false);
+
   // Charger les demandes
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -135,6 +140,11 @@ export default function AdminMessageriePage() {
       const response = await fetch("/api/staff/messagerie-requests");
       
       if (!response.ok) {
+        // ✅ GESTION DE L'ERREUR 401 (non authentifié)
+        if (response.status === 401) {
+          router.push("/staff/admin/verification");
+          return;
+        }
         const errorData = await response.json();
         throw new Error(errorData.error || "Erreur chargement demandes");
       }
@@ -158,7 +168,26 @@ export default function AdminMessageriePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
+
+  // ✅ AJOUT : Vérification de l'authentification admin (sans appeler loadRequests directement)
+  useEffect(() => {
+    const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
+    if (!isAuthenticated) {
+      router.push("/staff/admin/verification");
+    }
+  }, [router]);
+
+  // ✅ AJOUT : Chargement des données (séparé du useEffect de vérification)
+  useEffect(() => {
+    if (hasLoadedRef.current) return;
+    const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
+    if (isAuthenticated) {
+      hasLoadedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadRequests();
+    }
+  }, [loadRequests]);
 
   // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION
   const loadConversationMessages = useCallback(async (requestId: string, email: string) => {
@@ -681,8 +710,7 @@ export default function AdminMessageriePage() {
                                         {new Date(msg.created_at).toLocaleString()}
                                       </span>
                                     </div>
-                                    {/* ✅ CORRECTION : wrap-break-word → break-words */}
-                                    <p className="text-[9px] text-zinc-300  wrap-break-word">
+                                    <p className="text-[9px] text-zinc-300 wrap-break-word">
                                       {msg.content}
                                     </p>
                                     {msg.file_url && (
