@@ -76,8 +76,9 @@ export default function MessageriePage() {
     setError(null);
     
     try {
+      // ✅ CORRECTION : Utiliser l'ID de la conversation (UUID), pas le dossier_ref
       const conversationMessages = await getConversationMessages(
-        conversation.dossier_ref,
+        conversation.id,
         user.email
       );
       
@@ -85,7 +86,8 @@ export default function MessageriePage() {
       
       // Marquer comme lu automatiquement si des messages non lus
       if (conversation.unread_count > 0) {
-        await markConversationAsRead(conversation.dossier_ref);
+        // ✅ CORRECTION : Utiliser l'ID de la conversation
+        await markConversationAsRead(conversation.id);
         // Mettre à jour le compteur localement
         setConversations(prev =>
           prev.map(c =>
@@ -101,14 +103,15 @@ export default function MessageriePage() {
     }
   };
 
-  // 3. Envoyer un nouveau message (adapté pour MessageInput)
+  // 3. Envoyer un nouveau message
   const handleSendMessage = async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!selectedConversation || !user) {
       throw new Error("Conversation non sélectionnée");
     }
     
+    // ✅ CORRECTION : Utiliser l'ID de la conversation
     const result = await sendMessage({
-      dossier_ref: selectedConversation.dossier_ref,
+      conversationId: selectedConversation.id,
       content: content,
       userId: user.id,
       userEmail: user.email!,
@@ -122,7 +125,7 @@ export default function MessageriePage() {
     
     // Recharger les messages pour voir le nouveau
     const updatedMessages = await getConversationMessages(
-      selectedConversation.dossier_ref,
+      selectedConversation.id,
       user.email!
     );
     setMessages(updatedMessages);
@@ -146,8 +149,9 @@ export default function MessageriePage() {
     if (selectedConversation && user?.email) {
       setLoadingMessages(true);
       try {
+        // ✅ CORRECTION : Utiliser l'ID de la conversation
         const updatedMessages = await getConversationMessages(
-          selectedConversation.dossier_ref,
+          selectedConversation.id,
           user.email
         );
         setMessages(updatedMessages);
@@ -173,11 +177,11 @@ export default function MessageriePage() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-neutral-900">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link 
-            href="/espace-joueur" 
+            href="/" 
             className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest"
           >
             <Home className="w-4 h-4 text-red-600" />
-            Retour à l&apos;espace joueur
+            Accueil
           </Link>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-red-600" />
@@ -242,7 +246,7 @@ export default function MessageriePage() {
             {/* Zone de saisie (uniquement si une conversation est sélectionnée) */}
             {selectedConversation && (
               <MessageInput
-                dossierRef={selectedConversation.dossier_ref}
+                dossierRef={selectedConversation.id}
                 onSend={handleSendMessage}
                 disabled={loadingMessages}
                 placeholder="Saisissez votre réponse..."

@@ -751,5 +751,136 @@ VALUES ('admin_password', 'AdminVGD2026!')
 ON CONFLICT (key) DO NOTHING;
 
 -- ==========================================================
+-- 21. TABLE messagerie_conversations (Conversations de la messagerie privée)
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.messagerie_conversations CASCADE;
+CREATE TABLE public.messagerie_conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dossier_ref TEXT UNIQUE NOT NULL,
+    participant_email TEXT NOT NULL,
+    participant_name TEXT NOT NULL,
+    participant_company TEXT,
+    last_message TEXT,
+    last_message_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_messagerie_conversations_participant_email ON messagerie_conversations(participant_email);
+CREATE INDEX IF NOT EXISTS idx_messagerie_conversations_dossier_ref ON messagerie_conversations(dossier_ref);
+CREATE INDEX IF NOT EXISTS idx_messagerie_conversations_last_message_at ON messagerie_conversations(last_message_at DESC);
+
+-- RLS
+ALTER TABLE public.messagerie_conversations ENABLE ROW LEVEL SECURITY;
+
+-- Le participant peut voir ses propres conversations
+CREATE POLICY "Participant can read own conversations"
+    ON public.messagerie_conversations
+    FOR SELECT
+    TO authenticated
+    USING (auth.email() = participant_email);
+
+-- Le staff (admin) peut voir toutes les conversations
+CREATE POLICY "Staff full access conversations"
+    ON public.messagerie_conversations
+    FOR ALL
+    TO service_role
+    USING (true);
+
+CREATE POLICY "Staff authenticated read all conversations"
+    ON public.messagerie_conversations
+    FOR SELECT
+    TO authenticated
+    USING (auth.email() LIKE '%@vagondys.com');
+
+-- Trigger pour updated_at
+DROP TRIGGER IF EXISTS trigger_messagerie_conversations_updated_at ON messagerie_conversations;
+CREATE TRIGGER trigger_messagerie_conversations_updated_at
+    BEFORE UPDATE ON messagerie_conversations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ==========================================================
+-- 22. TABLE messagerie_messages (Messages de la messagerie privée)
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.messagerie_messages CASCADE;
+CREATE TABLE public.messagerie_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES messagerie_conversations(id) ON DELETE CASCADE,
+    sender_email TEXT NOT NULL,
+    sender_name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    file_url TEXT,
+    file_key TEXT,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_conversation_id ON messagerie_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_created_at ON messagerie_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_sender_email ON messagerie_messages(sender_email);
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_is_read ON messagerie_messages(is_read);
+
+-- RLS
+ALTER TABLE public.messagerie_messages ENABLE ROW LEVEL SECURITY;
+
+-- Le participant peut voir les messages de ses conversations
+CREATE POLICY "Participant can read own messages"
+    ON public.messagerie_messages
+    FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM messagerie_conversations
+            WHERE messagerie_conversations.id = messagerie_messages.conversation_id
+            AND messagerie_conversations.participant_email = auth.email()
+        )
+    );
+
+-- Le participant peut envoyer des messages
+CREATE POLICY "Participant can insert messages"
+    ON public.messagerie_messages
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM messagerie_conversations
+            WHERE messagerie_conversations.id = conversation_id
+            AND messagerie_conversations.participant_email = auth.email()
+        )
+        AND sender_email = auth.email()
+    );
+
+-- Le staff (admin) peut voir et insérer tous les messages
+CREATE POLICY "Staff full access messages"
+    ON public.messagerie_messages
+    FOR ALL
+    TO service_role
+    USING (true);
+
+CREATE POLICY "Staff authenticated read all messages"
+    ON public.messagerie_messages
+    FOR SELECT
+    TO authenticated
+    USING (auth.email() LIKE '%@vagondys.com');
+
+CREATE POLICY "Staff authenticated insert messages"
+    ON public.messagerie_messages
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.email() LIKE '%@vagondys.com');
+
+-- Mise à jour is_read (staff uniquement)
+CREATE POLICY "Staff authenticated update messages"
+    ON public.messagerie_messages
+    FOR UPDATE
+    TO authenticated
+    USING (auth.email() LIKE '%@vagondys.com');
+
+-- ==========================================================
 -- FIN DU SCRIPT
 -- ==========================================================

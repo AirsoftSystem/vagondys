@@ -7,7 +7,6 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
  * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
- * Copié depuis app/api/confirm-email/route.ts (version originale)
  */
 function generateVGDReference(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -40,7 +39,7 @@ interface PendingRequest {
  * 
  * Sécurité : Seul le staff/admin peut appeler cette API
  * 
- * ✅ CORRECTION : Génération de la référence UNIQUE ici (comme confirm-email)
+ * ✅ AJOUT : Création de la conversation initiale et message de bienvenue
  */
 export async function POST(request: NextRequest) {
   try {
@@ -138,8 +137,6 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
-
-    // ✅ CORRECTION : Utiliser l'ID tronqué pour l'affichage temporaire (pas de colonne reference)
     const displayId = requestId.substring(0, 8).toUpperCase();
 
     if (action === "reject") {
@@ -192,10 +189,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. APPROBATION DE LA DEMANDE
-    // ✅ CORRECTION : Générer la référence UNIQUE ici (fonction locale, pas d'import)
     const dossierRef = generateVGDReference();
-
-    // Génération d’un token de confirmation
     const confirmationToken = randomUUID();
 
     // Génération d'un mot de passe temporaire
@@ -257,7 +251,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 9. Mise à jour de la demande (sans champ reference qui n'existe pas)
+    // ✅ AJOUT : Créer la conversation initiale dans messagerie_conversations
+    const conversationId = randomUUID();
+    const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
+
+    const { error: createConversationError } = await supabaseAdmin
+      .from("messagerie_conversations")
+      .insert({
+        id: conversationId,
+        dossier_ref: dossierRef,
+        participant_email: requestData.email,
+        participant_name: requestData.full_name,
+        participant_company: requestData.company || null,
+        last_message: welcomeMessage,
+        last_message_at: now,
+        created_at: now,
+        updated_at: now,
+      });
+
+    if (createConversationError) {
+      console.error("Erreur création conversation:", createConversationError);
+      // Non bloquant, on continue
+    }
+
+    // ✅ AJOUT : Ajouter un message de bienvenue automatique
+    const { error: createWelcomeMessageError } = await supabaseAdmin
+      .from("messagerie_messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_email: "system@vagondys.com",
+        sender_name: "Système VAGONDYS",
+        content: welcomeMessage,
+        file_url: null,
+        file_key: null,
+        is_read: false,
+        created_at: now,
+      });
+
+    if (createWelcomeMessageError) {
+      console.error("Erreur création message de bienvenue:", createWelcomeMessageError);
+      // Non bloquant
+    }
+
+    // 9. Mise à jour de la demande
     const { error: updateError } = await supabaseAdmin
       .from("pending_messagerie_requests")
       .update({
@@ -329,7 +365,7 @@ export async function POST(request: NextRequest) {
       console.error("Erreur insertion token confirmation:", tokenError);
     }
 
-    // ✅ AJOUT : Archivage GitHub (comme pour les athlètes)
+    // 12. Archivage GitHub
     try {
       const archivePayload = {
         message: {
