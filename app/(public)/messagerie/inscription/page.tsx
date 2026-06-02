@@ -3,6 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { 
   Home, 
   Mail, 
@@ -17,14 +18,65 @@ import {
 } from "lucide-react";
 import { Turnstile } from '@marsidev/react-turnstile';
 import FileUploader from "@/components/FileUploader";
+import { submitMessagerieRequest } from "./actions";
 
 /**
  * PAGE D'INSCRIPTION À LA MESSAGERIE PRIVÉE
  * Réservée aux partenaires, fournisseurs, prestataires, etc.
  * La demande est soumise à validation par l'administrateur.
  * * ✅ AJOUT : Champ KBis obligatoire avec upload de fichier
+ * ✅ MODIFICATION : Utilisation d'une Server Action (comme le formulaire Contact)
  */
 export default function MessagerieInscriptionPage() {
+  
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
+  const statusParam = searchParams.get("status");
+  
+  // Dérivation directe de l'état success à partir du paramètre d'URL
+  const success = statusParam === "pending_validation";
+  
+  // Dérivation directe du message d'erreur à partir du paramètre d'URL
+  let error: string | null = null;
+  if (errorParam) {
+    switch (errorParam) {
+      case "security_error":
+        error = "Erreur de sécurité. Veuillez rafraîchir la page.";
+        break;
+      case "missing_name":
+        error = "Veuillez saisir votre nom complet.";
+        break;
+      case "invalid_email":
+        error = "Adresse email invalide.";
+        break;
+      case "missing_reason":
+        error = "Veuillez indiquer le motif de votre demande.";
+        break;
+      case "missing_kbis":
+        error = "L'extrait KBis est obligatoire. Veuillez joindre votre document.";
+        break;
+      case "virus_detected":
+        error = "Le fichier joint contient un virus. Demande rejetée.";
+        break;
+      case "invalid_document":
+        error = "Le document fourni n'a pas pu être validé. Veuillez joindre un KBis officiel.";
+        break;
+      case "already_pending":
+        error = "Une demande est déjà en attente de validation pour cet email.";
+        break;
+      case "already_approved":
+        error = "Un compte existe déjà pour cet email. Veuillez vous connecter.";
+        break;
+      case "db_error":
+        error = "Erreur technique. Veuillez réessayer ultérieurement.";
+        break;
+      case "config_error":
+        error = "Configuration serveur temporairement indisponible.";
+        break;
+      default:
+        error = "Une erreur est survenue. Veuillez réessayer.";
+    }
+  }
   
   const [formData, setFormData] = useState({
     full_name: "",
@@ -33,11 +85,6 @@ export default function MessagerieInscriptionPage() {
     phone: "",
     reason: "",
   });
-  
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   
   // ✅ État pour le fichier KBis
   const [kbisUrl, setKbisUrl] = useState<string>("");
@@ -63,60 +110,6 @@ export default function MessagerieInscriptionPage() {
     setKbisUploaded(false);
     setKbisUrl("");
     setKbisKey("");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    
-    // Validation basique
-    if (!formData.full_name.trim() || !formData.email.trim() || !formData.reason.trim()) {
-      setError("Tous les champs obligatoires doivent être remplis.");
-      return;
-    }
-
-    if (!formData.email.includes("@") || !formData.email.includes(".")) {
-      setError("Adresse email invalide.");
-      return;
-    }
-
-    // ✅ Validation du fichier KBis (obligatoire)
-    if (!kbisUploaded || !kbisUrl) {
-      setError("Le justificatif KBis est obligatoire. Veuillez joindre votre extrait KBis.");
-      return;
-    }
-
-    if (!turnstileToken) {
-      setError("Veuillez compléter la vérification anti-bot.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/messagerie/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          turnstileToken,
-          kbisUrl: kbisUrl,
-          kbisKey: kbisKey,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Erreur lors de l'envoi de la demande");
-      }
-
-      setSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue");
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (success) {
@@ -178,8 +171,8 @@ export default function MessagerieInscriptionPage() {
           </p>
         </div>
 
-        {/* Formulaire */}
-        <form onSubmit={handleSubmit} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 md:p-12 space-y-6">
+        {/* Formulaire - Utilisation de Server Action */}
+        <form action={submitMessagerieRequest} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 md:p-12 space-y-6">
           
           {error && (
             <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
@@ -289,7 +282,7 @@ export default function MessagerieInscriptionPage() {
                 onUpload={handleKbisUpload}
                 onError={handleKbisError}
                 buttonText="Joindre mon extrait KBis"
-                disabled={loading}
+                disabled={false}
               />
               
               <div className="mt-3 text-[8px] text-zinc-600 uppercase tracking-wider">
@@ -306,11 +299,14 @@ export default function MessagerieInscriptionPage() {
             </div>
           </div>
 
-          {/* Turnstile */}
+          {/* Champs hidden pour la Server Action */}
+          <input type="hidden" name="kbisUrl" value={kbisUrl} />
+          <input type="hidden" name="kbisKey" value={kbisKey} />
+
+          {/* Turnstile - sans onSuccess car le token est automatiquement dans formData */}
           <div className="flex justify-center py-2">
             <Turnstile
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={(token) => setTurnstileToken(token)}
               options={{ theme: "dark", language: "fr" }}
             />
           </div>
@@ -318,15 +314,11 @@ export default function MessagerieInscriptionPage() {
           {/* Bouton d’envoi */}
           <button
             type="submit"
-            disabled={loading || !kbisUploaded}
+            disabled={!kbisUploaded}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-5 rounded-xl uppercase tracking-[0.3em] text-[11px] transition-all flex items-center justify-center gap-3"
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            {loading ? "Envoi en cours..." : "Soumettre ma demande"}
+            <Send className="w-4 h-4" />
+            Soumettre ma demande
           </button>
 
           {/* Lien vers la connexion */}

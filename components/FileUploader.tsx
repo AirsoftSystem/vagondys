@@ -89,13 +89,9 @@ export default function FileUploader({
         formData.append('dossierRef', dossierRef);
       }
 
-      // Ajouter Turnstile uniquement pour le contexte public
-      if (context === 'contact') {
-        const turnstileToken = document.querySelector<HTMLInputElement>('[name="cf-turnstile-response"]')?.value;
-        if (turnstileToken) {
-          formData.append('cf-turnstile-response', turnstileToken);
-        }
-      }
+      // ✅ CORRECTION : Le token Turnstile est géré par la Server Action parente
+      // Pas besoin de le récupérer ici car /api/upload-temp n'a pas de vérification Turnstile
+      // Cette vérification sera faite par la Server Action lors de la soumission finale
 
       const response = await fetch('/api/upload-temp', {
         method: 'POST',
