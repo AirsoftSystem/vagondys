@@ -39,19 +39,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   const kbisKey = formData.get("kbisKey") as string;
   
   // ==========================================================
-  // 2. RÉCUPÉRATION DU TOKEN TURNSTILE (comme dans Contact)
-  // ==========================================================
-  const turnstileToken = formData.get("cf-turnstile-response");
-  
-  // ✅ UNIQUEMENT vérification de l'existence du token (pas de validation Cloudflare)
-  // Comme dans contact/actions.ts, on ne fait PAS d'appel à Cloudflare
-  if (!turnstileToken) {
-    console.error("❌ Token Turnstile manquant");
-    redirect("/messagerie/inscription?error=security_error");
-  }
-  
-  // ==========================================================
-  // 3. VALIDATION DES CHAMPS OBLIGATOIRES
+  // 2. VALIDATION DES CHAMPS OBLIGATOIRES
   // ==========================================================
   if (!full_name || !full_name.trim()) {
     redirect("/messagerie/inscription?error=missing_name");
@@ -71,7 +59,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 4. CONNEXION À SUPABASE
+  // 3. CONNEXION À SUPABASE
   // ==========================================================
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,7 +74,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   });
   
   // ==========================================================
-  // 5. VÉRIFIER SI UNE DEMANDE EXISTE DÉJÀ
+  // 4. VÉRIFIER SI UNE DEMANDE EXISTE DÉJÀ
   // ==========================================================
   const { data: existingRequests } = await supabaseAdmin
     .from("pending_messagerie_requests")
@@ -107,7 +95,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 6. SCANNER LE DOCUMENT KBis (antivirus + IA)
+  // 5. SCANNER LE DOCUMENT KBis (antivirus + IA)
   // ==========================================================
   let scanResult: ScanResult = { safe: false };
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -142,7 +130,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 7. CRÉATION DE LA DEMANDE
+  // 6. CRÉATION DE LA DEMANDE
   // ==========================================================
   const requestId = randomUUID();
   const displayId = requestId.substring(0, 8).toUpperCase();
@@ -174,7 +162,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 8. ENVOI DES EMAILS
+  // 7. ENVOI DES EMAILS
   // ==========================================================
   const adminEmail = process.env.ADMIN_EMAIL || "admin@vagondys.com";
   
@@ -240,7 +228,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   ).catch(console.error);
   
   // ==========================================================
-  // 9. REDIRECTION VERS LA PAGE DE SUCCÈS
+  // 8. REDIRECTION VERS LA PAGE DE SUCCÈS
   // ==========================================================
   redirect("/messagerie/inscription?status=pending_validation");
 }
