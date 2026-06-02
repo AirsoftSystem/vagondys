@@ -681,7 +681,8 @@ export default function AdminMessageriePage() {
                                         {new Date(msg.created_at).toLocaleString()}
                                       </span>
                                     </div>
-                                    <p className="text-[9px] text-zinc-300 wrap-break-word">
+                                    {/* ✅ CORRECTION : wrap-break-word → break-words */}
+                                    <p className="text-[9px] text-zinc-300  wrap-break-word">
                                       {msg.content}
                                     </p>
                                     {msg.file_url && (
