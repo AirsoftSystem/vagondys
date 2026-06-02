@@ -271,6 +271,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ NOUVELLE CORRECTION : Fusion avec l'archive existante au lieu d'ignorer ou écraser
  * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
  * ✅ AJOUT : Support de file_url et file_key dans l'archive
+ * ✅ AJOUT : Support des tables de messagerie privée (pending_messagerie_requests, messagerie_accounts, etc.)
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -566,10 +567,20 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       }
     }
     
-    // ✅ ÉTAPE 2 : Appeler la purge standard
-    await purgeDossierData(ref, archiveCity, archiveCountry);
-    purged = true;
-    console.log(`✅ processArchivePost: purge terminée pour ${ref}`);
+    // ✅ ÉTAPE 2 : Appeler la purge étendue (qui purge maintenant TOUTES les tables)
+    // La fonction purgeDossierData a été modifiée pour également supprimer:
+    // - pending_messagerie_requests
+    // - messagerie_accounts
+    // - messagerie_conversations
+    // - messagerie_messages
+    const purgeResult = await purgeDossierData(ref, archiveCity, archiveCountry);
+    purged = purgeResult.purged;
+    
+    if (purged) {
+      console.log(`✅ processArchivePost: purge TOTALE réussie pour ${ref} (toutes les tables)`);
+    } else {
+      console.warn(`⚠️ processArchivePost: purge partielle pour ${ref}: ${purgeResult.error || 'erreur inconnue'}`);
+    }
   }
 
   return { success: true, purged, path, repo: targetRepo, compressed: true, originalSize, compressedSize };
