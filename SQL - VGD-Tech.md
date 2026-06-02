@@ -595,7 +595,7 @@ CREATE TABLE public.pending_messagerie_requests (
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by TEXT,
     reviewed_at TIMESTAMPTZ,
-    reference TEXT,                                       -- ✅ AJOUT : Référence unique VGD-XXXXXXXX
+    dossier_ref TEXT UNIQUE,                                       -- ✅ AJOUT : Référence unique VGD-XXXXXXXX
     
     -- ✅ AJOUT : Colonnes pour le stockage du KBis et validation IA/antivirus
     kbis_url TEXT,                                        -- URL du fichier KBis stocké dans R2
@@ -611,7 +611,7 @@ CREATE TABLE public.pending_messagerie_requests (
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_email ON pending_messagerie_requests(email);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_messagerie_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_reference ON pending_messagerie_requests(reference);
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_dossier_ref ON pending_messagerie_requests(dossier_ref);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_kbis_validated ON pending_messagerie_requests(kbis_validated);  -- ✅ AJOUT
 
 -- RLS

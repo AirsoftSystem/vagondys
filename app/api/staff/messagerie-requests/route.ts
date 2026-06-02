@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
  * GET /api/staff/messagerie-requests
  * 
  * Sécurité : Réservé au staff (email @vagondys.com ou dans staff_registry)
+ * 
+ * ✅ CORRECTION : La colonne 'dossier_ref' est désormais incluse (table mise à jour)
  */
 export async function GET() {
   try {
@@ -72,6 +74,7 @@ export async function GET() {
     }
 
     // 4. Récupérer les demandes (ordre chronologique inverse)
+    // ✅ La colonne 'dossier_ref' est maintenant incluse (table mise à jour)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const { data: requests, error: fetchError } = await supabaseAdmin
       .from("pending_messagerie_requests")

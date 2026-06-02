@@ -40,6 +40,7 @@ interface PendingRequest {
  * Sécurité : Seul le staff/admin peut appeler cette API
  * 
  * ✅ AJOUT : Création de la conversation initiale et message de bienvenue
+ * ✅ AJOUT : Mise à jour de pending_messagerie_requests avec dossier_ref
  */
 export async function POST(request: NextRequest) {
   try {
@@ -293,19 +294,20 @@ export async function POST(request: NextRequest) {
       // Non bloquant
     }
 
-    // 9. Mise à jour de la demande
-    const { error: updateError } = await supabaseAdmin
+    // ✅ CORRECTION : Mise à jour de la demande avec le dossier_ref
+    const { error: updateRequestError } = await supabaseAdmin
       .from("pending_messagerie_requests")
       .update({
         status: "approved",
         reviewed_by: user.email,
         reviewed_at: now,
         updated_at: now,
+        dossier_ref: dossierRef,
       })
       .eq("id", requestId);
 
-    if (updateError) {
-      console.error("Erreur mise à jour demande approuvée:", updateError);
+    if (updateRequestError) {
+      console.error("Erreur mise à jour demande approuvée:", updateRequestError);
     }
 
     // 10. Envoi de l’email de confirmation
