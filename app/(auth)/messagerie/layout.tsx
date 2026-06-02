@@ -1,14 +1,16 @@
 
 "use client";
 
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   Home, 
   MessageSquare, 
-  ShieldCheck
+  ShieldCheck,
+  RefreshCcw
 } from "lucide-react";
+import { createVagondysClient } from "@/lib/supabase/client";
 
 interface MessagerieLayoutProps {
   children: React.ReactNode;
@@ -20,9 +22,30 @@ interface MessagerieLayoutProps {
  * 
  * ✅ CORRECTION : Lien Accueil redirige vers la page d'accueil publique (/)
  * plutôt que vers l'espace joueur (réservé aux athlètes)
+ * 
+ * ✅ AJOUT : Déconnexion lors du clic sur "Accueil" avant redirection
  */
 export default function MessagerieLayout({ children }: MessagerieLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogoutAndGoHome = async () => {
+    if (isLoggingOut) return;
+    
+    setIsLoggingOut(true);
+    try {
+      const supabase = createVagondysClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+      // En cas d'erreur, on redirige quand même vers l'accueil
+      router.push("/");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white font-sans">
@@ -33,13 +56,20 @@ export default function MessagerieLayout({ children }: MessagerieLayoutProps) {
           <div className="flex items-center justify-between">
             {/* Fil d’Ariane */}
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-              <Link 
-                href="/" 
-                className="flex items-center gap-1 text-zinc-500 hover:text-white transition-colors"
+              {/* ✅ REMPLACEMENT : Link par un bouton avec déconnexion */}
+              <button
+                onClick={handleLogoutAndGoHome}
+                disabled={isLoggingOut}
+                className="flex items-center gap-1 text-zinc-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Se déconnecter et retourner à l'accueil"
               >
-                <Home className="w-3.5 h-3.5" />
-                Accueil
-              </Link>
+                {isLoggingOut ? (
+                  <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Home className="w-3.5 h-3.5" />
+                )}
+                {isLoggingOut ? "Déconnexion..." : "Accueil"}
+              </button>
               <span className="text-zinc-700">/</span>
               <Link 
                 href="/messagerie" 

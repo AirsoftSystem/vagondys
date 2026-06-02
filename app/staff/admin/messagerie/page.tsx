@@ -21,7 +21,8 @@ import {
   RotateCcw,
   Eye,
   Maximize2,
-  Minimize2
+  Minimize2,
+  DatabaseBackup
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -36,6 +37,7 @@ interface MessagerieRequest {
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
+  dossier_ref?: string | null;
   // ✅ AJOUT : Champs KBis
   kbis_url?: string | null;
   kbis_key?: string | null;
@@ -134,6 +136,11 @@ export default function AdminMessageriePage() {
   const [modalMessages, setModalMessages] = useState<ConversationMessage[]>([]);
   const [modalReplyContent, setModalReplyContent] = useState("");
   const [modalSendingReply, setModalSendingReply] = useState(false);
+
+  // ✅ ÉTATS POUR L'ARCHIVAGE GITHUB (suppression de isArchiving/setIsArchiving inutilisés)
+  const [searchGitHubRef, setSearchGitHubRef] = useState("");
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoringRef, setRestoringRef] = useState<string | null>(null);
 
   // ✅ Ref pour éviter les appels multiples
   const hasLoadedRef = useRef(false);
@@ -467,6 +474,138 @@ export default function AdminMessageriePage() {
     }
   };
 
+  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort)
+  const handleArchiveToGitHub = async (request: MessagerieRequest) => {
+    if (!request.dossier_ref) {
+      alert("Ce dossier n'a pas encore de référence. Approuvez-le d'abord.");
+      return;
+    }
+    
+    if (!confirm(`Archiver ${request.dossier_ref} vers le Coffre-Fort GitHub et purger les données locales ? Cette action est irréversible.`)) return;
+    
+    setProcessingId(request.id);
+    try {
+      // Récupérer les messages de la conversation
+      const conversationId = await getConversationId(request.email);
+      let conversationMessages: ConversationMessage[] = [];
+      
+      if (conversationId) {
+        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
+        if (messagesResponse.ok) {
+          const messagesData = await messagesResponse.json();
+          conversationMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+            ...msg,
+            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+          }));
+        }
+      }
+      
+      // Construire le payload pour l'archivage
+      const archivePayload = {
+        message: {
+          dossier_ref: request.dossier_ref,
+          created_at: request.created_at,
+          payload: {
+            name: request.full_name,
+            email: request.email,
+            company: request.company,
+            phone: request.phone,
+            reason: request.reason,
+            kbis_url: request.kbis_url,
+            kbis_key: request.kbis_key,
+            kbis_validated: request.kbis_validated,
+            kbis_scan_result: request.kbis_scan_result,
+            status: request.status,
+            reviewed_by: request.reviewed_by,
+            reviewed_at: request.reviewed_at
+          }
+        },
+        history: conversationMessages.filter(m => m.is_staff).map(m => ({
+          id: m.id,
+          created_at: m.created_at,
+          agent_email: m.sender_email,
+          content: m.content,
+          document_url: m.file_url || null,
+          dossier_ref: request.dossier_ref
+        })),
+        purgeActive: true,
+        city_code: "MASTER",
+        country_code: "FR",
+        fullThread: conversationMessages.map(m => ({
+          role: m.is_staff ? "staff" : "public",
+          sender: m.sender_email,
+          content: m.content,
+          created_at: m.created_at,
+          document_url: m.file_url || null
+        }))
+      };
+      
+      const response = await fetch("/api/archive-external", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(archivePayload),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors de l'archivage");
+      }
+      
+      // Rafraîchir la liste
+      await loadRequests();
+      alert(`Dossier ${request.dossier_ref} archivé avec succès dans le Coffre-Fort GitHub.`);
+      
+    } catch (err) {
+      console.error("Erreur archivage GitHub:", err);
+      alert(err instanceof Error ? err.message : "Erreur lors de l'archivage");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // ✅ RESTAURATION DEPUIS GITHUB
+  const handleRestoreFromGitHub = async () => {
+    if (!searchGitHubRef.trim()) {
+      alert("Veuillez saisir une référence de dossier (ex: VGD-XXXXXX)");
+      return;
+    }
+    
+    setIsRestoring(true);
+    setRestoringRef(searchGitHubRef.trim().toUpperCase());
+    
+    try {
+      // Appel à l'API de restauration
+      const response = await fetch("/api/archive-external/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dossier_ref: searchGitHubRef.trim().toUpperCase(),
+          city_code: "MASTER",
+          country_code: "FR"
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors de la restauration");
+      }
+      
+      // Rafraîchir la liste
+      await loadRequests();
+      alert(`Dossier ${searchGitHubRef.trim().toUpperCase()} restauré avec succès depuis le Coffre-Fort GitHub.`);
+      setSearchGitHubRef("");
+      
+    } catch (err) {
+      console.error("Erreur restauration:", err);
+      alert(err instanceof Error ? err.message : "Erreur lors de la restauration");
+    } finally {
+      setIsRestoring(false);
+      setRestoringRef(null);
+    }
+  };
+
   // ✅ EXPANSION AVEC CHARGEMENT DES MESSAGES
   const handleExpand = async (request: MessagerieRequest) => {
     if (expandedRequest === request.id) {
@@ -519,6 +658,34 @@ export default function AdminMessageriePage() {
         >
           <RefreshCcw className="w-4 h-4" />
           Actualiser
+        </button>
+      </div>
+
+      {/* Barre de recherche GitHub (Coffre-Fort) */}
+      <div className="flex items-center gap-4 bg-black/50 border border-zinc-800 rounded-xl p-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+          <input
+            type="text"
+            placeholder="RECHERCHE COFFRE-FORT GITHUB (VGD-XXXXXX)..."
+            value={searchGitHubRef}
+            onChange={(e) => setSearchGitHubRef(e.target.value.toUpperCase())}
+            className="w-full bg-black border border-zinc-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-red-600 outline-none transition-colors uppercase font-mono"
+            title="Rechercher un dossier dans le Coffre-Fort GitHub"
+            aria-label="Rechercher un dossier dans le Coffre-Fort GitHub"
+          />
+        </div>
+        <button
+          onClick={handleRestoreFromGitHub}
+          disabled={isRestoring || !searchGitHubRef.trim()}
+          className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+        >
+          {isRestoring ? (
+            <RefreshCcw className="w-4 h-4 animate-spin" />
+          ) : (
+            <DatabaseBackup className="w-4 h-4" />
+          )}
+          {isRestoring ? `RESTAURATION ${restoringRef}...` : "RESTAURER DEPUIS COFFRE-FORT"}
         </button>
       </div>
 
@@ -690,6 +857,11 @@ export default function AdminMessageriePage() {
                               <p className="text-[10px] text-zinc-400">
                                 <strong className="text-white">Société:</strong> {request.company || "Non renseigné"}
                               </p>
+                              {/* ✅ AJOUT : Affichage du N° Dossier / Référence */}
+                              <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
+                                <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
+                                <span className="font-mono text-white">{request.dossier_ref || "En attente d'approbation"}</span>
+                              </p>
                             </div>
                             
                             <div className="space-y-2">
@@ -737,25 +909,38 @@ export default function AdminMessageriePage() {
                             )}
                             
                             {/* ✅ ACTIONS SUPPRÉMENTAIRES */}
-                            {request.status !== "pending" && (
+                            <div className="flex flex-wrap gap-2">
+                              {request.status !== "pending" && (
+                                <button
+                                  onClick={() => handleReopen(request)}
+                                  disabled={processingId === request.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600/30 transition-all"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  Remettre en attente
+                                </button>
+                              )}
+                              
                               <button
-                                onClick={() => handleReopen(request)}
+                                onClick={() => handleDelete(request)}
                                 disabled={processingId === request.id}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600/30 transition-all"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 border border-red-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-red-500 hover:bg-red-600/30 transition-all"
                               >
-                                <RotateCcw className="w-3 h-3" />
-                                Remettre en attente
+                                <Trash2 className="w-3 h-3" />
+                                Supprimer définitivement
                               </button>
-                            )}
-                            
-                            <button
-                              onClick={() => handleDelete(request)}
-                              disabled={processingId === request.id}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 border border-red-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-red-500 hover:bg-red-600/30 transition-all"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              Supprimer définitivement
-                            </button>
+                              
+                              {/* ✅ BOUTON COFFRE-FORT GITHUB */}
+                              <button
+                                onClick={() => handleArchiveToGitHub(request)}
+                                disabled={processingId === request.id || !request.dossier_ref}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 border border-purple-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-purple-500 hover:bg-purple-600/30 transition-all disabled:opacity-50"
+                                title={!request.dossier_ref ? "Approuvez d'abord la demande pour obtenir une référence" : "Archiver vers le Coffre-Fort GitHub"}
+                              >
+                                <DatabaseBackup className="w-3 h-3" />
+                                Coffre-Fort GitHub
+                              </button>
+                            </div>
                           </div>
                           
                           {/* Colonne droite : Fil de discussion */}
@@ -806,7 +991,7 @@ export default function AdminMessageriePage() {
                                         {new Date(msg.created_at).toLocaleString()}
                                       </span>
                                     </div>
-                                    <p className="text-[9px] text-zinc-300 wrap-break-word whitespace-pre-wrap">
+                                    <p className="text-[9px] text-zinc-300 whitespace-pre-wrap wrap-break-word">
                                       {msg.content}
                                     </p>
                                     {msg.file_url && (
@@ -905,7 +1090,7 @@ export default function AdminMessageriePage() {
                   Conversation avec <span className="text-red-600">{selectedRequest.full_name}</span>
                 </h2>
                 <p className="text-[8px] text-zinc-500 uppercase tracking-widest mt-1">
-                  {selectedRequest.email} • {selectedRequest.company || "Particulier"}
+                  {selectedRequest.email} • {selectedRequest.company || "Particulier"} • N° Dossier: <span className="text-red-600 font-mono">{selectedRequest.dossier_ref || "N/A"}</span>
                 </p>
               </div>
               <button
@@ -953,7 +1138,7 @@ export default function AdminMessageriePage() {
                         })}
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-300 leading-relaxed wrap-break-word whitespace-pre-wrap">
+                    <p className="text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap wrap-break-word">
                       {msg.content}
                     </p>
                     {msg.file_url && (
