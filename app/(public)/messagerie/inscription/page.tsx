@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -21,14 +21,12 @@ import FileUploader from "@/components/FileUploader";
 import { submitMessagerieRequest } from "./actions";
 
 /**
- * PAGE D'INSCRIPTION À LA MESSAGERIE PRIVÉE
- * Réservée aux partenaires, fournisseurs, prestataires, etc.
- * La demande est soumise à validation par l'administrateur.
- * * ✅ AJOUT : Champ KBis obligatoire avec upload de fichier
- * ✅ MODIFICATION : Utilisation d'une Server Action (comme le formulaire Contact)
+ * COMPOSANT INTERNE : MessagerieInscriptionContent
+ * Contient toute la logique du formulaire et utilise useSearchParams()
+ * Isolé dans un composant séparé pour permettre l'encapsulation dans <Suspense>
+ * (Requis par Next.js 15+ pour le prerendering)
  */
-export default function MessagerieInscriptionPage() {
-  
+function MessagerieInscriptionContent() {
   const searchParams = useSearchParams();
   const errorParam = searchParams.get("error");
   const statusParam = searchParams.get("status");
@@ -346,5 +344,25 @@ export default function MessagerieInscriptionPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * PAGE PRINCIPALE : MessagerieInscriptionPage
+ * Encapsule le composant interne dans un <Suspense> pour résoudre l'erreur Next.js
+ * "useSearchParams() should be wrapped in a suspense boundary"
+ */
+export default function MessagerieInscriptionPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Chargement...</p>
+        </div>
+      </main>
+    }>
+      <MessagerieInscriptionContent />
+    </Suspense>
   );
 }
