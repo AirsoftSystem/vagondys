@@ -1509,6 +1509,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ message/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ request/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ reopen/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┗━ route.ts                         ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
@@ -1518,6 +1520,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ token/                                 ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ record-match/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ scan-document/                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
@@ -1627,6 +1631,7 @@ VAGONDYS/
 ┃  ┣━ staff/                                       ✅ EXISTANT
 ┃  ┃  ┣━ Sidebar.tsx                               ✅ EXISTANT
 ┃  ┃  ┗━ StaffShell.tsx                            ✅ EXISTANT
+┃  ┣━ FileUploader.tsx                             ✅ EXISTANT
 ┃  ┗━ Footer.tsx                                   ✅ EXISTANT
 ┃
 ┣━ lib/                                            ✅ EXISTANT 

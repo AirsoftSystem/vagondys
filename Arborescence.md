@@ -141,9 +141,17 @@ VAGONDYS/
 ┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
 ┃  ┃  ┃  ┣━ approve/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ chek-account/                          ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ confirm/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ conversations/                         ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ message/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ request/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ reopen/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┗━ route.ts                         ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
@@ -153,6 +161,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ token/                                 ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ record-match/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ scan-document/                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
@@ -164,6 +174,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ history/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ messagerie-requests/                   ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ notify-transfer/                       ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
@@ -260,6 +272,7 @@ VAGONDYS/
 ┃  ┣━ staff/                                       ✅ EXISTANT
 ┃  ┃  ┣━ Sidebar.tsx                               ✅ EXISTANT
 ┃  ┃  ┗━ StaffShell.tsx                            ✅ EXISTANT
+┃  ┣━ FileUploader.tsx                             ✅ EXISTANT
 ┃  ┗━ Footer.tsx                                   ✅ EXISTANT
 ┃
 ┣━ lib/                                            ✅ EXISTANT 

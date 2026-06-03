@@ -105,6 +105,7 @@ interface MessageToInsert {
  * ✅ CORRECTION : Détection des doublons par id au lieu de content
  * ✅ CORRECTION : Utilisation de l'archive brute pour l'historique complet
  * ✅ AJOUT : UPSERT complet pour toutes les tables (pending_signals, messagerie_accounts, messagerie_conversations, messagerie_messages)
+ * ✅ CORRECTION : Suppression de la contrainte sur l'ID (laisser Supabase générer un nouvel ID)
  */
 export async function POST(req: Request) {
   try {
@@ -201,6 +202,7 @@ export async function POST(req: Request) {
 
     // ==========================================================
     // ✅ NOUVELLE SECTION : UPSERT pour pending_signals
+    // ✅ CORRECTION : Suppression de l'ID pour éviter le conflit de clé primaire
     // ==========================================================
     
     // Récupérer les informations depuis l'archive brute et signalData
@@ -232,8 +234,9 @@ export async function POST(req: Request) {
       meta: archiveMeta
     };
     
+    // ✅ CORRECTION : SUPPRESSION de l'ID pour éviter le conflit de clé primaire
+    // Laissez Supabase générer un nouvel ID automatiquement
     const insertData = {
-      id: signalData.id,
       dossier_ref: dossier_ref,
       payload: completePayload,
       confirmed: signalData.confirmed,
@@ -257,11 +260,11 @@ export async function POST(req: Request) {
 
     // ==========================================================
     // ✅ NOUVELLE SECTION : UPSERT pour messagerie_accounts
+    // ✅ CORRECTION : L'ID est automatiquement généré (pas de user_id fourni)
     // ==========================================================
     
     // Récupérer les informations du compte depuis l'archive
     const accountData = {
-      user_id: signalData.id,
       email: archiveEmail,
       full_name: archiveName,
       company: archivePayload.company || null,
