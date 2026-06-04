@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   LogOut,
   RefreshCcw,
@@ -15,7 +15,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createVagondysClient, type Athlete, type GitHubArchiveData, fetchGitHubArchive } from "@/lib/supabase/client";
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 // ==========================================
 // Imports des composants
@@ -27,11 +26,10 @@ import { HistoryTable } from './components/HistoryTable';
 import { FlowerCibleCamembertWidget } from './components/cibles/FlowerCibleCamembertWidget';
 import { FleurDeCiblesWidget } from './components/cibles/FleurDeCiblesWidget';
 import { FullscreenCibles } from './components/cibles/FullscreenCibles';
-// ✅ Correction du chemin d'import - le fichier est dans components/cibles/
 import TournamentHistory from './components/TournamentHistory';
 
 // ==========================================
-// Types
+// Types (adaptés pour l'API GitHub)
 // ==========================================
 interface MatchRecord {
   id?: string;
@@ -50,8 +48,8 @@ interface MatchRecord {
   shotDistribution: Record<string, number>;
 }
 
-// Interface pour les données brutes de Supabase (AVEC game_group)
-interface RawMatchHistory {
+// Interface depuis l'API GitHub
+interface ApiMatch {
   id: string;
   date: string;
   duration: number;
@@ -59,13 +57,38 @@ interface RawMatchHistory {
   kills: number;
   deaths: number;
   assists: number;
-  shots: number;
-  hits_head: number;
-  hits_body: number;
-  hits_legs: number;
+  shots: Shot[];
   win: boolean;
   game_group: string;
-  shot_distribution: Record<string, number>;
+  shot_distribution?: Record<string, number>;
+}
+
+interface Shot {
+  tir_number: number;
+  target_id: number;
+  points: number;
+  bonus: number;
+  x: number;
+  y: number;
+  zone: number;
+  timestamp: number;
+}
+
+interface ApiProfileResponse {
+  success: boolean;
+  profile: ExtendedAthlete;
+}
+
+interface ApiMatchesResponse {
+  success: boolean;
+  player_id: string;
+  matches: ApiMatch[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    has_more: boolean;
+  };
 }
 
 interface ExtendedAthlete extends Omit<Athlete, 'rank' | 'status'> {
@@ -134,14 +157,43 @@ const GRADES = [
 
 type TabType = 'stats' | 'tournaments';
 
+// ==========================================
+// Fonction utilitaire pour convertir les données de l'API vers MatchRecord
+// ==========================================
+function convertApiMatchToMatchRecord(apiMatch: ApiMatch): MatchRecord {
+  // Calculer les hits par zone depuis les shots
+  let hitsHead = 0;
+  let hitsBody = 0;
+  let hitsLegs = 0;
+  
+  for (const shot of apiMatch.shots) {
+    if (shot.zone >= 8 && shot.zone <= 10) hitsHead++;
+    else if (shot.zone >= 4 && shot.zone <= 7) hitsBody++;
+    else if (shot.zone >= 1 && shot.zone <= 3) hitsLegs++;
+  }
+  
+  return {
+    id: apiMatch.id,
+    date: new Date(apiMatch.date),
+    duration: apiMatch.duration,
+    score: apiMatch.score,
+    kills: apiMatch.kills,
+    deaths: apiMatch.deaths,
+    assists: apiMatch.assists,
+    shots: apiMatch.shots.length,
+    hitsHead,
+    hitsBody,
+    hitsLegs,
+    win: apiMatch.win,
+    group: apiMatch.game_group,
+    shotDistribution: apiMatch.shot_distribution || {}
+  };
+}
+
 export default function EspaceJoueur() {
   const router = useRouter();
   
-  // ✅ CORRECTION : Stocker le client de données séparément (version unifiée Option B)
-  const [supabaseData, setSupabaseData] = useState<ReturnType<typeof createVagondysClient> | null>(null);
-  
-  // Client par défaut pour l'AUTH (projet unique - Option B)
-  // createVagondysClient sans paramètre utilise maintenant les variables unifiées
+  // Client pour l'AUTH (projet unique - Option B)
   const supabaseAuth = createVagondysClient();
   
   const [loading, setLoading] = useState(true);
@@ -149,19 +201,13 @@ export default function EspaceJoueur() {
   const [archive, setArchive] = useState<GitHubArchiveData | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // ==========================================
   // État pour l'onglet actif
-  // ==========================================
   const [activeTab, setActiveTab] = useState<TabType>('stats');
   
-  // ==========================================
   // État pour l'historique des matchs
-  // ==========================================
   const [matchHistory, setMatchHistory] = useState<MatchRecord[]>([]);
   
-  // ==========================================
   // États pour l'affichage
-  // ==========================================
   const [showFullscreenCibles, setShowFullscreenCibles] = useState(false);
   
   const [gameStats, setGameStats] = useState<GameStats>({
@@ -176,259 +222,208 @@ export default function EspaceJoueur() {
     totalHitsBody: 0
   });
 
-  // ==========================================
   // États pour le grade et la progression
-  // ==========================================
   const [currentGradeId, setCurrentGradeId] = useState(1);
   const [precisionProgress, setPrecisionProgress] = useState(0);
   
-  // ==========================================
-  // États pour le cycle de précision (depuis Supabase)
-  // ==========================================
+  // États pour le cycle de précision
   const [cycleShotCount, setCycleShotCount] = useState(0);
   const [cyclePrecision, setCyclePrecision] = useState(0);
   
-  // ==========================================
-  // États pour les seuils (cosmétique ou depuis Supabase)
-  // ==========================================
-  const [seuilBas, setSeuilBas] = useState(50);
-  const [seuilHaut, setSeuilHaut] = useState(75);
-  
-  // ==========================================
-  // État pour le playerId (pour éviter l'accès ref pendant le render)
-  // ==========================================
+  // État pour le playerId
   const [playerId, setPlayerId] = useState<string>('');
+  
+  // Token d'authentification pour les appels API
+  const [authToken, setAuthToken] = useState<string>('');
+
+  // Valeurs dérivées (plus besoin de useEffect pour les seuils)
+  const derivedSeuilBas = 50 + (currentGradeId - 1) * 2;
+  const derivedSeuilHaut = derivedSeuilBas + 25;
 
   // ==========================================
-  // Refs pour les abonnements Realtime
+  // Fonction : Obtenir le token d'authentification
   // ==========================================
-  const matchHistoryChannelRef = useRef<RealtimeChannel | null>(null);
-  const athletesChannelRef = useRef<RealtimeChannel | null>(null);
-  const userIdRef = useRef<string | null>(null);
-
-  // ==========================================
-  // Fonction : Charger l'historique des matchs
-  // ==========================================
-  const loadMatchHistory = useCallback(async (userId: string) => {
-    if (!supabaseData) {
-      console.log("⏳ Client données pas encore initialisé");
-      return;
+  const getAuthToken = useCallback(async (): Promise<string | null> => {
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+    if (session?.access_token) {
+      return session.access_token;
     }
-    
+    return null;
+  }, [supabaseAuth]);
+
+  // ==========================================
+  // Fonction : Charger l'historique des matchs depuis GitHub API
+  // ==========================================
+  const loadMatchHistory = useCallback(async (userId: string, token: string) => {
     try {
-      const { data, error } = await supabaseData
-        .from('match_history')
-        .select('*')
-        .eq('player_id', userId)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        const history: MatchRecord[] = (data as RawMatchHistory[]).map((item) => ({
-          id: item.id,
-          date: new Date(item.date),
-          duration: item.duration,
-          score: item.score,
-          kills: item.kills,
-          deaths: item.deaths,
-          assists: item.assists,
-          shots: item.shots,
-          hitsHead: item.hits_head,
-          hitsBody: item.hits_body,
-          hitsLegs: item.hits_legs,
-          win: item.win,
-          group: item.game_group,
-          shotDistribution: item.shot_distribution || {}
-        }));
+      const response = await fetch(`/api/player/matches?playerId=${userId}&limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data: ApiMatchesResponse = await response.json();
+      
+      if (data.success && data.matches) {
+        const history = data.matches.map(convertApiMatchToMatchRecord);
         setMatchHistory(history);
       }
     } catch (err) {
       console.error("Erreur chargement historique:", err);
     }
-  }, [supabaseData]);
+  }, []);
 
   // ==========================================
-  // Fonction : Rafraîchir toutes les données
+  // Fonction : Charger le profil depuis GitHub API
+  // ==========================================
+  const loadProfile = useCallback(async (userId: string, token: string): Promise<ExtendedAthlete | null> => {
+    try {
+      const response = await fetch(`/api/player/profile?playerId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data: ApiProfileResponse = await response.json();
+      
+      if (data.success && data.profile) {
+        return data.profile;
+      }
+      return null;
+    } catch (err) {
+      console.error("Erreur chargement profil:", err);
+      return null;
+    }
+  }, []);
+
+  // ==========================================
+  // Fonction : Rafraîchir toutes les données (exposée pour le bouton de refresh)
   // ==========================================
   const refreshAllData = useCallback(async () => {
-    if (!userIdRef.current || !supabaseData) return;
+    if (!playerId || !authToken) return;
     
     setIsRefreshing(true);
     try {
       // Recharger le profil
-      const { data: athleteData, error: athleteError } = await supabaseData
-        .from('athletes')
-        .select('*')
-        .eq('id', userIdRef.current)
-        .maybeSingle();
-
-      if (!athleteError && athleteData) {
-        const playerData = athleteData as unknown as ExtendedAthlete;
-        setPlayer(playerData);
-
+      const profile = await loadProfile(playerId, authToken);
+      if (profile) {
+        setPlayer(profile);
+        
         setGameStats({
-          totalMatches: athleteData.total_matches || 0,
-          totalScore: athleteData.total_score || 0,
-          totalShots: athleteData.total_shots || 0,
-          totalKills: athleteData.total_kills || 0,
-          totalDeaths: athleteData.total_deaths || 0,
-          totalAssists: athleteData.total_assists || 0,
-          totalHitsHead: athleteData.total_hits_head || 0,
-          totalHitsBody: athleteData.total_hits_body || 0,
-          totalHitsLegs: athleteData.total_hits_legs || 0
+          totalMatches: profile.total_matches || 0,
+          totalScore: profile.total_score || 0,
+          totalShots: profile.total_shots || 0,
+          totalKills: profile.total_kills || 0,
+          totalDeaths: profile.total_deaths || 0,
+          totalAssists: profile.total_assists || 0,
+          totalHitsHead: profile.total_hits_head || 0,
+          totalHitsBody: profile.total_hits_body || 0,
+          totalHitsLegs: profile.total_hits_legs || 0
         });
-
-        setCurrentGradeId(athleteData.current_grade_id || 1);
-        setPrecisionProgress(athleteData.precision_progress || 0);
-        setCycleShotCount(athleteData.current_cycle_shot_count || 0);
-        setCyclePrecision(athleteData.current_cycle_precision || 0);
+        
+        setCurrentGradeId(profile.current_grade_id || 1);
+        setPrecisionProgress(profile.precision_progress || 0);
+        setCycleShotCount(profile.current_cycle_shot_count || 0);
+        setCyclePrecision(profile.current_cycle_precision || 0);
       }
-
+      
       // Recharger l'historique
-      await loadMatchHistory(userIdRef.current);
+      await loadMatchHistory(playerId, authToken);
       
     } catch (err) {
       console.error("Erreur refresh données:", err);
     } finally {
       setIsRefreshing(false);
     }
-  }, [supabaseData, loadMatchHistory]);
+  }, [playerId, authToken, loadProfile, loadMatchHistory]);
 
   // ==========================================
-  // Configuration des abonnements Realtime
-  // ==========================================
-  const setupRealtimeSubscriptions = useCallback((userId: string) => {
-    if (!supabaseData) return;
-    
-    // Nettoyer les anciens abonnements
-    if (matchHistoryChannelRef.current) {
-      supabaseData.removeChannel(matchHistoryChannelRef.current);
-    }
-    if (athletesChannelRef.current) {
-      supabaseData.removeChannel(athletesChannelRef.current);
-    }
-
-    // Abonnement à match_history (nouvelles parties)
-    matchHistoryChannelRef.current = supabaseData
-      .channel(`match_history_${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'match_history',
-          filter: `player_id=eq.${userId}`
-        },
-        () => {
-          console.log('🔄 Nouvelle partie détectée, refresh...');
-          refreshAllData();
-        }
-      )
-      .subscribe();
-
-    // Abonnement à athletes (mise à jour des stats)
-    athletesChannelRef.current = supabaseData
-      .channel(`athletes_${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'athletes',
-          filter: `id=eq.${userId}`
-        },
-        () => {
-          console.log('🔄 Mise à jour des stats détectée, refresh...');
-          refreshAllData();
-        }
-      )
-      .subscribe();
-  }, [supabaseData, refreshAllData]);
-
-  // ==========================================
-  // Chargement des données joueur + abonnements
+  // Chargement des données joueur
   // ==========================================
   const fetchPlayerData = useCallback(async () => {
     try {
-      // 1. On récupère la session sur le projet UNIQUE (Option B)
+      // 1. Récupérer la session
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
       
       if (authError || !user) {
         router.push("/connexion");
         return;
       }
-
-      // 2. Identification de la ville cible (depuis user_metadata ou fallback)
-      const userCity = user.user_metadata?.city || "NANTES";
-      const userCountry = user.user_metadata?.country || "FR";
       
-      // 3. ✅ Créer le client de données AVEC la ville (filtre city dans les requêtes)
-      // En Option B, la ville est utilisée comme filtre, pas pour changer de base
-      const dataClient = createVagondysClient(userCity, userCountry);
-      setSupabaseData(dataClient);
-      userIdRef.current = user.id;
-      setPlayerId(user.id); // ✅ Stocker l'ID dans l'état pour le rendu
-
-      // 4. Lecture des données dans le projet UNIQUE avec filtre city
-      const { data, error: profileError } = await dataClient
-        .from('athletes')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error("Erreur de lecture profil:", profileError.message);
+      // 2. Récupérer le token d'authentification
+      const token = await getAuthToken();
+      if (!token) {
+        console.error("Impossible d'obtenir le token d'authentification");
+        setLoading(false);
+        return;
       }
-
-      if (data) {
-        const playerData = data as unknown as ExtendedAthlete;
-        setPlayer(playerData);
-
-        setGameStats({
-          totalMatches: data.total_matches || 0,
-          totalScore: data.total_score || 0,
-          totalShots: data.total_shots || 0,
-          totalKills: data.total_kills || 0,
-          totalDeaths: data.total_deaths || 0,
-          totalAssists: data.total_assists || 0,
-          totalHitsHead: data.total_hits_head || 0,
-          totalHitsBody: data.total_hits_body || 0,
-          totalHitsLegs: data.total_hits_legs || 0
-        });
-
-        const gradeId = data.current_grade_id || 1;
-        const progress = data.precision_progress || 0;
-        setCurrentGradeId(gradeId);
-        setPrecisionProgress(progress);
+      
+      setAuthToken(token);
+      setPlayerId(user.id);
+      
+      // 3. Charger le profil depuis GitHub API
+      const profile = await loadProfile(user.id, token);
+      
+      if (profile) {
+        setPlayer(profile);
         
-        setCycleShotCount(data.current_cycle_shot_count || 0);
-        setCyclePrecision(data.current_cycle_precision || 0);
-
-        await loadMatchHistory(user.id);
-
-        if (playerData.dossier_ref) {
-          const archiveData = await fetchGitHubArchive(playerData.dossier_ref, userCity, userCountry);
+        setGameStats({
+          totalMatches: profile.total_matches || 0,
+          totalScore: profile.total_score || 0,
+          totalShots: profile.total_shots || 0,
+          totalKills: profile.total_kills || 0,
+          totalDeaths: profile.total_deaths || 0,
+          totalAssists: profile.total_assists || 0,
+          totalHitsHead: profile.total_hits_head || 0,
+          totalHitsBody: profile.total_hits_body || 0,
+          totalHitsLegs: profile.total_hits_legs || 0
+        });
+        
+        setCurrentGradeId(profile.current_grade_id || 1);
+        setPrecisionProgress(profile.precision_progress || 0);
+        setCycleShotCount(profile.current_cycle_shot_count || 0);
+        setCyclePrecision(profile.current_cycle_precision || 0);
+        
+        // 4. Charger l'historique
+        await loadMatchHistory(user.id, token);
+        
+        // 5. Charger l'archive GitHub si disponible
+        const userCity = user.user_metadata?.city || profile.city || "NANTES";
+        const userCountry = user.user_metadata?.country || profile.country || "FR";
+        
+        if (profile.dossier_ref) {
+          const archiveData = await fetchGitHubArchive(profile.dossier_ref, userCity, userCountry);
           setArchive(archiveData);
         }
-
-        // ✅ Configurer les abonnements Realtime après avoir chargé les données
-        setupRealtimeSubscriptions(user.id);
       } else {
+        // Profil non trouvé - utiliser les métadonnées utilisateur
         setPlayer({
+          id: user.id,
           full_name: user.user_metadata?.full_name || "Athlète",
           pseudo: user.user_metadata?.pseudo || "",
+          email: user.email || "",
           city: user.user_metadata?.city || "En cours...",
-          status: "SYNCHRONISATION..."
+          country: user.user_metadata?.country || "FR",
+          status: "SYNCHRONISATION...",
+          created_at: new Date().toISOString(),
+          dossier_ref: ""
         } as ExtendedAthlete);
       }
-
+      
     } catch (err) {
       console.error("CRASH ESPACE JOUEUR:", err);
     } finally {
       setLoading(false);
     }
-  }, [supabaseAuth, router, loadMatchHistory, setupRealtimeSubscriptions]);
+  }, [supabaseAuth, router, getAuthToken, loadProfile, loadMatchHistory]);
 
   // ==========================================
   // Calcul du grade actuel
@@ -436,32 +431,16 @@ export default function EspaceJoueur() {
   const currentGrade = GRADES.find(g => g.id === currentGradeId) || GRADES[0];
 
   // ==========================================
-  // Mise à jour des seuils
-  // ==========================================
-  useEffect(() => {
-    const newSeuilBas = 50 + (currentGradeId - 1) * 2;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSeuilBas(newSeuilBas);
-    setSeuilHaut(newSeuilBas + 25);
-  }, [currentGradeId]);
-
-  // ==========================================
   // Chargement initial
+  // Désactivation des règles ESLint pour ce cas légitime :
+  // - set-state-in-effect : nous chargeons les données initiales, ce qui nécessite des setState
+  // - exhaustive-deps : nous voulons que cet effet ne s'exécute qu'une seule fois au montage
   // ==========================================
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPlayerData();
-    
-    // Nettoyage des abonnements au démontage
-    return () => {
-      if (matchHistoryChannelRef.current && supabaseData) {
-        supabaseData.removeChannel(matchHistoryChannelRef.current);
-      }
-      if (athletesChannelRef.current && supabaseData) {
-        supabaseData.removeChannel(athletesChannelRef.current);
-      }
-    };
-  }, [fetchPlayerData, supabaseData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     await supabaseAuth.auth.signOut();
@@ -496,7 +475,7 @@ export default function EspaceJoueur() {
   return (
     <main className="min-h-screen bg-black text-white px-4 py-6 md:px-6 md:py-12 font-sans relative overflow-hidden">
       
-      {/* Indicateur de refresh (optionnel) */}
+      {/* Indicateur de refresh */}
       {isRefreshing && (
         <div className="fixed top-4 right-4 z-50 bg-green-600/20 border border-green-600/30 rounded-lg px-3 py-1.5">
           <div className="flex items-center gap-2">
@@ -506,10 +485,20 @@ export default function EspaceJoueur() {
         </div>
       )}
 
+      {/* Bouton de rafraîchissement manuel */}
+      <button
+        onClick={refreshAllData}
+        className="fixed bottom-4 right-4 z-50 bg-red-600/20 border border-red-600/30 rounded-full p-3 hover:bg-red-600/30 transition-colors"
+        title="Rafraîchir les données"
+        aria-label="Rafraîchir les données"
+      >
+        <RefreshCcw className="w-4 h-4 text-red-500" />
+      </button>
+
       {/* Modal plein écran des cibles */}
       {showFullscreenCibles && (
         <FullscreenCibles
-          stats={{}} // TODO: Remplacer par les données de Supabase quand disponibles
+          stats={{}} // TODO: Remplacer par les données de l'API quand disponibles
           onClose={() => setShowFullscreenCibles(false)}
         />
       )}
@@ -585,7 +574,7 @@ export default function EspaceJoueur() {
           </div>
         </div>
 
-        {/* ✅ Onglets : Stats / Tournois */}
+        {/* Onglets : Stats / Tournois */}
         <div className="flex gap-2 mb-6 border-b border-zinc-800">
           <button
             onClick={() => setActiveTab('stats')}
@@ -618,17 +607,17 @@ export default function EspaceJoueur() {
         {/* Contenu selon l'onglet actif */}
         {activeTab === 'stats' ? (
           <>
-            {/* LIGNE 3 : Barre de précision (pleine largeur) */}
+            {/* Barre de précision - utilisation des valeurs dérivées */}
             <div className="w-full mb-6">
               <PrecisionBar
                 value={cyclePrecision}
-                seuilBas={seuilBas}
-                seuilHaut={seuilHaut}
+                seuilBas={derivedSeuilBas}
+                seuilHaut={derivedSeuilHaut}
                 nbTirs={cycleShotCount}
               />
             </div>
 
-            {/* LIGNE 4 : Barre de progression globale (pleine largeur) */}
+            {/* Barre de progression globale */}
             <div className="w-full mb-8">
               <GlobalProgressBar
                 grades={GRADES}
@@ -638,7 +627,7 @@ export default function EspaceJoueur() {
               />
             </div>
 
-            {/* LIGNE 5 : Deux colonnes de visualisation des cibles */}
+            {/* Deux colonnes de visualisation des cibles */}
             <div className="grid md:grid-cols-2 gap-6 mb-8">
               
               {/* Colonne 1 : Pourcentage de cibles (camembert) */}
@@ -658,7 +647,7 @@ export default function EspaceJoueur() {
                 </div>
                 <div className="aspect-square max-w-md mx-auto">
                   <FlowerCibleCamembertWidget
-                    stats={{}} // TODO: Remplacer par les données de Supabase
+                    stats={{}} // TODO: Remplacer par les données de l'API
                     onCibleClick={(num) => console.log('Cible cliquée:', num)}
                     showWordCible={false}
                   />
@@ -682,14 +671,14 @@ export default function EspaceJoueur() {
                 </div>
                 <div className="aspect-square max-w-md mx-auto">
                   <FleurDeCiblesWidget
-                    stats={{}} // TODO: Remplacer par les données de Supabase
+                    stats={{}} // TODO: Remplacer par les données de l'API
                     onCibleClick={(num) => console.log('Cible cliquée:', num)}
                   />
                 </div>
               </div>
             </div>
 
-            {/* LIGNE 6 : Dernière partie (si disponible) */}
+            {/* Dernière partie */}
             {matchHistory.length > 0 && (
               <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4 mb-8">
                 <h3 className="text-[9px] font-black uppercase tracking-widest text-red-600 mb-3 flex items-center gap-2">
@@ -716,12 +705,12 @@ export default function EspaceJoueur() {
               </div>
             )}
 
-            {/* LIGNE 7 : Graphique d'évolution (pleine largeur) */}
+            {/* Graphique d'évolution */}
             <div className="w-full mb-6">
               <ScoreChart history={matchHistory} />
             </div>
 
-            {/* LIGNE 8 : Tableau d'historique (pleine largeur) */}
+            {/* Tableau d'historique */}
             <div className="w-full mb-6">
               <HistoryTable history={matchHistory} />
             </div>
@@ -747,7 +736,7 @@ export default function EspaceJoueur() {
             )}
           </>
         ) : (
-          /* ✅ Onglet Tournois - Historique des tournois du joueur */
+          /* Onglet Tournois - Historique des tournois du joueur */
           <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <Trophy className="w-5 h-5 text-red-600" />
