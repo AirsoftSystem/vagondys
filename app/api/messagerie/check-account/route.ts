@@ -5,25 +5,28 @@ import { createClient } from "@supabase/supabase-js";
 /**
  * API de vérification d’un compte messagerie
  * POST /api/messagerie/check-account
- * Body: { userId }
+ * Body: { userId?, email? }
  * 
  * Vérifie si l’utilisateur a un compte messagerie actif
  * Utilisé par la page de connexion pour éviter d’exposer la clé service role côté client
+ * 
+ * ✅ CORRECTION : Recherche par email (prioritaire) ou user_id
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Récupération du userId
+    // 1. Récupération des paramètres
     const body = await request.json();
-    const { userId } = body;
+    const { userId, email } = body;
 
-    if (!userId) {
+    // Au moins un des deux est requis
+    if (!userId && !email) {
       return NextResponse.json(
-        { error: "userId manquant" },
+        { error: "userId ou email requis" },
         { status: 400 }
       );
     }
 
-    // 2. Connexion à Supabase avec la clé service role (côté serveur uniquement)
+    // 2. Connexion à Supabase avec la clé service role
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -40,11 +43,18 @@ export async function POST(request: NextRequest) {
     });
 
     // 3. Vérifier l’existence du compte messagerie
-    const { data: messagerieAccount, error: fetchError } = await supabaseAdmin
+    // Priorité à l'email si fourni (plus fiable, car user_id peut être null après restauration)
+    let query = supabaseAdmin
       .from("messagerie_accounts")
-      .select("status, role, dossier_ref")
-      .eq("user_id", userId)
-      .maybeSingle();
+      .select("status, role, dossier_ref");
+
+    if (email) {
+      query = query.eq("email", email);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data: messagerieAccount, error: fetchError } = await query.maybeSingle();
 
     if (fetchError) {
       console.error("Erreur vérification messagerie_accounts:", fetchError);
@@ -59,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         isActive: false,
         exists: false,
-        message: "Aucun compte messagerie trouvé pour cet utilisateur",
+        message: "Aucun compte messagerie trouvé",
       });
     }
 

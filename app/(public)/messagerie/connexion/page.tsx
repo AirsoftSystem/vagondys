@@ -99,11 +99,17 @@ function MessagerieLoginContent() {
         throw new Error("Erreur de connexion");
       }
 
-      // 2. Vérifier si le compte messagerie est actif
+      const userId = data.user.id;
+      const userEmail = data.user.email || email.toLowerCase().trim();
+
+      // 2. Vérifier si le compte messagerie est actif (en utilisant l'email prioritairement)
       const checkResponse = await fetch("/api/messagerie/check-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: data.user.id }),
+        body: JSON.stringify({ 
+          userId: userId,
+          email: userEmail  // ✅ AJOUT : l'email pour permettre la recherche même si user_id est null
+        }),
       });
       
       const checkResult = await checkResponse.json();
@@ -112,7 +118,7 @@ function MessagerieLoginContent() {
       if (!checkResponse.ok || !checkResult.isActive) {
         console.log("🔍 Compte inactif, tentative de restauration depuis GitHub...");
         
-        const dossierRef = await findDossierRefByEmail(email.toLowerCase().trim());
+        const dossierRef = await findDossierRefByEmail(userEmail);
         
         if (dossierRef) {
           const restored = await restoreAccount(dossierRef);
@@ -123,7 +129,10 @@ function MessagerieLoginContent() {
             const retryCheck = await fetch("/api/messagerie/check-account", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ userId: data.user.id }),
+              body: JSON.stringify({ 
+                userId: userId,
+                email: userEmail 
+              }),
             });
             const retryResult = await retryCheck.json();
             
