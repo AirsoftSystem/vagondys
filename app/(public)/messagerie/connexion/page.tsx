@@ -30,8 +30,48 @@ function MessagerieLoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ✅ CORRECTION : Utiliser createVagondysClient() au lieu de createClient direct
   const supabase = createVagondysClient();
+
+  /**
+   * Récupère le dossier_ref associé à un email via GitHub
+   */
+  const findDossierRefByEmail = async (userEmail: string): Promise<string | null> => {
+    try {
+      const response = await fetch("/api/archive-external/find-by-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.dossier_ref || null;
+    } catch (err) {
+      console.error("Erreur recherche dossier_ref:", err);
+      return null;
+    }
+  };
+
+  /**
+   * Restaure un compte depuis GitHub
+   */
+  const restoreAccount = async (dossierRef: string, city: string = "NANTES", country: string = "FR"): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/archive-external/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dossier_ref: dossierRef,
+          city_code: city,
+          country_code: country,
+        }),
+      });
+      return response.ok;
+    } catch (err) {
+      console.error("Erreur restauration:", err);
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +85,7 @@ function MessagerieLoginContent() {
     }
 
     try {
+      // 1. Connexion Supabase
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password: password,
@@ -58,12 +99,7 @@ function MessagerieLoginContent() {
         throw new Error("Erreur de connexion");
       }
 
-      // ✅ CORRECTION : Utiliser createAdminClient ou createVagondysClient pour la vérification
-      // createVagondysClient utilise la clé anon, mais pour vérifier messagerie_accounts,
-      // il faut utiliser le service role (côté serveur uniquement)
-      // → On va utiliser une approche différente : vérifier via l'API plutôt qu'en client direct
-      
-      // Solution : Appeler une API route qui vérifiera avec le service role
+      // 2. Vérifier si le compte messagerie est actif
       const checkResponse = await fetch("/api/messagerie/check-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,11 +108,40 @@ function MessagerieLoginContent() {
       
       const checkResult = await checkResponse.json();
       
+      // 3. Si compte inactif, tenter une restauration depuis GitHub
       if (!checkResponse.ok || !checkResult.isActive) {
+        console.log("🔍 Compte inactif, tentative de restauration depuis GitHub...");
+        
+        const dossierRef = await findDossierRefByEmail(email.toLowerCase().trim());
+        
+        if (dossierRef) {
+          const restored = await restoreAccount(dossierRef);
+          
+          if (restored) {
+            console.log("✅ Compte restauré avec succès");
+            // Re-vérifier après restauration
+            const retryCheck = await fetch("/api/messagerie/check-account", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: data.user.id }),
+            });
+            const retryResult = await retryCheck.json();
+            
+            if (retryCheck.ok && retryResult.isActive) {
+              // Succès après restauration
+              router.refresh();
+              router.push("/messagerie");
+              return;
+            }
+          }
+        }
+        
+        // Si restauration impossible ou échouée
         await supabase.auth.signOut();
         throw new Error("Accès non autorisé. Compte messagerie non actif.");
       }
 
+      // 4. Compte actif → redirection
       router.refresh();
       router.push("/messagerie");
     } catch (err) {
