@@ -134,6 +134,9 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ confirm-signal/                           ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ cron/                                     ✅ EXISTANT
+┃  ┃  ┃  ┗━ recalculate-rankings/                  ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ debug-env/                                ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ force-admin/                              ✅ EXISTANT
@@ -147,7 +150,7 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ conversations/                         ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ message/                               ✅ EXISTANT
+┃  ┃  ┃  ┣━ messages/                              ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ request/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┣━ reopen/                             ✅ EXISTANT
@@ -158,7 +161,14 @@ VAGONDYS/
 ┃  ┃  ┣━ notify-read/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ player/                                   ✅ EXISTANT
+┃  ┃  ┃  ┣━ matches/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ profile/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ token/                                 ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┣━ rankings/                                 ✅ EXISTANT
+┃  ┃  ┃  ┗━ global/                                ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ record-match/                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
@@ -287,6 +297,11 @@ VAGONDYS/
 ┃  ┃  ┗━ validator.ts                              ✅ EXISTANT
 ┃  ┣━ email/                                       ✅ EXISTANT
 ┃  ┃  ┗━ gmail.ts                                  ✅ EXISTANT
+┃  ┣━ github-db/                                   ✅ EXISTANT
+┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
+┃  ┃  ┣━ player.ts                                 ✅ EXISTANT
+┃  ┃  ┣━ ranking.ts                                ✅ EXISTANT
+┃  ┃  ┗━ tournament.ts                             ✅ EXISTANT 
 ┃  ┣━ hooks/                                       ✅ EXISTANT
 ┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT
 ┃  ┃  ┗━ usePhysicalButton.ts                      ✅ EXISTANT

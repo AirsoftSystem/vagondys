@@ -96,16 +96,24 @@ interface MessageToInsert {
 }
 
 /**
+ * Nettoie un objet en supprimant les champs avec valeur undefined
+ * (nécessaire pour l'insertion JSONB dans Supabase)
+ */
+function cleanUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key];
+    }
+  }
+  return result as T;
+}
+
+/**
  * API RESTORE : Restaure un dossier depuis GitHub vers la base STAFF
  * POST /api/archive-external/restore
  * Body: { dossier_ref: string, city_code: string, country_code?: string }
  * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
- * ✅ AJOUT : Support des fichiers compressés .json.gz
- * ✅ CORRECTION : Fusion des messages existants au lieu d'ignorer
- * ✅ CORRECTION : Détection des doublons par id au lieu de content
- * ✅ CORRECTION : Utilisation de l'archive brute pour l'historique complet
- * ✅ AJOUT : UPSERT complet pour toutes les tables (pending_signals, messagerie_accounts, messagerie_conversations, messagerie_messages)
- * ✅ CORRECTION : Suppression de la contrainte sur l'ID (laisser Supabase générer un nouvel ID)
  */
 export async function POST(req: Request) {
   try {
@@ -181,7 +189,7 @@ export async function POST(req: Request) {
     const signalData = restoredData.dossier;
     const historyData = restoredData.echanges_staff || [];
 
-    // ✅ CORRECTION : Récupérer directement l'historique complet depuis l'archive brute
+    // ✅ Récupérer directement l'historique complet depuis l'archive brute
     const archivePayload = archiveData.dossier_complet?.payload || {};
     const archiveMessagesHistory = archivePayload.messages_history || [];
     const archiveCreatedAt = archiveData.dossier_complet?.created_at || signalData.created_at;
@@ -201,16 +209,16 @@ export async function POST(req: Request) {
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // ==========================================================
-    // ✅ NOUVELLE SECTION : UPSERT pour pending_signals
-    // ✅ CORRECTION : Suppression de l'ID pour éviter le conflit de clé primaire
+    // SECTION : UPSERT pour pending_signals
+    // ✅ CORRECTION : Nettoyage du payload pour éviter undefined
     // ==========================================================
     
     // Récupérer les informations depuis l'archive brute et signalData
-    const archiveName = archivePayload.name || signalData.payload.name;
-    const archiveEmail = archivePayload.email || signalData.payload.email;
-    const archivePhone = archivePayload.phone || (signalData.payload.phone === null ? undefined : signalData.payload.phone);
-    const archiveSubject = archivePayload.subject || signalData.payload.subject;
-    const archiveMessage = archivePayload.message || signalData.payload.message;
+    const archiveName = archivePayload.name || signalData.payload?.name;
+    const archiveEmail = archivePayload.email || signalData.payload?.email;
+    const archivePhone = archivePayload.phone || (signalData.payload?.phone === null ? undefined : signalData.payload?.phone);
+    const archiveSubject = archivePayload.subject || signalData.payload?.subject;
+    const archiveMessage = archivePayload.message || signalData.payload?.message;
     const archiveOriginalSubject = archivePayload.original_subject;
     const archiveConfirmedAt = archivePayload.confirmed_at;
     const archiveMeta = archivePayload.meta || {
@@ -220,7 +228,7 @@ export async function POST(req: Request) {
     };
     
     // Construire le payload complet avec l'historique depuis l'archive brute
-    const completePayload: SignalPayload = {
+    const completePayload: SignalPayload = cleanUndefined({
       name: archiveName,
       email: archiveEmail,
       phone: archivePhone,
@@ -232,14 +240,12 @@ export async function POST(req: Request) {
       confirmed_at: archiveConfirmedAt,
       messages_history: archiveMessagesHistory,
       meta: archiveMeta
-    };
+    });
     
-    // ✅ CORRECTION : SUPPRESSION de l'ID pour éviter le conflit de clé primaire
-    // Laissez Supabase générer un nouvel ID automatiquement
     const insertData = {
       dossier_ref: dossier_ref,
       payload: completePayload,
-      confirmed: signalData.confirmed,
+      confirmed: signalData.confirmed ?? false,
       is_read: true,
       is_new_athlete: false,
       created_at: archiveCreatedAt,
@@ -247,7 +253,6 @@ export async function POST(req: Request) {
       country: effectiveCountry
     };
 
-    // ✅ UPSERT dans pending_signals (au lieu de simple insert)
     const { error: pendingSignalsError } = await supabaseClient
       .from("pending_signals")
       .upsert(insertData, { onConflict: "dossier_ref" });
@@ -259,12 +264,31 @@ export async function POST(req: Request) {
     console.log(`✅ RESTORE: pending_signals mis à jour pour ${dossier_ref}`);
 
     // ==========================================================
-    // ✅ NOUVELLE SECTION : UPSERT pour messagerie_accounts
-    // ✅ CORRECTION : L'ID est automatiquement généré (pas de user_id fourni)
+    // SECTION : UPSERT pour messagerie_accounts (avec vérification user_id)
+    // ✅ CORRECTION : Utilisation de la table auth.users (service_role)
     // ==========================================================
     
-    // Récupérer les informations du compte depuis l'archive
-    const accountData = {
+    // Vérifier si l'utilisateur existe déjà dans auth.users
+    let userId: string | null = null;
+    const { data: existingUser, error: userFetchError } = await supabaseClient
+      .from('auth.users')
+      .select('id')
+      .eq('email', archiveEmail)
+      .maybeSingle();
+    
+    if (userFetchError) {
+      console.warn(`⚠️ RESTORE: erreur lors de la recherche de l'utilisateur dans auth.users:`, userFetchError);
+    }
+    
+    if (existingUser) {
+      userId = existingUser.id;
+      console.log(`✅ RESTORE: utilisateur existant trouvé dans Auth (${userId})`);
+    } else {
+      console.log(`ℹ️ RESTORE: aucun utilisateur auth trouvé pour ${archiveEmail}, messagerie_accounts créé sans user_id`);
+    }
+    
+    const accountData = cleanUndefined({
+      user_id: userId,
       email: archiveEmail,
       full_name: archiveName,
       company: archivePayload.company || null,
@@ -275,7 +299,7 @@ export async function POST(req: Request) {
       created_at: archiveCreatedAt,
       updated_at: new Date().toISOString(),
       created_by: "system_restore"
-    };
+    });
 
     const { error: accountError } = await supabaseClient
       .from("messagerie_accounts")
@@ -283,20 +307,17 @@ export async function POST(req: Request) {
 
     if (accountError) {
       console.error(`❌ RESTORE: erreur upsert messagerie_accounts:`, accountError);
-      // Non bloquant, on continue
     } else {
       console.log(`✅ RESTORE: messagerie_accounts mis à jour pour ${dossier_ref}`);
     }
 
     // ==========================================================
-    // ✅ NOUVELLE SECTION : UPSERT pour messagerie_conversations
+    // SECTION : UPSERT pour messagerie_conversations
     // ==========================================================
     
-    // Extraire le message de bienvenue du fil de discussion ou utiliser un message par défaut
     let lastMessage = "Bienvenue sur la messagerie privée VAGONDYS";
     let lastMessageAt = archiveCreatedAt;
     
-    // Chercher le dernier message dans le fil de discussion
     if (archiveData.fil_de_discussion && Array.isArray(archiveData.fil_de_discussion) && archiveData.fil_de_discussion.length > 0) {
       const lastMsg = archiveData.fil_de_discussion[archiveData.fil_de_discussion.length - 1] as FilDiscussionMessage;
       if (lastMsg.content) {
@@ -305,7 +326,7 @@ export async function POST(req: Request) {
       }
     }
     
-    const conversationData = {
+    const conversationData = cleanUndefined({
       dossier_ref: dossier_ref,
       participant_email: archiveEmail,
       participant_name: archiveName,
@@ -314,7 +335,7 @@ export async function POST(req: Request) {
       last_message_at: lastMessageAt,
       created_at: archiveCreatedAt,
       updated_at: new Date().toISOString()
-    };
+    });
 
     const { error: conversationError } = await supabaseClient
       .from("messagerie_conversations")
@@ -322,16 +343,14 @@ export async function POST(req: Request) {
 
     if (conversationError) {
       console.error(`❌ RESTORE: erreur upsert messagerie_conversations:`, conversationError);
-      // Non bloquant
     } else {
       console.log(`✅ RESTORE: messagerie_conversations mis à jour pour ${dossier_ref}`);
     }
 
     // ==========================================================
-    // ✅ NOUVELLE SECTION : UPSERT pour messagerie_messages
+    // SECTION : UPSERT pour messagerie_messages
     // ==========================================================
     
-    // Récupérer l'ID de la conversation (ou le créer)
     const { data: convData } = await supabaseClient
       .from("messagerie_conversations")
       .select("id")
@@ -342,7 +361,6 @@ export async function POST(req: Request) {
     if (convData) {
       conversationId = convData.id;
     } else {
-      // Créer une nouvelle conversation avec un ID aléatoire
       conversationId = crypto.randomUUID();
       const { error: createConvError } = await supabaseClient
         .from("messagerie_conversations")
@@ -358,13 +376,11 @@ export async function POST(req: Request) {
       
       if (createConvError) {
         console.error(`❌ RESTORE: erreur création conversation:`, createConvError);
-        // On continue quand même, mais on ne pourra pas insérer de messages
       } else {
         console.log(`✅ RESTORE: conversation créée avec ID ${conversationId}`);
       }
     }
     
-    // Extraire les messages du fil de discussion (uniquement si conversationId existe)
     const messagesToInsert: MessageToInsert[] = [];
     
     if (archiveData.fil_de_discussion && Array.isArray(archiveData.fil_de_discussion) && conversationId) {
@@ -385,10 +401,8 @@ export async function POST(req: Request) {
     }
     
     if (messagesToInsert.length > 0 && conversationId) {
-      // Insérer les messages un par un pour éviter les doublons
       let messagesInserted = 0;
       for (const msg of messagesToInsert) {
-        // Vérifier si le message existe déjà (par contenu + date)
         const { data: existingMsg } = await supabaseClient
           .from("messagerie_messages")
           .select("id")
@@ -413,11 +427,10 @@ export async function POST(req: Request) {
     }
 
     // ==========================================================
-    // ✅ NOUVELLE SECTION : UPSERT pour pending_messagerie_requests
+    // SECTION : UPSERT pour pending_messagerie_requests
     // ==========================================================
     
-    // Récupérer les informations de la demande depuis l'archive
-    const messagerieRequestData = {
+    const messagerieRequestData = cleanUndefined({
       dossier_ref: dossier_ref,
       full_name: archiveName,
       email: archiveEmail,
@@ -433,7 +446,7 @@ export async function POST(req: Request) {
       kbis_key: archivePayload.kbis_key || null,
       kbis_validated: archivePayload.kbis_validated || false,
       kbis_scan_result: archivePayload.kbis_scan_result || null
-    };
+    });
 
     const { error: messagerieRequestError } = await supabaseClient
       .from("pending_messagerie_requests")
@@ -441,13 +454,12 @@ export async function POST(req: Request) {
 
     if (messagerieRequestError) {
       console.error(`❌ RESTORE: erreur upsert pending_messagerie_requests:`, messagerieRequestError);
-      // Non bloquant
     } else {
       console.log(`✅ RESTORE: pending_messagerie_requests mis à jour pour ${dossier_ref}`);
     }
 
     // ==========================================================
-    // SECTION EXISTANTE : communication_replies (conservée et améliorée)
+    // SECTION : communication_replies
     // ==========================================================
     
     if (historyData.length > 0) {
@@ -457,7 +469,6 @@ export async function POST(req: Request) {
       let duplicateCount = 0;
       
       for (const h of historyData) {
-        // ✅ Vérifier si ce message existe déjà PAR ID (le plus fiable)
         const { data: existingById } = await supabaseClient
           .from("communication_replies")
           .select("id")
@@ -469,7 +480,6 @@ export async function POST(req: Request) {
           continue;
         }
         
-        // Fallback: vérifier par contenu + date si l'ID n'existe pas
         const { data: existingByContent } = await supabaseClient
           .from("communication_replies")
           .select("id")
@@ -483,7 +493,6 @@ export async function POST(req: Request) {
           continue;
         }
         
-        // N'existe pas, on l'insère
         const replyData = {
           id: h.id,
           dossier_ref: dossier_ref,
