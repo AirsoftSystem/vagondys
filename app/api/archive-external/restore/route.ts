@@ -209,8 +209,8 @@ export async function POST(req: Request) {
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // ==========================================================
-    // SECTION : UPSERT pour pending_signals
-    // ✅ CORRECTION : Nettoyage du payload pour éviter undefined
+    // SECTION : INSERT pour pending_signals
+    // ✅ CORRECTION : Remplacement de upsert par insert (dossier_ref n'est pas unique)
     // ==========================================================
     
     // Récupérer les informations depuis l'archive brute et signalData
@@ -253,12 +253,13 @@ export async function POST(req: Request) {
       country: effectiveCountry
     };
 
+    // ✅ CORRECTION : Insert simple au lieu de upsert (pas de onConflict)
     const { error: pendingSignalsError } = await supabaseClient
       .from("pending_signals")
-      .upsert(insertData, { onConflict: "dossier_ref" });
+      .insert(insertData);
 
     if (pendingSignalsError) {
-      console.error(`❌ RESTORE: erreur upsert pending_signals:`, pendingSignalsError);
+      console.error(`❌ RESTORE: erreur insert pending_signals:`, pendingSignalsError);
       return NextResponse.json({ error: "Erreur insertion signal" }, { status: 500 });
     }
     console.log(`✅ RESTORE: pending_signals mis à jour pour ${dossier_ref}`);
