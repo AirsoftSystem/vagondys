@@ -79,7 +79,9 @@ CREATE POLICY "Allow insert for signup" ON public.athletes
     FOR INSERT WITH CHECK (true);
 
 -- ==========================================================
--- 2. TABLE match_history
+-- 2. TABLE match_history (⚠️ NON UTILISÉE - Nouvelle architecture GitHub)
+-- Les parties sont désormais stockées dans GitHub (players/{id}/matches/)
+-- Cette table est conservée pour compatibilité ascendante uniquement
 -- ==========================================================
 
 DROP TABLE IF EXISTS public.match_history CASCADE;
@@ -131,6 +133,55 @@ CREATE POLICY "Staff full access" ON public.match_history
     FOR ALL TO service_role USING (true);
 
 CREATE POLICY "Staff authenticated read all matches" ON public.match_history
+    FOR SELECT USING (
+        auth.role() = 'authenticated' 
+        AND auth.email() LIKE '%@vagondys.com'
+    );
+
+-- ==========================================================
+-- 2bis. TABLE global_rankings (Classements pré-calculés pour API rapide)
+-- Utilisée par /api/rankings/global/route.ts et /api/cron/recalculate-rankings/route.ts
+-- ==========================================================
+
+DROP TABLE IF EXISTS public.global_rankings CASCADE;
+CREATE TABLE public.global_rankings (
+    id SERIAL PRIMARY KEY,
+    player_id UUID NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+    rank INTEGER NOT NULL,
+    score INTEGER NOT NULL,
+    pch INTEGER DEFAULT 0,
+    snapshot_date DATE NOT NULL,
+    season TEXT NOT NULL,
+    pseudo TEXT,
+    city TEXT,
+    country TEXT,
+    total_matches INTEGER DEFAULT 0,
+    win_rate FLOAT DEFAULT 0,
+    current_grade_id INTEGER DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_global_rankings_player_id ON global_rankings(player_id);
+CREATE INDEX IF NOT EXISTS idx_global_rankings_rank ON global_rankings(rank);
+CREATE INDEX IF NOT EXISTS idx_global_rankings_snapshot_date ON global_rankings(snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_global_rankings_season ON global_rankings(season);
+CREATE INDEX IF NOT EXISTS idx_global_rankings_city ON global_rankings(city);
+CREATE INDEX IF NOT EXISTS idx_global_rankings_city_snapshot ON global_rankings(city, snapshot_date);
+
+-- RLS
+ALTER TABLE public.global_rankings ENABLE ROW LEVEL SECURITY;
+
+-- Tout le monde peut lire les classements
+CREATE POLICY "Anyone can read global rankings" ON public.global_rankings
+    FOR SELECT USING (true);
+
+-- Seul le service role peut insérer/mettre à jour
+CREATE POLICY "Service role full access global rankings" ON public.global_rankings
+    FOR ALL TO service_role USING (true);
+
+-- Les membres staff authentifiés peuvent aussi lire
+CREATE POLICY "Staff authenticated read global rankings" ON public.global_rankings
     FOR SELECT USING (
         auth.role() = 'authenticated' 
         AND auth.email() LIKE '%@vagondys.com'
@@ -484,7 +535,7 @@ CREATE TRIGGER trigger_time_slots_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Purge des données de plus de 2 ans
+-- Purge des données de plus de 2 ans (⚠️ match_history commentée car plus utilisée)
 CREATE OR REPLACE FUNCTION purge_old_data()
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -493,19 +544,15 @@ AS $$
 DECLARE
     deleted_count INTEGER := 0;
 BEGIN
-    WITH deleted AS (
-        DELETE FROM match_history
-        WHERE created_at < NOW() - INTERVAL '2 years'
-        RETURNING *
-    )
-    SELECT COUNT(*) INTO deleted_count FROM deleted;
+    -- match_history n'est plus utilisé dans la nouvelle architecture
+    -- DELETE FROM match_history WHERE created_at < NOW() - INTERVAL '2 years';
     
     WITH deleted AS (
         DELETE FROM tournament_results
         WHERE tournament_date < NOW() - INTERVAL '2 years'
         RETURNING *
     )
-    SELECT deleted_count + COUNT(*) INTO deleted_count FROM deleted;
+    SELECT COUNT(*) INTO deleted_count FROM deleted;
     
     WITH deleted AS (
         DELETE FROM rankings_history
@@ -595,13 +642,13 @@ CREATE TABLE public.pending_messagerie_requests (
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by TEXT,
     reviewed_at TIMESTAMPTZ,
-    dossier_ref TEXT UNIQUE,                                       -- ✅ AJOUT : Référence unique VGD-XXXXXXXX
+    dossier_ref TEXT UNIQUE,
     
-    -- ✅ AJOUT : Colonnes pour le stockage du KBis et validation IA/antivirus
-    kbis_url TEXT,                                        -- URL du fichier KBis stocké dans R2
-    kbis_key TEXT,                                        -- Clé du fichier dans R2
-    kbis_validated BOOLEAN DEFAULT false,                 -- Validation IA (authenticité)
-    kbis_scan_result JSONB,                               -- Résultat complet du scan (antivirus + IA)
+    -- Colonnes pour le stockage du KBis et validation IA/antivirus
+    kbis_url TEXT,
+    kbis_key TEXT,
+    kbis_validated BOOLEAN DEFAULT false,
+    kbis_scan_result JSONB,
     
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -612,7 +659,7 @@ CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_email ON pending_mess
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_messagerie_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_dossier_ref ON pending_messagerie_requests(dossier_ref);
-CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_kbis_validated ON pending_messagerie_requests(kbis_validated);  -- ✅ AJOUT
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_kbis_validated ON pending_messagerie_requests(kbis_validated);
 
 -- RLS
 ALTER TABLE public.pending_messagerie_requests ENABLE ROW LEVEL SECURITY;
