@@ -10,13 +10,19 @@ import { createClient } from "@supabase/supabase-js";
  * Vérifie si l’utilisateur a un compte messagerie actif
  * Utilisé par la page de connexion pour éviter d’exposer la clé service role côté client
  * 
- * ✅ CORRECTION : Recherche par email (prioritaire) ou user_id
+ * ✅ CORRECTION : Normalisation de l'email + logs
  */
 export async function POST(request: NextRequest) {
   try {
     // 1. Récupération des paramètres
     const body = await request.json();
-    const { userId, email } = body;
+    const { userId, email: rawEmail } = body;
+    
+    // Normaliser l'email (casse, espaces)
+    let email = rawEmail;
+    if (email && typeof email === "string") {
+      email = email.toLowerCase().trim();
+    }
 
     // Au moins un des deux est requis
     if (!userId && !email) {
@@ -25,6 +31,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log(`🔍 check-account: recherche pour userId=${userId}, email=${email}`);
 
     // 2. Connexion à Supabase avec la clé service role
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Priorité à l'email si fourni (plus fiable, car user_id peut être null après restauration)
     let query = supabaseAdmin
       .from("messagerie_accounts")
-      .select("status, role, dossier_ref");
+      .select("status, role, dossier_ref, user_id, email");
 
     if (email) {
       query = query.eq("email", email);
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Retourner le statut
     if (!messagerieAccount) {
+      console.log(`❌ check-account: aucun compte trouvé pour email=${email} ou userId=${userId}`);
       return NextResponse.json({
         isActive: false,
         exists: false,
@@ -73,11 +82,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log(`✅ check-account: compte trouvé pour ${messagerieAccount.email}, status=${messagerieAccount.status}`);
+
     return NextResponse.json({
       isActive: messagerieAccount.status === "active",
       exists: true,
       role: messagerieAccount.role,
       dossier_ref: messagerieAccount.dossier_ref,
+      user_id: messagerieAccount.user_id,
       status: messagerieAccount.status,
     });
   } catch (error) {
