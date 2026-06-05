@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Body: { email: string, country?: string }
  * 
  * Retourne le dossier_ref trouvé ou null
+ * 
+ * ✅ CORRECTION : Recherche plus souple (normalisation + correspondance partielle)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +25,11 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
     const targetCountry = country?.toUpperCase().trim() || "FR";
     const countryPath = targetCountry === "ES" ? "ESPAGNE" : "FRANCE";
+
+    // Version normalisée de l'email pour la recherche (supprime les points et remplace @ par _)
+    const emailForSearch = normalizedEmail.replace(/\./g, "").replace("@", "_");
+
+    console.log(`🔍 find-by-email: recherche pour ${normalizedEmail} (slug: ${emailForSearch})`);
 
     // Configuration GitHub
     const targetRepo = process.env.GITHUB_ARCHIVE_REPO;
@@ -47,32 +54,53 @@ export async function POST(request: NextRequest) {
       file.path.toLowerCase().includes(countryPath.toLowerCase())
     );
 
-    // Pour chaque fichier, extraire l'email depuis le nom
-    const emailMatches: Array<{ dossier_ref: string; filePath: string }> = [];
+    console.log(`📦 find-by-email: ${countryFiles.length} fichiers trouvés dans ${countryPath}`);
+
+    // Pour chaque fichier, extraire le dossier_ref
+    const emailMatches: Array<{ dossier_ref: string; filePath: string; score: number }> = [];
 
     for (const file of countryFiles) {
       const fileName = file.name;
-      // Format attendu: {email_slug}_{dossier_ref}.json ou .json.gz
-      const parts = fileName.replace(/\.json(\.gz)?$/, "").split("_");
+      const baseName = fileName.replace(/\.json(\.gz)?$/, "");
       
-      if (parts.length >= 2) {
-        const emailSlug = parts[0];
-        const dossierRef = parts.slice(1).join("_");
-        
-        // Reconstruire l'email depuis le slug
-        const extractedEmail = emailSlug.replace(/_/g, "@");
-        
-        if (extractedEmail === normalizedEmail) {
-          emailMatches.push({ dossier_ref: dossierRef, filePath: file.path });
-        }
+      // Recherche par correspondance normale
+      const slugFromFile = baseName;
+      const dossierRefMatch = slugFromFile.match(/(VGD-[A-Z0-9]+)/);
+      const dossierRef = dossierRefMatch ? dossierRefMatch[1] : null;
+      
+      if (!dossierRef) continue;
+      
+      // Vérifier si le nom du fichier contient notre slug d'email
+      if (slugFromFile.includes(emailForSearch)) {
+        emailMatches.push({ 
+          dossier_ref: dossierRef, 
+          filePath: file.path,
+          score: 100 // correspondance exacte
+        });
+        continue;
+      }
+      
+      // Fallback : supprimer les tirets et essayer à nouveau
+      const cleanSlug = slugFromFile.replace(/-/g, "");
+      if (cleanSlug.includes(emailForSearch.replace(/-/g, ""))) {
+        emailMatches.push({ 
+          dossier_ref: dossierRef, 
+          filePath: file.path,
+          score: 80 // correspondance approximative
+        });
       }
     }
 
     if (emailMatches.length === 0) {
+      console.log(`❌ find-by-email: aucun dossier trouvé pour ${normalizedEmail}`);
       return NextResponse.json({ dossier_ref: null, message: "Aucun dossier trouvé" });
     }
 
-    // Retourner le premier dossier trouvé (le plus récent est prioritaire via le tri des fichiers)
+    // Trier par score (le plus élevé d'abord) et prendre le premier
+    emailMatches.sort((a, b) => b.score - a.score);
+    
+    console.log(`✅ find-by-email: dossier trouvé ${emailMatches[0].dossier_ref} (score: ${emailMatches[0].score})`);
+
     return NextResponse.json({
       dossier_ref: emailMatches[0].dossier_ref,
       count: emailMatches.length,
