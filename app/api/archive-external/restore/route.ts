@@ -210,12 +210,11 @@ export async function POST(req: Request) {
 
     // ==========================================================
     // SECTION : INSERT pour pending_signals
-    // ✅ CORRECTION : Remplacement de upsert par insert (dossier_ref n'est pas unique)
     // ==========================================================
     
     // Récupérer les informations depuis l'archive brute et signalData
     const archiveName = archivePayload.name || signalData.payload?.name;
-    const archiveEmail = archivePayload.email || signalData.payload?.email;
+    const archiveEmailRaw = archivePayload.email || signalData.payload?.email || archiveData.client_identity?.email;
     const archivePhone = archivePayload.phone || (signalData.payload?.phone === null ? undefined : signalData.payload?.phone);
     const archiveSubject = archivePayload.subject || signalData.payload?.subject;
     const archiveMessage = archivePayload.message || signalData.payload?.message;
@@ -226,6 +225,12 @@ export async function POST(req: Request) {
       is_returning_client: false,
       first_contact: false
     };
+    
+    // Vérification de l'email
+    let archiveEmail: string | undefined;
+    if (archiveEmailRaw && typeof archiveEmailRaw === 'string') {
+      archiveEmail = archiveEmailRaw.toLowerCase().trim();
+    }
     
     // Construire le payload complet avec l'historique depuis l'archive brute
     const completePayload: SignalPayload = cleanUndefined({
@@ -253,7 +258,6 @@ export async function POST(req: Request) {
       country: effectiveCountry
     };
 
-    // ✅ CORRECTION : Insert simple au lieu de upsert (pas de onConflict)
     const { error: pendingSignalsError } = await supabaseClient
       .from("pending_signals")
       .insert(insertData);
@@ -265,27 +269,33 @@ export async function POST(req: Request) {
     console.log(`✅ RESTORE: pending_signals mis à jour pour ${dossier_ref}`);
 
     // ==========================================================
-    // SECTION : UPSERT pour messagerie_accounts (avec vérification user_id)
-    // ✅ CORRECTION : Utilisation de la table auth.users (service_role)
+    // SECTION : UPSERT pour messagerie_accounts
+    // ✅ CORRECTION : Utilisation directe de la table auth.users (pas de getUserByEmail)
     // ==========================================================
     
-    // Vérifier si l'utilisateur existe déjà dans auth.users
     let userId: string | null = null;
-    const { data: existingUser, error: userFetchError } = await supabaseClient
-      .from('auth.users')
-      .select('id')
-      .eq('email', archiveEmail)
-      .maybeSingle();
-    
-    if (userFetchError) {
-      console.warn(`⚠️ RESTORE: erreur lors de la recherche de l'utilisateur dans auth.users:`, userFetchError);
-    }
-    
-    if (existingUser) {
-      userId = existingUser.id;
-      console.log(`✅ RESTORE: utilisateur existant trouvé dans Auth (${userId})`);
+    if (archiveEmail) {
+      try {
+        // Recherche de l'utilisateur dans auth.users via email
+        const { data: existingUser, error: userFetchError } = await supabaseClient
+          .from('auth.users')
+          .select('id')
+          .eq('email', archiveEmail)
+          .maybeSingle();
+        
+        if (userFetchError) {
+          console.warn(`⚠️ RESTORE: erreur recherche utilisateur dans auth.users:`, userFetchError);
+        } else if (existingUser) {
+          userId = existingUser.id;
+          console.log(`✅ RESTORE: utilisateur existant trouvé dans Auth (${userId})`);
+        } else {
+          console.log(`ℹ️ RESTORE: aucun utilisateur auth trouvé pour ${archiveEmail}, messagerie_accounts créé sans user_id`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ RESTORE: exception lors de la recherche utilisateur:`, err);
+      }
     } else {
-      console.log(`ℹ️ RESTORE: aucun utilisateur auth trouvé pour ${archiveEmail}, messagerie_accounts créé sans user_id`);
+      console.warn(`⚠️ RESTORE: email manquant pour ${dossier_ref}, impossible de lier à un compte auth`);
     }
     
     const accountData = cleanUndefined({
