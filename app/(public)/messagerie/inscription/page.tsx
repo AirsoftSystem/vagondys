@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   CheckCircle2,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 import { Turnstile } from '@marsidev/react-turnstile';
 import FileUploader from "@/components/FileUploader";
@@ -30,6 +31,9 @@ function MessagerieInscriptionContent() {
   const searchParams = useSearchParams();
   const errorParam = searchParams.get("error");
   const statusParam = searchParams.get("status");
+  
+  // ✅ État pour le loading (useTransition)
+  const [isPending, startTransition] = useTransition();
   
   // Dérivation directe de l'état success à partir du paramètre d'URL
   const success = statusParam === "pending_validation";
@@ -110,6 +114,13 @@ function MessagerieInscriptionContent() {
     setKbisKey("");
   };
 
+  // ✅ Gestionnaire de soumission avec useTransition
+  const handleSubmit = async (formData: FormData) => {
+    startTransition(async () => {
+      await submitMessagerieRequest(formData);
+    });
+  };
+
   if (success) {
     return (
       <main className="min-h-screen bg-black text-white px-6 py-24 font-sans">
@@ -169,8 +180,8 @@ function MessagerieInscriptionContent() {
           </p>
         </div>
 
-        {/* Formulaire - Utilisation de Server Action */}
-        <form action={submitMessagerieRequest} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 md:p-12 space-y-6">
+        {/* Formulaire - avec useTransition pour le feedback visuel */}
+        <form action={handleSubmit} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 md:p-12 space-y-6">
           
           {error && (
             <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
@@ -280,7 +291,7 @@ function MessagerieInscriptionContent() {
                 onUpload={handleKbisUpload}
                 onError={handleKbisError}
                 buttonText="Joindre mon extrait KBis"
-                disabled={false}
+                disabled={isPending}
               />
               
               <div className="mt-3 text-[8px] text-zinc-600 uppercase tracking-wider">
@@ -309,14 +320,23 @@ function MessagerieInscriptionContent() {
             />
           </div>
 
-          {/* Bouton d’envoi */}
+          {/* ✅ Bouton d’envoi avec feedback visuel */}
           <button
             type="submit"
-            disabled={!kbisUploaded}
+            disabled={!kbisUploaded || isPending}
             className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-5 rounded-xl uppercase tracking-[0.3em] text-[11px] transition-all flex items-center justify-center gap-3"
           >
-            <Send className="w-4 h-4" />
-            Soumettre ma demande
+            {isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Envoi en cours...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Soumettre ma demande
+              </>
+            )}
           </button>
 
           {/* Lien vers la connexion */}
