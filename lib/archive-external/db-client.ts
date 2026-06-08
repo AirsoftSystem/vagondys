@@ -289,33 +289,3 @@ export async function getHistoryFromDB(
     return [];
   }
 }
-
-/**
- * Purge les données d'un dossier dans les tables actives
- * 
- * ✅ CORRECTION DÉFINITIVE :
- * ==========================================================
- * 
- * Cette fonction ne fait RIEN car l'architecture actuelle stocke
- * toutes les données dans GitHub. Supabase ne contient que les
- * métadonnées (comptes, conversations) qui ne doivent jamais être purgées.
- * 
- * L'archivage GitHub sert uniquement de backup externe.
- * 
- * ==========================================================
- * 
- * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
- * @param cityCode - Code de la ville (optionnel, pour filtrer)
- * @param countryCode - Code du pays (optionnel, pour filtrer)
- */
-export async function purgeDossierData(
-  ref: string, 
-  cityCode?: string,
-  countryCode: string = 'FR'
-): Promise<{ purged: boolean; error?: string }> {
-  console.log(`🗑️ purgeDossierData: appelé pour ${ref} mais AUCUNE SUPPRESSION EFFECTUÉE (données dans GitHub)`);
-  console.log(`   (cityCode=${cityCode}, countryCode=${countryCode})`);
-  
-  // Ne rien supprimer du tout
-  return { purged: true };
-}

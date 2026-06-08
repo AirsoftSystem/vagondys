@@ -3,32 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
-
-/**
- * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
- * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
- */
-function generateVGDReference(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `VGD-${result}`;
-}
-
-/**
- * Interface pour la demande
- */
-interface PendingRequest {
-  id: string;
-  full_name: string;
-  email: string;
-  company: string | null;
-  phone: string | null;
-  reason: string;
-  status: string;
-}
+import { requestDB } from "@/lib/github-db/request";
 
 /**
  * API d’approbation des demandes d’inscription à la messagerie privée
@@ -39,12 +14,11 @@ interface PendingRequest {
  * 
  * Sécurité : Seul le staff/admin peut appeler cette API
  * 
- * ✅ AJOUT : Création de la conversation initiale et message de bienvenue
- * ✅ AJOUT : Mise à jour de pending_messagerie_requests avec dossier_ref
+ * ✅ CORRECTION : Utilisation de GitHub pour les demandes (plus de Supabase)
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Connexion à Supabase
+    // 1. Connexion à Supabase (uniquement pour Auth et messagerie_accounts)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -84,8 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Vérifier que l'email de l'utilisateur est disponible
+    const staffEmail = user.email;
+    if (!staffEmail) {
+      return NextResponse.json(
+        { error: "Email utilisateur non disponible" },
+        { status: 400 }
+      );
+    }
+
     // 3. Vérifier que l’utilisateur est staff
-    const userEmail = user.email?.toLowerCase() || "";
+    const userEmail = staffEmail.toLowerCase();
     const isStaff = userEmail.endsWith("@vagondys.com");
     
     if (!isStaff) {
@@ -114,21 +97,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Récupérer la demande
-    const { data: pendingRequest, error: fetchError } = await supabaseAdmin
-      .from("pending_messagerie_requests")
-      .select("*")
-      .eq("id", requestId)
-      .single();
+    // ✅ 5. Récupérer la demande depuis GITHUB
+    // Note: requestId correspond au dossier_ref dans la nouvelle architecture
+    const pendingRequest = await requestDB.getRequest(requestId);
 
-    if (fetchError || !pendingRequest) {
+    if (!pendingRequest) {
       return NextResponse.json(
         { error: "Demande introuvable" },
         { status: 404 }
       );
     }
 
-    const requestData = pendingRequest as PendingRequest;
+    const requestData = pendingRequest;
 
     if (requestData.status !== "pending") {
       return NextResponse.json(
@@ -141,19 +121,11 @@ export async function POST(request: NextRequest) {
     const displayId = requestId.substring(0, 8).toUpperCase();
 
     if (action === "reject") {
-      // Rejet de la demande
-      const { error: updateError } = await supabaseAdmin
-        .from("pending_messagerie_requests")
-        .update({
-          status: "rejected",
-          reviewed_by: user.email,
-          reviewed_at: now,
-          updated_at: now,
-        })
-        .eq("id", requestId);
+      // ✅ Rejet de la demande via GitHub
+      const success = await requestDB.updateRequestStatus(requestId, "rejected", staffEmail);
 
-      if (updateError) {
-        console.error("Erreur mise à jour demande rejetée:", updateError);
+      if (!success) {
+        console.error("Erreur mise à jour demande rejetée");
         return NextResponse.json(
           { error: "Erreur lors du rejet de la demande" },
           { status: 500 }
@@ -190,7 +162,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. APPROBATION DE LA DEMANDE
-    const dossierRef = generateVGDReference();
+    const dossierRef = requestId; // Le dossier_ref est déjà l'ID
     const confirmationToken = randomUUID();
 
     // Génération d'un mot de passe temporaire
@@ -227,7 +199,7 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 8. Insertion dans messagerie_accounts
+    // 8. Insertion dans messagerie_accounts (Supabase – métadonnées)
     const { error: insertAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
       .insert({
@@ -239,7 +211,7 @@ export async function POST(request: NextRequest) {
         dossier_ref: dossierRef,
         role: "partner",
         status: "active",
-        created_by: user.email,
+        created_by: staffEmail,
         created_at: now,
       });
 
@@ -252,65 +224,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ AJOUT : Créer la conversation initiale dans messagerie_conversations
-    const conversationId = randomUUID();
-    const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
+    // ✅ 9. Mettre à jour le statut de la demande dans GitHub
+    const updateSuccess = await requestDB.updateRequestStatus(dossierRef, "approved", staffEmail);
 
-    const { error: createConversationError } = await supabaseAdmin
-      .from("messagerie_conversations")
-      .insert({
-        id: conversationId,
-        dossier_ref: dossierRef,
-        participant_email: requestData.email,
-        participant_name: requestData.full_name,
-        participant_company: requestData.company || null,
-        last_message: welcomeMessage,
-        last_message_at: now,
-        created_at: now,
-        updated_at: now,
-      });
-
-    if (createConversationError) {
-      console.error("Erreur création conversation:", createConversationError);
+    if (!updateSuccess) {
+      console.error("Erreur mise à jour demande approuvée dans GitHub");
       // Non bloquant, on continue
     }
 
-    // ✅ AJOUT : Ajouter un message de bienvenue automatique
-    const { error: createWelcomeMessageError } = await supabaseAdmin
-      .from("messagerie_messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_email: "system@vagondys.com",
-        sender_name: "Système VAGONDYS",
-        content: welcomeMessage,
-        file_url: null,
-        file_key: null,
-        is_read: false,
-        created_at: now,
-      });
+    // ✅ 10. Ajouter un message de bienvenue dans GitHub
+    const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
+    
+    await requestDB.addRequestMessage(dossierRef, {
+      sender_email: "system@vagondys.com",
+      sender_name: "Système VAGONDYS",
+      content: welcomeMessage,
+      is_staff: false,
+    });
 
-    if (createWelcomeMessageError) {
-      console.error("Erreur création message de bienvenue:", createWelcomeMessageError);
-      // Non bloquant
-    }
-
-    // ✅ CORRECTION : Mise à jour de la demande avec le dossier_ref
-    const { error: updateRequestError } = await supabaseAdmin
-      .from("pending_messagerie_requests")
-      .update({
-        status: "approved",
-        reviewed_by: user.email,
-        reviewed_at: now,
-        updated_at: now,
-        dossier_ref: dossierRef,
-      })
-      .eq("id", requestId);
-
-    if (updateRequestError) {
-      console.error("Erreur mise à jour demande approuvée:", updateRequestError);
-    }
-
-    // 10. Envoi de l’email de confirmation
+    // 11. Envoi de l’email de confirmation
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
     const confirmUrl = `${frontendUrl}/api/messagerie/confirm?token=${confirmationToken}&email=${encodeURIComponent(requestData.email)}`;
 
@@ -349,7 +281,7 @@ export async function POST(request: NextRequest) {
       "no-reply@vagondys.com"
     ).catch(console.error);
 
-    // 11. Stocker le token de confirmation
+    // 12. Stocker le token de confirmation (Supabase)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 48);
 
@@ -367,7 +299,7 @@ export async function POST(request: NextRequest) {
       console.error("Erreur insertion token confirmation:", tokenError);
     }
 
-    // 12. Archivage GitHub
+    // 13. Archivage GitHub (déjà fait, mais on peut le refaire pour mettre à jour)
     try {
       const archivePayload = {
         message: {
@@ -380,6 +312,9 @@ export async function POST(request: NextRequest) {
             phone: requestData.phone,
             reason: requestData.reason,
             type: "messagerie_request",
+            status: "approved",
+            reviewed_by: staffEmail,
+            reviewed_at: now,
           },
         },
         history: [],

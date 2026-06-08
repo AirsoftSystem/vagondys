@@ -5,9 +5,9 @@ import { sendGeneralEmail } from "@/lib/email/gmail";
 import { GitHubDB } from "@/lib/github-db/client";
 
 /**
- * Interface pour un message
+ * Interface pour un message (GitHub)
  */
-interface Message {
+interface GitHubMessage {
   id: string;
   conversation_id: string;
   sender_email: string;
@@ -22,15 +22,15 @@ interface Message {
 /**
  * API de gestion des messages de la messagerie privée
  * * GET /api/messagerie/messages?conversationId=xxx
- * - Récupère tous les messages d’une conversation
- * - Marque les messages comme lus (sauf ceux de l’utilisateur)
+ * - Récupère tous les messages d’une conversation depuis GitHub
  * * POST /api/messagerie/messages
- * - Envoie un nouveau message
+ * - Envoie un nouveau message (écriture uniquement dans GitHub)
  * - Body: { conversationId, content, fileUrl?, fileKey? }
  * * Sécurité : L’utilisateur doit être authentifié
  * Ne peut accéder qu’à ses propres conversations
  * 
- * ✅ MODIFICATION : Ajout de l'écriture dans GitHub pour l'historique infini
+ * ✅ CORRECTION : Supabase n’est plus utilisé pour les messages
+ * (uniquement GitHub)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -112,39 +112,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 6. Récupérer les messages
-    const { data: messages, error: messagesError } = await supabaseAdmin
-      .from("messagerie_messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    if (messagesError) {
-      console.error("Erreur récupération messages:", messagesError);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des messages" },
-        { status: 500 }
-      );
-    }
-
-    // 7. Marquer les messages comme lus (sauf ceux envoyés par l’utilisateur)
-    if (messages && messages.length > 0) {
-      const unreadMessageIds = (messages as Message[])
-        .filter((msg) => !msg.is_read && msg.sender_email !== userEmail)
-        .map((msg) => msg.id);
-
-      if (unreadMessageIds.length > 0) {
-        const { error: updateError } = await supabaseAdmin
-          .from("messagerie_messages")
-          .update({ is_read: true })
-          .in("id", unreadMessageIds);
-
-        if (updateError) {
-          console.error("Erreur marquage messages lus:", updateError);
-          // Non bloquant
-        }
+    // ✅ 6. Lire les messages depuis GITHUB (uniquement)
+    const dossierRef = conversation.dossier_ref;
+    const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+    
+    let messages: GitHubMessage[] = [];
+    try {
+      const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
+      if (existing) {
+        messages = existing;
+        console.log(`📦 Lecture de ${messages.length} messages depuis GitHub: ${gitHubPath}`);
       }
+    } catch {
+      console.log(`ℹ️ Aucun message trouvé dans GitHub pour ${dossierRef}`);
+      messages = [];
     }
+
+    // 7. Trier par date croissante
+    messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     return NextResponse.json({
       success: true,
@@ -154,7 +139,7 @@ export async function GET(request: NextRequest) {
         participant_email: conversation.participant_email,
         participant_name: conversation.participant_name,
       },
-      messages: (messages as Message[]) || [],
+      messages: messages,
     });
   } catch (error) {
     console.error("Erreur API messagerie/messages GET:", error);
@@ -169,8 +154,10 @@ export async function GET(request: NextRequest) {
  * POST /api/messagerie/messages
  * Envoie un nouveau message
  * 
- * ✅ AJOUT : Notification email au partenaire lorsque le staff envoie un message
- * ✅ MODIFICATION : Écriture simultanée dans GitHub pour l'historique infini
+ * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
+ * 
+ * - Notification email au partenaire lorsque le staff envoie un message
+ * - Mise à jour de la conversation (last_message, last_message_at) dans Supabase
  */
 export async function POST(request: NextRequest) {
   try {
@@ -253,8 +240,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Insérer le nouveau message DANS SUPABASE
-    const newMessage: Omit<Message, "id"> = {
+    // 6. Préparer le nouveau message
+    const dossierRef = conversation.dossier_ref;
+    const now = new Date().toISOString();
+    const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+
+    const newMessage: GitHubMessage = {
+      id: messageId,
       conversation_id: conversationId,
       sender_email: userEmail,
       sender_name: isStaff ? `Staff ${userName}` : userName,
@@ -262,59 +254,44 @@ export async function POST(request: NextRequest) {
       file_url: fileUrl || null,
       file_key: fileKey || null,
       is_read: false,
-      created_at: new Date().toISOString(),
+      created_at: now,
     };
 
-    const { data: insertedMessage, error: insertError } = await supabaseAdmin
-      .from("messagerie_messages")
-      .insert([newMessage])
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("Erreur insertion message:", insertError);
-      return NextResponse.json(
-        { error: "Erreur lors de l’envoi du message" },
-        { status: 500 }
-      );
-    }
-
-    // ✅ 7. Écrire le message DANS GITHUB (pour l'historique infini)
+    // ✅ 7. Écrire le message UNIQUEMENT dans GITHUB
+    const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+    
     try {
-      // Récupérer la conversation pour avoir le dossier_ref
-      const dossierRef = conversation.dossier_ref;
-      
-      // Chemin dans GitHub: conversations/{dossier_ref}/messages.json.gz
-      const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
-      
-      // Lire les messages existants (s'il y en a)
-      let existingMessages: Message[] = [];
+      // Lire les messages existants
+      let existingMessages: GitHubMessage[] = [];
       try {
-        const existing = await GitHubDB.read<Message[]>(gitHubPath);
+        const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
         if (existing) existingMessages = existing;
       } catch {
-        // Fichier n'existe pas encore, on commence une nouvelle liste
+        // Fichier n'existe pas encore
         existingMessages = [];
       }
       
       // Ajouter le nouveau message
-      existingMessages.push(insertedMessage as Message);
+      existingMessages.push(newMessage);
       
       // Écrire dans GitHub (compressé)
       await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
       console.log(`✅ Message écrit dans GitHub: ${gitHubPath}`);
     } catch (gitHubError) {
-      console.error("⚠️ Erreur écriture GitHub (non bloquante):", gitHubError);
-      // Non bloquant – le message est déjà dans Supabase
+      console.error("❌ Erreur écriture GitHub:", gitHubError);
+      return NextResponse.json(
+        { error: "Erreur lors de l’envoi du message (GitHub)" },
+        { status: 500 }
+      );
     }
 
-    // 8. Mettre à jour la conversation (last_message, last_message_at)
+    // 8. Mettre à jour la conversation (last_message, last_message_at) dans Supabase
     const { error: updateConvError } = await supabaseAdmin
       .from("messagerie_conversations")
       .update({
         last_message: content.trim().substring(0, 200),
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_message_at: now,
+        updated_at: now,
       })
       .eq("id", conversationId);
 
@@ -405,7 +382,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: insertedMessage as Message,
+      message: newMessage,
     });
   } catch (error) {
     console.error("Erreur API messagerie/messages POST:", error);

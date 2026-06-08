@@ -1,7 +1,7 @@
 
 import { getAthleteCity, getAthleteCountry } from "@/lib/supabase/master";
 import { findFileInRepo, upsertFile, deleteFile } from "./gh-client";
-import { getHistoryFromDB, purgeDossierData } from "./db-client";
+import { getHistoryFromDB } from "./db-client";
 import { normalizeForPath } from "./utils";
 import { HistoryRow } from "./types";
 import { gzipSync, gunzipSync } from 'zlib';
@@ -272,6 +272,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
  * ✅ AJOUT : Support de file_url et file_key dans l'archive
  * ✅ AJOUT : Support des tables de messagerie privée (pending_messagerie_requests, messagerie_accounts, etc.)
+ * ✅ CORRECTION : Suppression de l'appel à purgeDossierData (fonction supprimée)
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -521,67 +522,10 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     throw new Error(`Échec GitHub (${ghResponse.status}): ${errText}`);
   }
 
-  // ✅ CORRECTION MAJEURE : Purge des données locales avec suppression des doublons
-  let purged = false;
-  if (purgeActive === true) {
-    console.log(`🗑️ processArchivePost: purge active pour ${ref} sur ${archiveCity}/${archiveCountry}`);
-    
-    // ✅ ÉTAPE 1 : Supprimer les entrées en double dans communication_replies AVANT la purge
-    // Récupérer tous les messages pour ce dossier
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    if (supabaseUrl && supabaseKey) {
-      const supabaseClient = createClient(supabaseUrl, supabaseKey);
-      
-      // Récupérer tous les messages pour ce dossier
-      const { data: allMessages } = await supabaseClient
-        .from("communication_replies")
-        .select("*")
-        .eq("dossier_ref", ref);
-      
-      if (allMessages && allMessages.length > 0) {
-        // Dédupliquer par contenu + agent_email
-        const uniqueMessages = new Map();
-        const duplicatesToDelete: string[] = [];
-        
-        for (const msg of allMessages) {
-          const key = `${msg.content}_${msg.agent_email}`;
-          if (uniqueMessages.has(key)) {
-            // C'est un doublon, marquer pour suppression
-            duplicatesToDelete.push(msg.id);
-          } else {
-            uniqueMessages.set(key, msg);
-          }
-        }
-        
-        // Supprimer les doublons
-        if (duplicatesToDelete.length > 0) {
-          console.log(`🗑️ processArchivePost: suppression de ${duplicatesToDelete.length} doublons dans communication_replies pour ${ref}`);
-          await supabaseClient
-            .from("communication_replies")
-            .delete()
-            .in("id", duplicatesToDelete);
-        }
-      }
-    }
-    
-    // ✅ ÉTAPE 2 : Appeler la purge étendue (qui purge maintenant TOUTES les tables)
-    // La fonction purgeDossierData a été modifiée pour également supprimer:
-    // - pending_messagerie_requests
-    // - messagerie_accounts
-    // - messagerie_conversations
-    // - messagerie_messages
-    const purgeResult = await purgeDossierData(ref, archiveCity, archiveCountry);
-    purged = purgeResult.purged;
-    
-    if (purged) {
-      console.log(`✅ processArchivePost: purge TOTALE réussie pour ${ref} (toutes les tables)`);
-    } else {
-      console.warn(`⚠️ processArchivePost: purge partielle pour ${ref}: ${purgeResult.error || 'erreur inconnue'}`);
-    }
-  }
+  // ✅ Aucune purge des données locales (fonction purgeDossierData supprimée)
+  // Les données restent dans GitHub uniquement
+  
+  console.log(`✅ processArchivePost: archivage terminé avec succès pour ${ref} (aucune purge locale)`);
 
-  return { success: true, purged, path, repo: targetRepo, compressed: true, originalSize, compressedSize };
+  return { success: true, purged: false, path, repo: targetRepo, compressed: true, originalSize, compressedSize };
 }
