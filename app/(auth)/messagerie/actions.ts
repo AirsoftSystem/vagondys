@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { GitHubDB } from "@/lib/github-db/client";
 
 // ==========================================================
 // TYPES DÉDIÉS
@@ -63,6 +64,19 @@ interface DBMessage {
   created_at: string;
 }
 
+// Interface pour un message GitHub (identique à DBMessage)
+interface GitHubMessage {
+  id: string;
+  conversation_id: string;
+  sender_email: string;
+  sender_name: string;
+  content: string;
+  file_url: string | null;
+  file_key: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
 // ==========================================================
 // CONFIGURATION
 // ==========================================================
@@ -77,7 +91,59 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ==========================================================
-// FONCTIONS
+// FONCTION UTILITAIRE : LIRE LES MESSAGES DEPUIS GITHUB
+// ==========================================================
+
+/**
+ * Récupère les messages d'une conversation depuis GitHub (archive)
+ * @param dossierRef - Référence du dossier (ex: VGD-XXXXXX)
+ * @returns Liste des messages ou null
+ */
+async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[] | null> {
+  try {
+    const path = `conversations/${dossierRef}/messages.json.gz`;
+    const messages = await GitHubDB.read<GitHubMessage[]>(path);
+    return messages || null;
+  } catch (err) {
+    console.error(`Erreur lecture GitHub pour ${dossierRef}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Écrit un message dans GitHub (archive)
+ * @param dossierRef - Référence du dossier
+ * @param message - Message à ajouter
+ */
+async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): Promise<boolean> {
+  try {
+    const path = `conversations/${dossierRef}/messages.json.gz`;
+    
+    // Lire les messages existants
+    let existingMessages: GitHubMessage[] = [];
+    try {
+      const existing = await GitHubDB.read<GitHubMessage[]>(path);
+      if (existing) existingMessages = existing;
+    } catch {
+      // Fichier n'existe pas encore
+      existingMessages = [];
+    }
+    
+    // Ajouter le nouveau message
+    existingMessages.push(message);
+    
+    // Écrire dans GitHub (compressé)
+    await GitHubDB.write(path, existingMessages, { compress: true });
+    console.log(`✅ Message écrit dans GitHub: ${path}`);
+    return true;
+  } catch (err) {
+    console.error(`Erreur écriture GitHub pour ${dossierRef}:`, err);
+    return false;
+  }
+}
+
+// ==========================================================
+// FONCTIONS PRINCIPALES
 // ==========================================================
 
 /**
@@ -137,7 +203,7 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
 
 /**
  * Récupère tous les messages d'une conversation spécifique
- * Utilise la nouvelle table messagerie_messages
+ * ✅ MODIFICATION : Fallback vers GitHub si Supabase est vide ou incomplet
  */
 export async function getConversationMessages(
   conversationId: string,
@@ -164,36 +230,69 @@ export async function getConversationMessages(
       return [];
     }
 
-    // 2. Récupérer les messages
-    const { data: messages, error: messagesError } = await supabase
-      .from("messagerie_messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+    // 2. Récupérer les messages depuis Supabase
+    let supabaseMessages: DBMessage[] = [];
+    
+    try {
+      const { data: messages, error: messagesError } = await supabase
+        .from("messagerie_messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
 
-    if (messagesError) {
-      console.error("Erreur récupération messages:", messagesError);
-      return [];
+      if (!messagesError && messages) {
+        supabaseMessages = messages as DBMessage[];
+      }
+    } catch (err) {
+      console.warn("Erreur lecture Supabase, fallback vers GitHub:", err);
     }
 
-    // 3. Marquer les messages comme lus (sauf ceux envoyés par l’utilisateur)
-    const unreadMessageIds = (messages || [])
+    // 3. Si Supabase a peu ou pas de messages, tenter GitHub
+    const allMessages: DBMessage[] = [...supabaseMessages];
+    
+    if (supabaseMessages.length === 0 || supabaseMessages.length < 5) {
+      const gitHubMessages = await getMessagesFromGitHub(conversation.dossier_ref);
+      if (gitHubMessages && gitHubMessages.length > 0) {
+        console.log(`📦 Chargement de ${gitHubMessages.length} messages depuis GitHub pour ${conversation.dossier_ref}`);
+        
+        // Fusionner les messages (éviter les doublons par id)
+        const existingIds = new Set(allMessages.map(m => m.id));
+        for (const msg of gitHubMessages) {
+          if (!existingIds.has(msg.id)) {
+            allMessages.push(msg as DBMessage);
+          }
+        }
+        
+        // Trier par date
+        allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      }
+    }
+
+    // 4. Marquer les messages comme lus (uniquement dans Supabase pour les récents)
+    const unreadMessageIds = allMessages
       .filter((msg: DBMessage) => !msg.is_read && msg.sender_email !== userEmail.toLowerCase())
       .map((msg: DBMessage) => msg.id);
 
     if (unreadMessageIds.length > 0) {
-      const { error: updateError } = await supabase
-        .from("messagerie_messages")
-        .update({ is_read: true })
-        .in("id", unreadMessageIds);
+      // Ne marquer comme lus que ceux qui sont dans Supabase (les GitHub sont en lecture seule)
+      const supabaseUnreadIds = unreadMessageIds.filter(id => 
+        supabaseMessages.some(m => m.id === id)
+      );
+      
+      if (supabaseUnreadIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from("messagerie_messages")
+          .update({ is_read: true })
+          .in("id", supabaseUnreadIds);
 
-      if (updateError) {
-        console.error("Erreur marquage messages lus:", updateError);
+        if (updateError) {
+          console.error("Erreur marquage messages lus:", updateError);
+        }
       }
     }
 
-    // 4. Formater les messages pour le frontend
-    const formattedMessages: Message[] = (messages || []).map((msg: DBMessage) => {
+    // 5. Formater les messages pour le frontend
+    const formattedMessages: Message[] = allMessages.map((msg: DBMessage) => {
       const isStaffSender = msg.sender_email.endsWith("@vagondys.com") || msg.sender_email === "system@vagondys.com";
       const isSystem = msg.sender_email === "system@vagondys.com";
       
@@ -220,7 +319,7 @@ export async function getConversationMessages(
 
 /**
  * Envoie un nouveau message dans une conversation
- * Utilise la nouvelle table messagerie_messages
+ * ✅ MODIFICATION : Écriture simultanée dans GitHub pour l'archive
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
   const { conversationId, content, userId, userEmail, fileUrl, fileKey } = params;
@@ -249,10 +348,13 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       return { success: false, error: "Accès non autorisé" };
     }
 
-    // 2. Insérer le nouveau message
+    // 2. Préparer le message
     const senderName = isStaff ? `Staff ${userEmail.split("@")[0]}` : conversation.participant_name;
+    const now = new Date().toISOString();
+    const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
     const newMessage = {
+      id: messageId,
       conversation_id: conversationId,
       sender_email: userEmail.toLowerCase(),
       sender_name: senderName,
@@ -260,25 +362,29 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       file_url: fileUrl || null,
       file_key: fileKey || null,
       is_read: false,
-      created_at: new Date().toISOString(),
+      created_at: now,
     };
 
+    // 3. Insérer dans Supabase
     const { error: insertError } = await supabase
       .from("messagerie_messages")
       .insert([newMessage]);
 
     if (insertError) {
-      console.error("Erreur insertion message:", insertError);
+      console.error("Erreur insertion message dans Supabase:", insertError);
       return { success: false, error: insertError.message };
     }
 
-    // 3. Mettre à jour la conversation (last_message, last_message_at)
+    // ✅ 4. Écrire aussi dans GitHub (archive)
+    await addMessageToGitHub(conversation.dossier_ref, newMessage);
+
+    // 5. Mettre à jour la conversation (last_message, last_message_at)
     const { error: updateConvError } = await supabase
       .from("messagerie_conversations")
       .update({
         last_message: content.trim().substring(0, 200),
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_message_at: now,
+        updated_at: now,
       })
       .eq("id", conversationId);
 

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendGeneralEmail } from "@/lib/email/gmail";
+import { GitHubDB } from "@/lib/github-db/client";
 
 /**
  * Interface pour un message
@@ -28,6 +29,8 @@ interface Message {
  * - Body: { conversationId, content, fileUrl?, fileKey? }
  * * Sécurité : L’utilisateur doit être authentifié
  * Ne peut accéder qu’à ses propres conversations
+ * 
+ * ✅ MODIFICATION : Ajout de l'écriture dans GitHub pour l'historique infini
  */
 export async function GET(request: NextRequest) {
   try {
@@ -167,6 +170,7 @@ export async function GET(request: NextRequest) {
  * Envoie un nouveau message
  * 
  * ✅ AJOUT : Notification email au partenaire lorsque le staff envoie un message
+ * ✅ MODIFICATION : Écriture simultanée dans GitHub pour l'historique infini
  */
 export async function POST(request: NextRequest) {
   try {
@@ -249,7 +253,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Insérer le nouveau message
+    // 6. Insérer le nouveau message DANS SUPABASE
     const newMessage: Omit<Message, "id"> = {
       conversation_id: conversationId,
       sender_email: userEmail,
@@ -275,7 +279,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 7. Mettre à jour la conversation (last_message, last_message_at)
+    // ✅ 7. Écrire le message DANS GITHUB (pour l'historique infini)
+    try {
+      // Récupérer la conversation pour avoir le dossier_ref
+      const dossierRef = conversation.dossier_ref;
+      
+      // Chemin dans GitHub: conversations/{dossier_ref}/messages.json.gz
+      const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+      
+      // Lire les messages existants (s'il y en a)
+      let existingMessages: Message[] = [];
+      try {
+        const existing = await GitHubDB.read<Message[]>(gitHubPath);
+        if (existing) existingMessages = existing;
+      } catch {
+        // Fichier n'existe pas encore, on commence une nouvelle liste
+        existingMessages = [];
+      }
+      
+      // Ajouter le nouveau message
+      existingMessages.push(insertedMessage as Message);
+      
+      // Écrire dans GitHub (compressé)
+      await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
+      console.log(`✅ Message écrit dans GitHub: ${gitHubPath}`);
+    } catch (gitHubError) {
+      console.error("⚠️ Erreur écriture GitHub (non bloquante):", gitHubError);
+      // Non bloquant – le message est déjà dans Supabase
+    }
+
+    // 8. Mettre à jour la conversation (last_message, last_message_at)
     const { error: updateConvError } = await supabaseAdmin
       .from("messagerie_conversations")
       .update({
@@ -290,14 +323,12 @@ export async function POST(request: NextRequest) {
       // Non bloquant
     }
 
-    // ✅ 8. Envoyer une notification email au partenaire lorsque le staff envoie un message
-    // Si le message vient du staff, notifier le partenaire
+    // 9. Envoyer une notification email au partenaire lorsque le staff envoie un message
     if (isStaff) {
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       const participantEmail = conversation.participant_email;
       const participantName = conversation.participant_name;
       
-      // Ne pas inclure le contenu du message dans l'email pour des raisons de sécurité
       const notificationHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
           <div style="margin-bottom:30px;">
@@ -345,7 +376,7 @@ export async function POST(request: NextRequest) {
       console.log(`📧 Email de notification envoyé à ${participantEmail} (nouveau message staff)`);
     }
     
-    // Si le message vient d’un partenaire, notifier le staff (conserve l'existant)
+    // 10. Si le message vient d’un partenaire, notifier le staff
     if (!isStaff) {
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
       

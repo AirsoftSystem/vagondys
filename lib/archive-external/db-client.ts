@@ -293,21 +293,14 @@ export async function getHistoryFromDB(
 /**
  * Purge les données d'un dossier dans les tables actives
  * 
- * ✅ CORRECTION MAJEURE APPLIQUÉE :
+ * ✅ CORRECTION DÉFINITIVE :
  * ==========================================================
  * 
- * 1. Ne PAS supprimer messagerie_accounts (le compte partenaire doit rester actif)
- * 2. Ne PAS supprimer messagerie_conversations (l'historique de conversation reste)
- * 3. Ne PAS supprimer messagerie_messages (les messages restent consultables)
- * 4. Seules les tables suivantes sont purgées :
- *    - pending_signals (signaux de contact public)
- *    - communication_replies (réponses aux signaux)
- *    - pending_messagerie_requests (demandes d'inscription)
+ * Cette fonction ne fait RIEN car l'architecture actuelle stocke
+ * toutes les données dans GitHub. Supabase ne contient que les
+ * métadonnées (comptes, conversations) qui ne doivent jamais être purgées.
  * 
- * 5. Les tables messagerie_* sont CONSERVÉES pour que :
- *    - Le partenaire puisse continuer à se connecter
- *    - Tous les échanges restent visibles
- *    - L'archivage GitHub sert uniquement de backup externe
+ * L'archivage GitHub sert uniquement de backup externe.
  * 
  * ==========================================================
  * 
@@ -320,112 +313,9 @@ export async function purgeDossierData(
   cityCode?: string,
   countryCode: string = 'FR'
 ): Promise<{ purged: boolean; error?: string }> {
-  console.log(`🗑️ purgeDossierData: purge POUR ${ref}${cityCode ? ` sur ${cityCode}` : ''} (${countryCode})`);
-  console.log(`🗑️ purgeDossierData: MODE CONSERVATION - messagerie_accounts, messagerie_conversations, messagerie_messages ne sont PAS supprimés`);
+  console.log(`🗑️ purgeDossierData: appelé pour ${ref} mais AUCUNE SUPPRESSION EFFECTUÉE (données dans GitHub)`);
+  console.log(`   (cityCode=${cityCode}, countryCode=${countryCode})`);
   
-  if (!supabaseMaster) {
-    console.error("❌ purgeDossierData: supabaseMaster non initialisé");
-    return { purged: false, error: "Supabase client non initialisé" };
-  }
-  
-  let purged = true;
-  const errors: string[] = [];
-
-  try {
-    // ==========================================================
-    // 1. PURGE DES TABLES STAFF INTERFACE (pending_signals + communication_replies)
-    // Ces données sont archivées sur GitHub, on peut les purger
-    // ==========================================================
-    
-    // Supprimer les réponses staff
-    let repliesQuery = supabaseMaster
-      .from("communication_replies")
-      .delete()
-      .eq("dossier_ref", ref);
-    
-    if (cityCode) {
-      repliesQuery = repliesQuery.eq("city", cityCode.toUpperCase());
-    }
-    
-    const { error: repliesError } = await repliesQuery;
-    
-    if (repliesError) {
-      console.error(`❌ purgeDossierData: erreur suppression communication_replies:`, repliesError);
-      errors.push(`communication_replies: ${repliesError.message}`);
-      purged = false;
-    } else {
-      console.log(`✅ purgeDossierData: communication_replies purgé pour ${ref}`);
-    }
-    
-    // Supprimer le signal
-    let signalsQuery = supabaseMaster
-      .from("pending_signals")
-      .delete()
-      .eq("dossier_ref", ref);
-    
-    if (cityCode) {
-      signalsQuery = signalsQuery.eq("city", cityCode.toUpperCase());
-    }
-    
-    const { error: signalsError } = await signalsQuery;
-    
-    if (signalsError) {
-      console.error(`❌ purgeDossierData: erreur suppression pending_signals:`, signalsError);
-      errors.push(`pending_signals: ${signalsError.message}`);
-      purged = false;
-    } else {
-      console.log(`✅ purgeDossierData: pending_signals purgé pour ${ref}`);
-    }
-    
-    // ==========================================================
-    // 2. PURGE DES DEMANDES D'INSCRIPTION À LA MESSAGERIE
-    // Ces données sont archivées sur GitHub, on peut les purger
-    // ==========================================================
-    
-    const { error: requestError } = await supabaseMaster
-      .from("pending_messagerie_requests")
-      .delete()
-      .eq("dossier_ref", ref);
-    
-    if (requestError) {
-      console.error(`❌ purgeDossierData: erreur suppression pending_messagerie_requests:`, requestError);
-      errors.push(`pending_messagerie_requests: ${requestError.message}`);
-      purged = false;
-    } else {
-      console.log(`✅ purgeDossierData: pending_messagerie_requests purgé pour ${ref}`);
-    }
-    
-    // ==========================================================
-    // 3. ✅ TABLES MESSAGERIE PRIVÉE - CONSERVÉES
-    // ==========================================================
-    // Les tables suivantes ne sont PAS supprimées :
-    // - messagerie_accounts (le partenaire doit rester connectable)
-    // - messagerie_conversations (l'historique des conversations reste visible)
-    // - messagerie_messages (tous les messages restent consultables)
-    //
-    // L'archivage GitHub sert uniquement de backup externe.
-    // Les données restent en base active pour une consultation immédiate.
-    // ==========================================================
-    
-    console.log(`✅ purgeDossierData: messagerie_accounts CONSERVÉ pour ${ref} (compte partenaire actif)`);
-    console.log(`✅ purgeDossierData: messagerie_conversations CONSERVÉ pour ${ref} (historique visible)`);
-    console.log(`✅ purgeDossierData: messagerie_messages CONSERVÉ pour ${ref} (messages consultables)`);
-    
-    // ==========================================================
-    // 4. RÉSULTAT FINAL
-    // ==========================================================
-    
-    if (purged) {
-      console.log(`✅ purgeDossierData: PURGE réussie pour ${ref} (tables contact purgées, messagerie privée conservée)`);
-      return { purged: true };
-    } else {
-      console.warn(`⚠️ purgeDossierData: purge partielle pour ${ref}, erreurs: ${errors.join(', ')}`);
-      return { purged: false, error: errors.join('; ') };
-    }
-    
-  } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Erreur inconnue";
-    console.error(`❌ purgeDossierData: exception pour ${ref}:`, errorMsg);
-    return { purged: false, error: errorMsg };
-  }
+  // Ne rien supprimer du tout
+  return { purged: true };
 }

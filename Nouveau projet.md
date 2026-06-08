@@ -167,3 +167,154 @@ Lecture : UI → /api/player/matches → GitHub
 
 Stockage : GitHub (parties) + R2 (documents) + Supabase FREE (auth)
 */
+
+
+
+
+
+/*
+Parfait. Maintenant j’ai **tous les paramètres réels** :
+
+- **Phase 1** : 1 ville (Nantes) → 1 000 joueurs réguliers → tenir **6 mois**
+- **Phase 2** : 8 villes FR → 8 000 joueurs
+- **Phase 3** : +8 villes ES/ALL → 16 000 joueurs
+
+Je réanalyse **profondément** en fonction de ces chiffres.
+
+---
+
+# RÉANALYSE COMPLÈTE – STOCKAGE POUR 1 VILLE (NANTES) SUR 6 MOIS
+
+## 1. VOLUMES RÉELS POUR 1 000 JOUEURS RÉGULIERS (6 MOIS)
+
+| Type de donnée | Par mois | Sur 6 mois | Taille unitaire | Volume total |
+|----------------|----------|------------|----------------|--------------|
+| **Parties (20 tirs, avec X/Y)** | 2/semaine × 1 000 = 8 000 | 48 000 | 2 KB | **96 MB** |
+| **Messages (partenaires)** | 1 000 | 6 000 | 0,5 KB | **3 MB** |
+| **Tournois** | 4 | 24 | 0,5 MB | **12 MB** |
+| **Compétitions** | 8 | 48 | 0,5 MB | **24 MB** |
+| **Notoriété (AS-EG)** | 4 | 24 | 0,3 MB | **7,2 MB** |
+| **Documents (R2)** | 50 | 300 | 500 KB | **150 MB** (R2, pas Supabase) |
+
+**Total Supabase pour 6 mois (Nantes)** : ~ **142 MB**
+
+✅ **Cela tient dans Supabase FREE (500 MB)** avec de la marge.
+
+---
+
+## 2. STRUCTURE PAR VILLE – CE QUI CHANGE
+
+| Élément | 1 ville (Nantes) | 8 villes FR | 16 villes |
+|---------|------------------|-------------|-----------|
+| **Joueurs** | 1 000 | 8 000 | 16 000 |
+| **Parties/6 mois** | 48 000 | 384 000 | 768 000 |
+| **Volume Supabase/6 mois** | 142 MB | **1,1 GB** | **2,2 GB** |
+| **Plan nécessaire** | FREE | **PRO (25$/mois)** | **PRO + supplément** |
+
+**Conclusion** : Dès la phase 2 (8 villes FR), vous devez passer à **Supabase PRO (25$/mois)**.  
+Le FREE ne tient pas.
+
+---
+
+## 3. CE QUE VOUS DEVEZ FAIRE (ARCHITECTURE PAR VILLE)
+
+### 3.1 Principes
+
+| Règle | Application |
+|-------|-------------|
+| **Données actives (6 mois)** | Restent dans **Supabase** (rapide, SQL) |
+| **Données archivées (> 6 mois)** | Partent vers **GitHub** (compression GZIP) |
+| **Documents (PI, RIB, photos)** | Restent dans **R2** (stockage objet) |
+| **Une ville = un filtre `city`** | Toutes les tables ont une colonne `city` |
+
+### 3.2 Ce que chaque ville a comme tables
+
+| Table | Contenu | Taille pour 1 000 joueurs (6 mois) |
+|-------|---------|-----------------------------------|
+| `athletes` | Profils + stats cumulées | ~2 MB |
+| `match_history` | Parties (avec X/Y) | ~96 MB |
+| `tournament_results` | Résultats tournois | ~12 MB |
+| `rankings_history` | Classements | ~5 MB |
+| `as_eg_sessions` | Sessions notoriété | ~7 MB |
+| `messagerie_accounts` | Comptes partenaires | ~0,5 MB |
+| `messagerie_conversations` | Conversations | ~1 MB |
+| `messagerie_messages` | Messages | ~3 MB |
+| `pending_signals` | Signaux contact | ~1 MB |
+| `communication_replies` | Réponses staff | ~1 MB |
+
+**Total par ville (6 mois)** : **~130-150 MB**
+
+---
+
+## 4. L’ARCHIVAGE – POURQUOI IL EST NÉCESSAIRE (MÊME EN PRO)
+
+| Phase | Nb villes | Volume Supabase/6 mois | Plan PRO (8 GB) tient ? |
+|-------|-----------|------------------------|-------------------------|
+| **1** | 1 | 150 MB | ✅ OUI (8 GB) |
+| **2** | 8 | 1,2 GB | ✅ OUI (8 GB) |
+| **3** | 16 | 2,4 GB | ✅ OUI (8 GB) |
+| **4** | 32 | 4,8 GB | ✅ OUI (8 GB) |
+
+**Sans archivage, 8 GB tiennent 32 villes (16 000 joueurs) pendant 6 mois.**  
+**Avec archivage après 6 mois**, vous tenez **indéfiniment** (les données partent vers GitHub).
+
+---
+
+## 5. FICHIERS À CORRIGER POUR METTRE EN PLACE CETTE ARCHITECTURE
+
+### 5.1 Phase 1 (1 ville, FREE) – Rien à changer
+- Votre code actuel fonctionne (Supabase FREE)
+
+### 5.2 Phase 2 (8 villes, PRO) – Ce qu’il faut ajouter
+
+| # | Fichier | Action |
+|---|---------|--------|
+| **1** | `lib/archive-external/db-client.ts` | **Rétablir la purge** des tables messagerie **après 6 mois** (pas avant) |
+| **2** | `lib/archive-external/engine.ts` | Archiver avec `purgeActive = true` **après 6 mois** |
+| **3** | `app/api/player/matches/route.ts` | Lire **d’abord Supabase**, puis GitHub si pas trouvé |
+| **4** | `app/(auth)/messagerie/page.tsx` | Lire **d’abord Supabase**, puis GitHub si pas trouvé |
+| **5** | `app/api/cron/archive-old-data/route.ts` | **CRÉER** – cron job mensuel pour archiver les données > 6 mois |
+
+### 5.3 Cron job nécessaire (à créer)
+
+| Étape | Description |
+|-------|-------------|
+| **1** | Sélectionner les parties de plus de 6 mois dans `match_history` |
+| **2** | Les compresser en GZIP |
+| **3** | Les envoyer vers GitHub (`archives/{city}/{year}/{month}/`) |
+| **4** | Les **supprimer** de Supabase |
+| **5** | Faire de même pour `messagerie_messages` et autres tables |
+
+---
+
+## 6. CE QUE VOUS N’AVEZ PAS ENCORE (À CRÉER)
+
+| Fichier manquant | Rôle |
+|------------------|------|
+| `app/api/cron/archive-old-data/route.ts` | Archivage automatique (mensuel) |
+| `lib/archive/archive-utils.ts` | Fonctions partagées pour l’archivage |
+| `app/api/player/matches/archive/route.ts` | Lecture depuis GitHub (fallback) |
+
+---
+
+## 7. RÉPONSE À VOTRE QUESTION
+
+**Le(s) fichier(s) à corriger pour la Phase 1 (1 ville, FREE)** :
+
+| # | Fichier | Action |
+|---|---------|--------|
+| **1** | `lib/archive-external/db-client.ts` | **Ne rien changer** (garder la purge désactivée) |
+| **2** | `app/api/player/matches/route.ts` | **Ne rien changer** (lit Supabase uniquement) |
+| **3** | `app/(auth)/messagerie/page.tsx` | **Ne rien changer** (lit Supabase uniquement) |
+
+**Pour la Phase 1, AUCUNE MODIFICATION N’EST NÉCESSAIRE.** Votre code actuel fonctionne.
+
+**Pour la Phase 2 (8 villes, PRO)** , il faudra :
+1. Activer **Supabase PRO** (25$/mois)
+2. **Ajouter** le cron job d’archivage
+3. **Modifier** l’API pour lire GitHub en fallback
+
+---
+
+**Confirmez-vous que je prépare les fichiers pour la Phase 2 (cron job + fallback GitHub) ?**
+*/
