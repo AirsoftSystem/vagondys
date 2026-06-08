@@ -16,7 +16,6 @@ import {
   getUserConversations,
   getConversationMessages,
   sendMessage,
-  markConversationAsRead,
   type Conversation,
   type Message,
 } from "./actions";
@@ -76,7 +75,6 @@ export default function MessageriePage() {
     setError(null);
     
     try {
-      // ✅ CORRECTION : Utiliser l'ID de la conversation (UUID), pas le dossier_ref
       const conversationMessages = await getConversationMessages(
         conversation.id,
         user.email
@@ -84,11 +82,9 @@ export default function MessageriePage() {
       
       setMessages(conversationMessages);
       
-      // Marquer comme lu automatiquement si des messages non lus
+      // ✅ Mise à jour du compteur local (markConversationAsRead supprimé)
       if (conversation.unread_count > 0) {
-        // ✅ CORRECTION : Utiliser l'ID de la conversation
-        await markConversationAsRead(conversation.id);
-        // Mettre à jour le compteur localement
+        // Mettre à jour le compteur localement (la fonction markConversationAsRead n'existe plus)
         setConversations(prev =>
           prev.map(c =>
             c.id === conversation.id ? { ...c, unread_count: 0 } : c
@@ -109,7 +105,6 @@ export default function MessageriePage() {
       throw new Error("Conversation non sélectionnée");
     }
     
-    // ✅ CORRECTION : Utiliser l'ID de la conversation
     const result = await sendMessage({
       conversationId: selectedConversation.id,
       content: content,
@@ -149,7 +144,6 @@ export default function MessageriePage() {
     if (selectedConversation && user?.email) {
       setLoadingMessages(true);
       try {
-        // ✅ CORRECTION : Utiliser l'ID de la conversation
         const updatedMessages = await getConversationMessages(
           selectedConversation.id,
           user.email
