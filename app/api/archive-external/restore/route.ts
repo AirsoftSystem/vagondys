@@ -114,6 +114,9 @@ function cleanUndefined<T extends Record<string, unknown>>(obj: T): T {
  * POST /api/archive-external/restore
  * Body: { dossier_ref: string, city_code: string, country_code?: string }
  * Version adaptée pour l'Option B (un seul projet Supabase + un seul repo GitHub)
+ * 
+ * ✅ CORRECTION : Remplacement de insert par upsert pour pending_signals
+ * Évite les erreurs de clé dupliquée si le signal existe déjà
  */
 export async function POST(req: Request) {
   try {
@@ -209,7 +212,7 @@ export async function POST(req: Request) {
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // ==========================================================
-    // SECTION : INSERT pour pending_signals
+    // SECTION : UPSERT pour pending_signals (✅ CORRIGÉ : insert → upsert)
     // ==========================================================
     
     // Récupérer les informations depuis l'archive brute et signalData
@@ -247,7 +250,7 @@ export async function POST(req: Request) {
       meta: archiveMeta
     });
     
-    const insertData = {
+    const signalUpsertData = {
       dossier_ref: dossier_ref,
       payload: completePayload,
       confirmed: signalData.confirmed ?? false,
@@ -258,12 +261,13 @@ export async function POST(req: Request) {
       country: effectiveCountry
     };
 
+    // ✅ CORRECTION : Utilisation de upsert au lieu de insert pour éviter les conflits
     const { error: pendingSignalsError } = await supabaseClient
       .from("pending_signals")
-      .insert(insertData);
+      .upsert(signalUpsertData, { onConflict: "dossier_ref" });
 
     if (pendingSignalsError) {
-      console.error(`❌ RESTORE: erreur insert pending_signals:`, pendingSignalsError);
+      console.error(`❌ RESTORE: erreur upsert pending_signals:`, pendingSignalsError);
       return NextResponse.json({ error: "Erreur insertion signal" }, { status: 500 });
     }
     console.log(`✅ RESTORE: pending_signals mis à jour pour ${dossier_ref}`);

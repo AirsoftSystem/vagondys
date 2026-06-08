@@ -292,13 +292,24 @@ export async function getHistoryFromDB(
 
 /**
  * Purge les données d'un dossier dans les tables actives
- * Version étendue pour supporter également les tables de la messagerie privée
  * 
- * ✅ CORRECTION : Ajout de la purge des tables de messagerie privée :
- * - pending_messagerie_requests (demandes d'inscription)
- * - messagerie_accounts (comptes partenaires)
- * - messagerie_conversations (conversations)
- * - messagerie_messages (messages échangés)
+ * ✅ CORRECTION MAJEURE APPLIQUÉE :
+ * ==========================================================
+ * 
+ * 1. Ne PAS supprimer messagerie_accounts (le compte partenaire doit rester actif)
+ * 2. Ne PAS supprimer messagerie_conversations (l'historique de conversation reste)
+ * 3. Ne PAS supprimer messagerie_messages (les messages restent consultables)
+ * 4. Seules les tables suivantes sont purgées :
+ *    - pending_signals (signaux de contact public)
+ *    - communication_replies (réponses aux signaux)
+ *    - pending_messagerie_requests (demandes d'inscription)
+ * 
+ * 5. Les tables messagerie_* sont CONSERVÉES pour que :
+ *    - Le partenaire puisse continuer à se connecter
+ *    - Tous les échanges restent visibles
+ *    - L'archivage GitHub sert uniquement de backup externe
+ * 
+ * ==========================================================
  * 
  * @param ref - La référence du dossier (ex: VGD-5FPKM9ZC)
  * @param cityCode - Code de la ville (optionnel, pour filtrer)
@@ -310,6 +321,7 @@ export async function purgeDossierData(
   countryCode: string = 'FR'
 ): Promise<{ purged: boolean; error?: string }> {
   console.log(`🗑️ purgeDossierData: purge POUR ${ref}${cityCode ? ` sur ${cityCode}` : ''} (${countryCode})`);
+  console.log(`🗑️ purgeDossierData: MODE CONSERVATION - messagerie_accounts, messagerie_conversations, messagerie_messages ne sont PAS supprimés`);
   
   if (!supabaseMaster) {
     console.error("❌ purgeDossierData: supabaseMaster non initialisé");
@@ -322,6 +334,7 @@ export async function purgeDossierData(
   try {
     // ==========================================================
     // 1. PURGE DES TABLES STAFF INTERFACE (pending_signals + communication_replies)
+    // Ces données sont archivées sur GitHub, on peut les purger
     // ==========================================================
     
     // Supprimer les réponses staff
@@ -365,67 +378,10 @@ export async function purgeDossierData(
     }
     
     // ==========================================================
-    // 2. PURGE DES TABLES MESSAGERIE PRIVÉE (Admin)
+    // 2. PURGE DES DEMANDES D'INSCRIPTION À LA MESSAGERIE
+    // Ces données sont archivées sur GitHub, on peut les purger
     // ==========================================================
     
-    // 2.1 Supprimer les messages de la messagerie
-    // D'abord récupérer les IDs des conversations liées à ce dossier
-    const { data: conversations, error: fetchConvError } = await supabaseMaster
-      .from("messagerie_conversations")
-      .select("id")
-      .eq("dossier_ref", ref);
-    
-    if (fetchConvError) {
-      console.warn(`⚠️ purgeDossierData: impossible de récupérer les conversations pour ${ref}:`, fetchConvError);
-    }
-    
-    if (conversations && conversations.length > 0) {
-      const conversationIds = conversations.map(c => c.id);
-      
-      // Supprimer les messages liés à ces conversations
-      const { error: messagesError } = await supabaseMaster
-        .from("messagerie_messages")
-        .delete()
-        .in("conversation_id", conversationIds);
-      
-      if (messagesError) {
-        console.error(`❌ purgeDossierData: erreur suppression messagerie_messages:`, messagesError);
-        errors.push(`messagerie_messages: ${messagesError.message}`);
-        purged = false;
-      } else {
-        console.log(`✅ purgeDossierData: messagerie_messages purgé pour ${ref} (${conversationIds.length} conversations)`);
-      }
-    }
-    
-    // 2.2 Supprimer les conversations
-    const { error: convError } = await supabaseMaster
-      .from("messagerie_conversations")
-      .delete()
-      .eq("dossier_ref", ref);
-    
-    if (convError) {
-      console.error(`❌ purgeDossierData: erreur suppression messagerie_conversations:`, convError);
-      errors.push(`messagerie_conversations: ${convError.message}`);
-      purged = false;
-    } else {
-      console.log(`✅ purgeDossierData: messagerie_conversations purgé pour ${ref}`);
-    }
-    
-    // 2.3 Supprimer le compte messagerie associé
-    const { error: accountError } = await supabaseMaster
-      .from("messagerie_accounts")
-      .delete()
-      .eq("dossier_ref", ref);
-    
-    if (accountError) {
-      console.error(`❌ purgeDossierData: erreur suppression messagerie_accounts:`, accountError);
-      errors.push(`messagerie_accounts: ${accountError.message}`);
-      purged = false;
-    } else {
-      console.log(`✅ purgeDossierData: messagerie_accounts purgé pour ${ref}`);
-    }
-    
-    // 2.4 Supprimer la demande d'inscription à la messagerie
     const { error: requestError } = await supabaseMaster
       .from("pending_messagerie_requests")
       .delete()
@@ -440,11 +396,27 @@ export async function purgeDossierData(
     }
     
     // ==========================================================
-    // 3. RÉSULTAT FINAL
+    // 3. ✅ TABLES MESSAGERIE PRIVÉE - CONSERVÉES
+    // ==========================================================
+    // Les tables suivantes ne sont PAS supprimées :
+    // - messagerie_accounts (le partenaire doit rester connectable)
+    // - messagerie_conversations (l'historique des conversations reste visible)
+    // - messagerie_messages (tous les messages restent consultables)
+    //
+    // L'archivage GitHub sert uniquement de backup externe.
+    // Les données restent en base active pour une consultation immédiate.
+    // ==========================================================
+    
+    console.log(`✅ purgeDossierData: messagerie_accounts CONSERVÉ pour ${ref} (compte partenaire actif)`);
+    console.log(`✅ purgeDossierData: messagerie_conversations CONSERVÉ pour ${ref} (historique visible)`);
+    console.log(`✅ purgeDossierData: messagerie_messages CONSERVÉ pour ${ref} (messages consultables)`);
+    
+    // ==========================================================
+    // 4. RÉSULTAT FINAL
     // ==========================================================
     
     if (purged) {
-      console.log(`✅ purgeDossierData: PURGE TOTALE réussie pour ${ref} (toutes les tables)`);
+      console.log(`✅ purgeDossierData: PURGE réussie pour ${ref} (tables contact purgées, messagerie privée conservée)`);
       return { purged: true };
     } else {
       console.warn(`⚠️ purgeDossierData: purge partielle pour ${ref}, erreurs: ${errors.join(', ')}`);
