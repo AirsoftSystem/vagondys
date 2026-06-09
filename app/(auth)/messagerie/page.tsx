@@ -66,6 +66,7 @@ export default function MessageriePage() {
   }, [supabase, router]);
 
   // 2. Charger les messages quand une conversation est sélectionnée
+  // ✅ CORRECTION : utiliser dossier_ref au lieu de id
   const loadMessages = async (conversation: Conversation) => {
     if (!user?.email) return;
     
@@ -76,18 +77,17 @@ export default function MessageriePage() {
     
     try {
       const conversationMessages = await getConversationMessages(
-        conversation.id,
+        conversation.dossier_ref, // ✅ dossier_ref au lieu de id
         user.email
       );
       
       setMessages(conversationMessages);
       
-      // ✅ Mise à jour du compteur local (markConversationAsRead supprimé)
+      // ✅ Mise à jour du compteur local (unread_count toujours 0 maintenant)
       if (conversation.unread_count > 0) {
-        // Mettre à jour le compteur localement (la fonction markConversationAsRead n'existe plus)
         setConversations(prev =>
           prev.map(c =>
-            c.id === conversation.id ? { ...c, unread_count: 0 } : c
+            c.dossier_ref === conversation.dossier_ref ? { ...c, unread_count: 0 } : c
           )
         );
       }
@@ -100,13 +100,14 @@ export default function MessageriePage() {
   };
 
   // 3. Envoyer un nouveau message
+  // ✅ CORRECTION : utiliser dossier_ref au lieu de id
   const handleSendMessage = async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!selectedConversation || !user) {
       throw new Error("Conversation non sélectionnée");
     }
     
     const result = await sendMessage({
-      conversationId: selectedConversation.id,
+      dossierRef: selectedConversation.dossier_ref, // ✅ dossier_ref au lieu de conversationId
       content: content,
       userId: user.id,
       userEmail: user.email!,
@@ -120,7 +121,7 @@ export default function MessageriePage() {
     
     // Recharger les messages pour voir le nouveau
     const updatedMessages = await getConversationMessages(
-      selectedConversation.id,
+      selectedConversation.dossier_ref, // ✅ dossier_ref au lieu de id
       user.email!
     );
     setMessages(updatedMessages);
@@ -128,7 +129,7 @@ export default function MessageriePage() {
     // Mettre à jour la dernière ligne de la conversation dans la liste
     setConversations(prev =>
       prev.map(c =>
-        c.id === selectedConversation.id
+        c.dossier_ref === selectedConversation.dossier_ref
           ? {
               ...c,
               last_message: content.substring(0, 100),
@@ -140,12 +141,13 @@ export default function MessageriePage() {
   };
 
   // Rafraîchir les messages
+  // ✅ CORRECTION : utiliser dossier_ref au lieu de id
   const refreshMessages = async () => {
     if (selectedConversation && user?.email) {
       setLoadingMessages(true);
       try {
         const updatedMessages = await getConversationMessages(
-          selectedConversation.id,
+          selectedConversation.dossier_ref, // ✅ dossier_ref au lieu de id
           user.email
         );
         setMessages(updatedMessages);
@@ -240,7 +242,7 @@ export default function MessageriePage() {
             {/* Zone de saisie (uniquement si une conversation est sélectionnée) */}
             {selectedConversation && (
               <MessageInput
-                dossierRef={selectedConversation.id}
+                dossierRef={selectedConversation.dossier_ref} // ✅ dossier_ref au lieu de id
                 onSend={handleSendMessage}
                 disabled={loadingMessages}
                 placeholder="Saisissez votre réponse..."

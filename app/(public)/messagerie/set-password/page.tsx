@@ -101,11 +101,12 @@ function SetPasswordContent() {
           
           if (account?.dossier_ref) {
             // Envoyer le message de bienvenue via l'API messages
+            // ✅ CORRECTION : utiliser "dossierRef" au lieu de "conversationId"
             await fetch("/api/messagerie/messages", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                conversationId: account.dossier_ref,
+                dossierRef: account.dossier_ref,
                 content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
               }),
             });

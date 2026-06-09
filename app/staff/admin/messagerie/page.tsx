@@ -174,7 +174,7 @@ export default function AdminMessageriePage() {
   
   // ✅ ÉTAT POUR LE MODAL D'EXPANSION
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalConversationId, setModalConversationId] = useState<string | null>(null);
+  const [modalDossierRef, setModalDossierRef] = useState<string | null>(null);
   const [modalMessages, setModalMessages] = useState<ConversationMessage[]>([]);
   const [modalReplyContent, setModalReplyContent] = useState("");
   const [modalSendingReply, setModalSendingReply] = useState(false);
@@ -259,23 +259,6 @@ export default function AdminMessageriePage() {
     };
   }, [loadRequests]);
 
-  // ✅ RÉCUPÉRER L'ID DE CONVERSATION À PARTIR DE L'EMAIL
-  const getConversationId = async (email: string): Promise<string | null> => {
-    try {
-      const response = await fetch(`/api/messagerie/conversations?email=${encodeURIComponent(email)}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.conversations && data.conversations.length > 0) {
-          return data.conversations[0].id;
-        }
-      }
-      return null;
-    } catch (err) {
-      console.error("Erreur récupération conversation ID:", err);
-      return null;
-    }
-  };
-
   // ✅ RÉCUPÉRER LES RÉPONSES STAFF (communication_replies)
   const getStaffReplies = async (dossierRef: string): Promise<StaffReply[]> => {
     try {
@@ -297,21 +280,20 @@ export default function AdminMessageriePage() {
     return [];
   };
 
-  // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION
-  const loadConversationMessages = useCallback(async (email: string) => {
+  // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION (via dossierRef)
+  const loadConversationMessages = useCallback(async (dossierRef: string) => {
+    if (!dossierRef) return;
+    
     setLoadingMessages(true);
     try {
-      const conversationId = await getConversationId(email);
-      if (conversationId) {
-        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
-        if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json();
-          const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
-            ...msg,
-            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
-          }));
-          setMessages(formattedMessages);
-        }
+      const messagesResponse = await fetch(`/api/messagerie/messages?dossierRef=${encodeURIComponent(dossierRef)}`);
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json();
+        const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+          ...msg,
+          is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+        }));
+        setMessages(formattedMessages);
       } else {
         setMessages([]);
       }
@@ -323,27 +305,24 @@ export default function AdminMessageriePage() {
     }
   }, []);
 
-  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire)
+  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire) via dossierRef
   const handleSendReply = async () => {
-    if (!selectedRequest || !replyContent.trim()) return;
+    if (!selectedRequest || !replyContent.trim() || !selectedRequest.dossier_ref) return;
     
     setSendingReply(true);
     try {
-      const conversationId = await getConversationId(selectedRequest.email);
-      if (!conversationId) throw new Error("Conversation introuvable");
-      
       const sendResponse = await fetch("/api/messagerie/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId,
+          dossierRef: selectedRequest.dossier_ref,
           content: replyContent.trim(),
         }),
       });
       
       if (!sendResponse.ok) throw new Error("Erreur envoi message");
       
-      await loadConversationMessages(selectedRequest.email);
+      await loadConversationMessages(selectedRequest.dossier_ref);
       setReplyContent("");
       
     } catch (err) {
@@ -354,9 +333,9 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ ENVOYER UNE RÉPONSE DEPUIS LE MODAL
+  // ✅ ENVOYER UNE RÉPONSE DEPUIS LE MODAL (via dossierRef)
   const handleModalSendReply = async () => {
-    if (!selectedRequest || !modalReplyContent.trim() || !modalConversationId) return;
+    if (!selectedRequest || !modalReplyContent.trim() || !modalDossierRef) return;
     
     setModalSendingReply(true);
     try {
@@ -364,14 +343,14 @@ export default function AdminMessageriePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          conversationId: modalConversationId,
+          dossierRef: modalDossierRef,
           content: modalReplyContent.trim(),
         }),
       });
       
       if (!sendResponse.ok) throw new Error("Erreur envoi message");
       
-      const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${modalConversationId}`);
+      const messagesResponse = await fetch(`/api/messagerie/messages?dossierRef=${encodeURIComponent(modalDossierRef)}`);
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
         const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
@@ -381,7 +360,7 @@ export default function AdminMessageriePage() {
         setModalMessages(formattedMessages);
       }
       
-      await loadConversationMessages(selectedRequest.email);
+      await loadConversationMessages(modalDossierRef);
       setModalReplyContent("");
       
     } catch (err) {
@@ -392,29 +371,28 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ OUVRIR LE MODAL D'EXPANSION
+  // ✅ OUVRIR LE MODAL D'EXPANSION (via dossierRef)
   const openExpandedModal = async (request: MessagerieRequest) => {
+    if (!request.dossier_ref) {
+      alert("Ce dossier n'a pas encore de référence.");
+      return;
+    }
+    
     setSelectedRequest(request);
     setIsModalOpen(true);
     setModalReplyContent("");
+    setModalDossierRef(request.dossier_ref);
     
     try {
-      const conversationId = await getConversationId(request.email);
-      if (conversationId) {
-        setModalConversationId(conversationId);
-        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
-        if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json();
-          const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
-            ...msg,
-            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
-          }));
-          setModalMessages(formattedMessages);
-        } else {
-          setModalMessages([]);
-        }
+      const messagesResponse = await fetch(`/api/messagerie/messages?dossierRef=${encodeURIComponent(request.dossier_ref)}`);
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json();
+        const formattedMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+          ...msg,
+          is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+        }));
+        setModalMessages(formattedMessages);
       } else {
-        setModalConversationId(null);
         setModalMessages([]);
       }
     } catch (err) {
@@ -426,7 +404,7 @@ export default function AdminMessageriePage() {
   // ✅ FERMER LE MODAL
   const closeExpandedModal = () => {
     setIsModalOpen(false);
-    setModalConversationId(null);
+    setModalDossierRef(null);
     setModalMessages([]);
     setModalReplyContent("");
   };
@@ -548,7 +526,7 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort) - VERSION CORRIGÉE
+  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort) - VERSION CORRIGÉE avec dossierRef
   const handleArchiveToGitHub = async (request: MessagerieRequest) => {
     if (!request.dossier_ref) {
       alert("Ce dossier n'a pas encore de référence. Approuvez-le d'abord.");
@@ -559,19 +537,16 @@ export default function AdminMessageriePage() {
     
     setProcessingId(request.id);
     try {
-      // 1. Récupérer les messages de la conversation
-      const conversationId = await getConversationId(request.email);
+      // 1. Récupérer les messages de la conversation via dossierRef
       let conversationMessages: ConversationMessage[] = [];
       
-      if (conversationId) {
-        const messagesResponse = await fetch(`/api/messagerie/messages?conversationId=${conversationId}`);
-        if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json();
-          conversationMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
-            ...msg,
-            is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
-          }));
-        }
+      const messagesResponse = await fetch(`/api/messagerie/messages?dossierRef=${encodeURIComponent(request.dossier_ref)}`);
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json();
+        conversationMessages = (messagesData.messages || []).map((msg: ConversationMessage) => ({
+          ...msg,
+          is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
+        }));
       }
       
       // 2. Récupérer les réponses staff
@@ -688,7 +663,7 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ EXPANSION AVEC CHARGEMENT DES MESSAGES
+  // ✅ EXPANSION AVEC CHARGEMENT DES MESSAGES (via dossierRef)
   const handleExpand = async (request: MessagerieRequest) => {
     if (expandedRequest === request.id) {
       setExpandedRequest(null);
@@ -697,7 +672,9 @@ export default function AdminMessageriePage() {
       setExpandedRequest(request.id);
       setSelectedRequest(request);
       setMessages([]);
-      await loadConversationMessages(request.email);
+      if (request.dossier_ref) {
+        await loadConversationMessages(request.dossier_ref);
+      }
     }
   };
 
@@ -928,7 +905,7 @@ export default function AdminMessageriePage() {
                   {expandedRequest === request.id && (
                     <tr className="bg-black/50">
                       <td colSpan={7} className="p-5">
-                        {/* Contenu de l'expansion inchangé */}
+                        {/* Contenu de l'expansion inchangé - utilise dossier_ref pour les messages */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Colonne gauche : Coordonnées + motif + KBis */}
                           <div className="space-y-4">
@@ -1036,14 +1013,16 @@ export default function AdminMessageriePage() {
                                 Échanges avec le demandeur
                               </h4>
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => openExpandedModal(request)}
-                                  className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
-                                  title="Agrandir la conversation"
-                                >
-                                  <Maximize2 className="w-3 h-3" />
-                                  Agrandir
-                                </button>
+                                {request.dossier_ref && (
+                                  <button
+                                    onClick={() => openExpandedModal(request)}
+                                    className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
+                                    title="Agrandir la conversation"
+                                  >
+                                    <Maximize2 className="w-3 h-3" />
+                                    Agrandir
+                                  </button>
+                                )}
                               </div>
                             </div>
                             
@@ -1103,7 +1082,7 @@ export default function AdminMessageriePage() {
                               <div className="flex gap-2 justify-end">
                                 <button
                                   onClick={handleSendReply}
-                                  disabled={sendingReply || !replyContent.trim()}
+                                  disabled={sendingReply || !replyContent.trim() || !request.dossier_ref}
                                   className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
                                 >
                                   {sendingReply ? (
@@ -1155,7 +1134,7 @@ export default function AdminMessageriePage() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
+           </table>
         </div>
       </div>
 

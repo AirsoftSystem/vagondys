@@ -11,11 +11,11 @@ import { GitHubDB } from "@/lib/github-db/client";
 
 // Types exportés pour le frontend
 export interface Conversation {
-  id: string;
   dossier_ref: string;
   last_message: string;
   last_message_date: string;
-  subject: string;
+  participant_name: string;
+  participant_email: string;
   unread_count: number;
   created_at: string;
 }
@@ -30,7 +30,7 @@ export interface Message {
 }
 
 export interface SendMessageParams {
-  conversationId: string;
+  dossierRef: string;
   content: string;
   userId: string;
   userEmail: string;
@@ -38,23 +38,18 @@ export interface SendMessageParams {
   fileKey?: string;
 }
 
-// Interface pour une conversation de la base
-interface DBConversation {
-  id: string;
+// Interface pour un compte messagerie
+interface MessagerieAccount {
   dossier_ref: string;
-  participant_email: string;
-  participant_name: string;
-  participant_company: string | null;
-  last_message: string | null;
-  last_message_at: string | null;
+  email: string;
+  full_name: string;
   created_at: string;
-  updated_at: string;
 }
 
-// Interface pour un message GitHub
+// Interface pour un message GitHub (sans conversation_id)
 interface GitHubMessage {
   id: string;
-  conversation_id: string;
+  dossier_ref: string;
   sender_email: string;
   sender_name: string;
   content: string;
@@ -135,38 +130,64 @@ async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): P
 
 /**
  * Récupère toutes les conversations d'un utilisateur
- * Utilise la table messagerie_conversations (Supabase - métadonnées)
- * ✅ CORRECTION : unread_count toujours 0 (plus de table messagerie_messages)
+ * ✅ CORRECTION : Lecture depuis messagerie_accounts (pas messagerie_conversations)
+ * Une conversation = un dossier_ref associé à l'utilisateur
  */
 export async function getUserConversations(userEmail: string): Promise<Conversation[]> {
   try {
-    const { data: conversations, error } = await supabase
-      .from("messagerie_conversations")
-      .select("*")
-      .eq("participant_email", userEmail.toLowerCase())
-      .order("last_message_at", { ascending: false });
+    // Récupérer tous les dossiers associés à cet email
+    const { data: accounts, error } = await supabase
+      .from("messagerie_accounts")
+      .select("dossier_ref, email, full_name, created_at")
+      .eq("email", userEmail.toLowerCase());
 
     if (error) {
-      console.error("Erreur récupération conversations:", error);
+      console.error("Erreur récupération comptes messagerie:", error);
       return [];
     }
 
-    if (!conversations || conversations.length === 0) {
+    if (!accounts || accounts.length === 0) {
       return [];
     }
 
-    // Plus de comptage des messages non lus (plus de table messagerie_messages)
-    const conversationsWithUnread = conversations.map((conv: DBConversation) => ({
-      id: conv.id,
-      dossier_ref: conv.dossier_ref,
-      last_message: conv.last_message || "",
-      last_message_date: conv.last_message_at || conv.created_at,
-      subject: `Conversation avec VAGONDYS`,
-      unread_count: 0, // Toujours 0, les messages sont dans GitHub
-      created_at: conv.created_at,
-    }));
+    // Pour chaque dossier, récupérer le dernier message depuis GitHub
+    const conversations: Conversation[] = await Promise.all(
+      accounts.map(async (account: MessagerieAccount) => {
+        let lastMessage = "";
+        let lastMessageDate = account.created_at;
+        
+        try {
+          const messages = await getMessagesFromGitHub(account.dossier_ref);
+          if (messages.length > 0) {
+            // Trier par date décroissante pour prendre le dernier
+            const sorted = [...messages].sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            lastMessage = sorted[0].content.substring(0, 100);
+            lastMessageDate = sorted[0].created_at;
+          }
+        } catch (err) {
+          console.error(`Erreur lecture messages pour ${account.dossier_ref}:`, err);
+        }
 
-    return conversationsWithUnread;
+        return {
+          dossier_ref: account.dossier_ref,
+          last_message: lastMessage || "Aucun message",
+          last_message_date: lastMessageDate,
+          participant_name: account.full_name,
+          participant_email: account.email,
+          unread_count: 0, // Pas de comptage des non lus (tout est dans GitHub)
+          created_at: account.created_at,
+        };
+      })
+    );
+
+    // Trier par date du dernier message (décroissant)
+    conversations.sort(
+      (a, b) => new Date(b.last_message_date).getTime() - new Date(a.last_message_date).getTime()
+    );
+
+    return conversations;
   } catch (err) {
     console.error("Erreur getUserConversations:", err);
     return [];
@@ -175,35 +196,43 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
 
 /**
  * Récupère tous les messages d'une conversation spécifique
- * ✅ CORRECTION : Lecture UNIQUEMENT depuis GitHub (plus de Supabase)
+ * ✅ CORRECTION : Utilisation directe de dossierRef (pas conversationId)
  */
 export async function getConversationMessages(
-  conversationId: string,
+  dossierRef: string,
   userEmail: string
 ): Promise<Message[]> {
   try {
-    // 1. Vérifier que l’utilisateur a accès à cette conversation
-    const { data: conversation, error: convError } = await supabase
-      .from("messagerie_conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .single();
+    // 1. Vérifier que l’utilisateur a accès à ce dossier
+    const isStaff = userEmail.endsWith("@vagondys.com");
+    
+    let hasAccess = false;
+    
+    if (isStaff) {
+      // Le staff a accès à tous les dossiers
+      hasAccess = true;
+    } else {
+      // Vérifier que le dossier appartient bien à l'utilisateur
+      const { data: account, error: accountError } = await supabase
+        .from("messagerie_accounts")
+        .select("dossier_ref")
+        .eq("email", userEmail.toLowerCase())
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
 
-    if (convError || !conversation) {
-      console.error("Conversation introuvable:", convError);
-      return [];
+      if (accountError) {
+        console.error("Erreur vérification accès:", accountError);
+      }
+
+      hasAccess = !!account;
     }
 
-    const isStaff = userEmail.endsWith("@vagondys.com");
-    const hasAccess = isStaff || conversation.participant_email === userEmail.toLowerCase();
-
     if (!hasAccess) {
-      console.error("Accès non autorisé à la conversation");
+      console.error(`Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
       return [];
     }
 
     // 2. Lire les messages depuis GITHUB
-    const dossierRef = conversation.dossier_ref;
     const gitHubMessages = await getMessagesFromGitHub(dossierRef);
 
     // 3. Trier par date croissante
@@ -237,44 +266,71 @@ export async function getConversationMessages(
 
 /**
  * Envoie un nouveau message dans une conversation
- * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
+ * ✅ CORRECTION : Utilisation directe de dossierRef (pas conversationId)
+ * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
-  const { conversationId, content, userId, userEmail, fileUrl, fileKey } = params;
+  const { dossierRef, content, userId, userEmail, fileUrl, fileKey } = params;
 
-  if (!conversationId || !content || !userId || !userEmail) {
+  if (!dossierRef || !content || !userId || !userEmail) {
     return { success: false, error: "Paramètres manquants" };
   }
 
   try {
-    // 1. Vérifier que l’utilisateur a accès à cette conversation
-    const { data: conversation, error: convError } = await supabase
-      .from("messagerie_conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .single();
-
-    if (convError || !conversation) {
-      console.error("Conversation introuvable:", convError);
-      return { success: false, error: "Conversation introuvable" };
-    }
-
+    // 1. Vérifier que l’utilisateur a accès à ce dossier
     const isStaff = userEmail.endsWith("@vagondys.com");
-    const hasAccess = isStaff || conversation.participant_email === userEmail.toLowerCase();
+    
+    let hasAccess = false;
+    let participantName = "";
+    
+    if (isStaff) {
+      // Le staff a accès à tous les dossiers
+      hasAccess = true;
+      
+      // Récupérer le nom du participant pour l'affichage
+      const { data: account } = await supabase
+        .from("messagerie_accounts")
+        .select("full_name")
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+      
+      if (account) {
+        participantName = account.full_name;
+      } else {
+        console.error(`Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
+        return { success: false, error: "Dossier introuvable" };
+      }
+    } else {
+      // Vérifier que le dossier appartient bien à l'utilisateur
+      const { data: account, error: accountError } = await supabase
+        .from("messagerie_accounts")
+        .select("full_name")
+        .eq("email", userEmail.toLowerCase())
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+
+      if (accountError) {
+        console.error("Erreur vérification accès:", accountError);
+      }
+
+      if (account) {
+        hasAccess = true;
+        participantName = account.full_name;
+      }
+    }
 
     if (!hasAccess) {
       return { success: false, error: "Accès non autorisé" };
     }
 
     // 2. Préparer le message
-    const dossierRef = conversation.dossier_ref;
-    const senderName = isStaff ? `Staff ${userEmail.split("@")[0]}` : conversation.participant_name;
+    const senderName = isStaff ? `Staff ${userEmail.split("@")[0]}` : participantName;
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
     const newMessage: GitHubMessage = {
       id: messageId,
-      conversation_id: conversationId,
+      dossier_ref: dossierRef,
       sender_email: userEmail.toLowerCase(),
       sender_name: senderName,
       content: content.trim(),
@@ -291,20 +347,8 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       return { success: false, error: "Erreur lors de l’écriture dans GitHub" };
     }
 
-    // 4. Mettre à jour la conversation (last_message, last_message_at) dans Supabase
-    const { error: updateConvError } = await supabase
-      .from("messagerie_conversations")
-      .update({
-        last_message: content.trim().substring(0, 200),
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq("id", conversationId);
-
-    if (updateConvError) {
-      console.error("Erreur mise à jour conversation:", updateConvError);
-      // Non bloquant
-    }
+    // ✅ 4. Plus de mise à jour de messagerie_conversations (table supprimée de l'architecture)
+    // Les métadonnées de conversation sont implicites via le dossier_ref
 
     revalidatePath("/messagerie");
 

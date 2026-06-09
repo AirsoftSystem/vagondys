@@ -6,10 +6,11 @@ import { GitHubDB } from "@/lib/github-db/client";
 
 /**
  * Interface pour un message (GitHub)
+ * ✅ CORRECTION : plus de conversation_id, on utilise dossier_ref comme identifiant
  */
 interface GitHubMessage {
   id: string;
-  conversation_id: string;
+  dossier_ref: string;
   sender_email: string;
   sender_name: string;
   content: string;
@@ -21,16 +22,15 @@ interface GitHubMessage {
 
 /**
  * API de gestion des messages de la messagerie privée
- * * GET /api/messagerie/messages?conversationId=xxx
+ * * GET /api/messagerie/messages?dossierRef=xxx
  * - Récupère tous les messages d’une conversation depuis GitHub
  * * POST /api/messagerie/messages
  * - Envoie un nouveau message (écriture uniquement dans GitHub)
- * - Body: { conversationId, content, fileUrl?, fileKey? }
- * * Sécurité : L’utilisateur doit être authentifié
- * Ne peut accéder qu’à ses propres conversations
+ * - Body: { dossierRef, content, fileUrl?, fileKey? }
  * 
- * ✅ CORRECTION : Supabase n’est plus utilisé pour les messages
- * (uniquement GitHub)
+ * ✅ CORRECTION : Plus d'utilisation de messagerie_conversations
+ * ✅ CORRECTION : Utilisation directe de dossier_ref comme identifiant
+ * ✅ CORRECTION : Vérification des droits via messagerie_accounts
  */
 export async function GET(request: NextRequest) {
   try {
@@ -74,13 +74,13 @@ export async function GET(request: NextRequest) {
     const userEmail = user.email?.toLowerCase() || "";
     const isStaff = userEmail.endsWith("@vagondys.com");
 
-    // 3. Récupérer le paramètre conversationId
+    // 3. Récupérer le paramètre dossierRef (au lieu de conversationId)
     const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get("conversationId");
+    const dossierRef = searchParams.get("dossierRef");
 
-    if (!conversationId) {
+    if (!dossierRef) {
       return NextResponse.json(
-        { error: "conversationId manquant" },
+        { error: "dossierRef manquant" },
         { status: 400 }
       );
     }
@@ -88,24 +88,49 @@ export async function GET(request: NextRequest) {
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 5. Vérifier que l’utilisateur a accès à cette conversation
-    const { data: conversation, error: convError } = await supabaseAdmin
-      .from("messagerie_conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .single();
+    // 5. Vérifier que l’utilisateur a accès à ce dossier
+    // Le dossier_ref doit exister dans messagerie_accounts (lien email ↔ dossier)
+    let hasAccess = false;
+    let participantName = "";
+    let participantEmail = "";
 
-    if (convError || !conversation) {
-      console.error("Conversation introuvable:", convError);
-      return NextResponse.json(
-        { error: "Conversation introuvable" },
-        { status: 404 }
-      );
+    if (isStaff) {
+      // Le staff a accès à tous les dossiers
+      hasAccess = true;
+      
+      // Récupérer les infos du participant pour l'affichage
+      const { data: account } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .select("full_name, email")
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+      
+      if (account) {
+        participantName = account.full_name;
+        participantEmail = account.email;
+      }
+    } else {
+      // Un partenaire ne peut voir que son propre dossier
+      const { data: account, error: accountError } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .select("dossier_ref, full_name, email")
+        .eq("email", userEmail)
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+
+      if (accountError) {
+        console.error("Erreur vérification accès:", accountError);
+      }
+
+      if (account) {
+        hasAccess = true;
+        participantName = account.full_name;
+        participantEmail = account.email;
+      }
     }
 
-    // Vérification d’accès
-    const hasAccess = isStaff || conversation.participant_email === userEmail;
     if (!hasAccess) {
+      console.error(`Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
       return NextResponse.json(
         { error: "Accès non autorisé à cette conversation" },
         { status: 403 }
@@ -113,7 +138,6 @@ export async function GET(request: NextRequest) {
     }
 
     // ✅ 6. Lire les messages depuis GITHUB (uniquement)
-    const dossierRef = conversation.dossier_ref;
     const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
     
     let messages: GitHubMessage[] = [];
@@ -133,12 +157,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      conversation: {
-        id: conversation.id,
-        dossier_ref: conversation.dossier_ref,
-        participant_email: conversation.participant_email,
-        participant_name: conversation.participant_name,
-      },
+      dossier_ref: dossierRef,
+      participant_email: participantEmail,
+      participant_name: participantName,
       messages: messages,
     });
   } catch (error) {
@@ -155,9 +176,9 @@ export async function GET(request: NextRequest) {
  * Envoie un nouveau message
  * 
  * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
+ * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  * 
  * - Notification email au partenaire lorsque le staff envoie un message
- * - Mise à jour de la conversation (last_message, last_message_at) dans Supabase
  */
 export async function POST(request: NextRequest) {
   try {
@@ -202,13 +223,13 @@ export async function POST(request: NextRequest) {
     const userName = user.user_metadata?.full_name || userEmail.split("@")[0];
     const isStaff = userEmail.endsWith("@vagondys.com");
 
-    // 3. Récupérer le body
+    // 3. Récupérer le body (avec dossierRef au lieu de conversationId)
     const body = await request.json();
-    const { conversationId, content, fileUrl, fileKey } = body;
+    const { dossierRef, content, fileUrl, fileKey } = body;
 
-    if (!conversationId || !content || !content.trim()) {
+    if (!dossierRef || !content || !content.trim()) {
       return NextResponse.json(
-        { error: "conversationId et content sont requis" },
+        { error: "dossierRef et content sont requis" },
         { status: 400 }
       );
     }
@@ -216,24 +237,54 @@ export async function POST(request: NextRequest) {
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 5. Vérifier que l’utilisateur a accès à cette conversation
-    const { data: conversation, error: convError } = await supabaseAdmin
-      .from("messagerie_conversations")
-      .select("*")
-      .eq("id", conversationId)
-      .single();
+    // 5. Vérifier que l’utilisateur a accès à ce dossier
+    let hasAccess = false;
+    let participantEmail = "";
+    let participantName = "";
 
-    if (convError || !conversation) {
-      console.error("Conversation introuvable:", convError);
-      return NextResponse.json(
-        { error: "Conversation introuvable" },
-        { status: 404 }
-      );
+    if (isStaff) {
+      // Le staff a accès à tous les dossiers
+      hasAccess = true;
+      
+      // Récupérer les infos du participant
+      const { data: account } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .select("full_name, email")
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+      
+      if (account) {
+        participantName = account.full_name;
+        participantEmail = account.email;
+      } else {
+        console.error(`Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
+        return NextResponse.json(
+          { error: "Dossier introuvable" },
+          { status: 404 }
+        );
+      }
+    } else {
+      // Un partenaire ne peut envoyer que depuis son propre dossier
+      const { data: account, error: accountError } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .select("full_name, email")
+        .eq("email", userEmail)
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+
+      if (accountError) {
+        console.error("Erreur vérification accès:", accountError);
+      }
+
+      if (account) {
+        hasAccess = true;
+        participantName = account.full_name;
+        participantEmail = account.email;
+      }
     }
 
-    // Vérification d’accès
-    const hasAccess = isStaff || conversation.participant_email === userEmail;
     if (!hasAccess) {
+      console.error(`Accès non autorisé pour envoyer un message dans ${dossierRef} (${userEmail})`);
       return NextResponse.json(
         { error: "Accès non autorisé à cette conversation" },
         { status: 403 }
@@ -241,15 +292,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Préparer le nouveau message
-    const dossierRef = conversation.dossier_ref;
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
     const newMessage: GitHubMessage = {
       id: messageId,
-      conversation_id: conversationId,
+      dossier_ref: dossierRef,
       sender_email: userEmail,
-      sender_name: isStaff ? `Staff ${userName}` : userName,
+      sender_name: isStaff ? `Staff ${userName}` : participantName,
       content: content.trim(),
       file_url: fileUrl || null,
       file_key: fileKey || null,
@@ -285,26 +335,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 8. Mettre à jour la conversation (last_message, last_message_at) dans Supabase
-    const { error: updateConvError } = await supabaseAdmin
-      .from("messagerie_conversations")
-      .update({
-        last_message: content.trim().substring(0, 200),
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq("id", conversationId);
-
-    if (updateConvError) {
-      console.error("Erreur mise à jour conversation:", updateConvError);
-      // Non bloquant
-    }
+    // ✅ 8. Plus de mise à jour de messagerie_conversations (cette table est supprimée de l'architecture)
+    // Les métadonnées de conversation sont implicites via le dossier_ref
 
     // 9. Envoyer une notification email au partenaire lorsque le staff envoie un message
-    if (isStaff) {
+    if (isStaff && participantEmail) {
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
-      const participantEmail = conversation.participant_email;
-      const participantName = conversation.participant_name;
       
       const notificationHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
@@ -317,7 +353,7 @@ export async function POST(request: NextRequest) {
             Nouveau <span style="color:#22c55e;">message</span>
           </h1>
           <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
-            Référence Dossier : ${conversation.dossier_ref}
+            Référence Dossier : ${dossierRef}
           </p>
           <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
             <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">
@@ -340,7 +376,7 @@ export async function POST(request: NextRequest) {
         </div>
       `;
 
-      const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${frontendUrl}/messagerie\n\nRéférence dossier : ${conversation.dossier_ref}`;
+      const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${frontendUrl}/messagerie\n\nRéférence dossier : ${dossierRef}`;
 
       await sendGeneralEmail(
         participantEmail,
@@ -356,16 +392,17 @@ export async function POST(request: NextRequest) {
     // 10. Si le message vient d’un partenaire, notifier le staff
     if (!isStaff) {
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
       const notificationHtml = `
         <div style="background:black; color:white; padding:20px; font-family:sans-serif;">
-          <h2 style="color:#dc2626;">📩 Nouveau message de ${conversation.participant_name}</h2>
-          <p><strong>Conversation :</strong> ${conversation.dossier_ref}</p>
+          <h2 style="color:#dc2626;">📩 Nouveau message de ${participantName}</h2>
+          <p><strong>Dossier :</strong> ${dossierRef}</p>
           <p><strong>Message :</strong></p>
           <div style="background:#09090b; padding:15px; border-radius:8px; margin:10px 0;">
             ${content.trim()}
           </div>
-          <a href="https://staff.vagondys.com/staff/admin/messagerie" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; display:inline-block; margin-top:20px;">
+          <a href="${frontendUrl}/staff/admin/messagerie" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; display:inline-block; margin-top:20px;">
             Voir la conversation
           </a>
         </div>
@@ -373,8 +410,8 @@ export async function POST(request: NextRequest) {
 
       await sendGeneralEmail(
         staffEmails.join(","),
-        `📩 Nouveau message de ${conversation.participant_name}`,
-        `Nouveau message dans la conversation ${conversation.dossier_ref}:\n\n${content.trim()}`,
+        `📩 Nouveau message de ${participantName}`,
+        `Nouveau message dans le dossier ${dossierRef}:\n\n${content.trim()}`,
         notificationHtml,
         "no-reply@vagondys.com"
       ).catch(console.error);
