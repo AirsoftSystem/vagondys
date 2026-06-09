@@ -16,6 +16,7 @@ import { createClient } from "@supabase/supabase-js";
  * ✅ CORRECTION : Lecture UNIQUEMENT depuis Supabase (pas GitHub)
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
  * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
+ * ✅ CORRECTION : Status 'active' au lieu de 'pending' (contrainte CHECK)
  * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
  */
 export async function POST(request: NextRequest) {
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "pending",
+          status: "active", // ✅ CORRECTION : 'active' au lieu de 'pending'
           created_by: staffEmail,
           updated_at: now,
         })
@@ -287,7 +288,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "pending",
+          status: "active", // ✅ CORRECTION : 'active' au lieu de 'pending'
           created_by: staffEmail,
           created_at: now,
         });
