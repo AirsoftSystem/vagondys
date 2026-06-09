@@ -18,6 +18,7 @@ import { requestDB } from "@/lib/github-db/request";
  * ✅ CORRECTION : Suppression de l’appel à createRequest() (la demande existe déjà)
  * ✅ AJOUT : Création de messagerie_conversations
  * ✅ AJOUT : Retrait du message de bienvenue (sera envoyé après login)
+ * ✅ CORRECTION : Remplacement de l'insertion par un upsert dans messagerie_accounts
  */
 export async function POST(request: NextRequest) {
   try {
@@ -254,30 +255,68 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 8. Insertion dans messagerie_accounts (Supabase – métadonnées)
-    const { error: insertAccountError } = await supabaseAdmin
+    // 8. UPSERT dans messagerie_accounts (au lieu d'insert simple)
+    console.log(`📝 UPSERT dans messagerie_accounts pour ${dossierRef}`);
+    
+    // Vérifier si un compte existe déjà pour cet email
+    const { data: existingAccount, error: fetchAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
-      .insert({
-        user_id: userId,
-        email: requestData.email,
-        full_name: requestData.full_name,
-        company: requestData.company,
-        phone: requestData.phone,
-        dossier_ref: dossierRef,
-        role: "partner",
-        status: "pending", // ⚠️ status = "pending" jusqu'à confirmation email
-        created_by: staffEmail,
-        created_at: now,
-      });
+      .select("id")
+      .eq("email", requestData.email)
+      .maybeSingle();
+
+    if (fetchAccountError) {
+      console.error("Erreur vérification compte existant:", fetchAccountError);
+      // On continue, on tentera l'insertion
+    }
+
+    let insertAccountError;
+    if (existingAccount) {
+      // Mise à jour du compte existant
+      console.log(`ℹ️ Compte existant trouvé pour ${requestData.email}, mise à jour`);
+      const { error: updateError } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .update({
+          user_id: userId,
+          full_name: requestData.full_name,
+          company: requestData.company,
+          phone: requestData.phone,
+          dossier_ref: dossierRef,
+          role: "partner",
+          status: "pending",
+          created_by: staffEmail,
+          updated_at: now,
+        })
+        .eq("id", existingAccount.id);
+      insertAccountError = updateError;
+    } else {
+      // Insertion d'un nouveau compte
+      const { error: insertError } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .insert({
+          user_id: userId,
+          email: requestData.email,
+          full_name: requestData.full_name,
+          company: requestData.company,
+          phone: requestData.phone,
+          dossier_ref: dossierRef,
+          role: "partner",
+          status: "pending",
+          created_by: staffEmail,
+          created_at: now,
+        });
+      insertAccountError = insertError;
+    }
 
     if (insertAccountError) {
-      console.error("Erreur insertion messagerie_accounts:", insertAccountError);
+      console.error("❌ Erreur upsert messagerie_accounts:", insertAccountError);
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json(
         { error: "Erreur lors de l’enregistrement du compte" },
         { status: 500 }
       );
     }
+    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef}`);
 
     // ✅ 8b. Créer la conversation dans messagerie_conversations (nécessaire pour les échanges)
     const conversationWelcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Un message de bienvenue vous sera envoyé après votre première connexion.";
