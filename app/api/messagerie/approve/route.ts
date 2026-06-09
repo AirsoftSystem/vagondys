@@ -15,7 +15,7 @@ import { createClient } from "@supabase/supabase-js";
  * 
  * ✅ CORRECTION : Lecture UNIQUEMENT depuis Supabase (pas GitHub)
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
- * ✅ CORRECTION : Upsert dans messagerie_accounts
+ * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
  * ✅ SUPPRESSION : Création de messagerie_conversations (inutile)
  */
 export async function POST(request: NextRequest) {
@@ -223,14 +223,14 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 8. UPSERT dans messagerie_accounts (au lieu d'insert simple)
+    // 8. UPSERT dans messagerie_accounts - Vérification par email OU dossier_ref
     console.log(`📝 UPSERT dans messagerie_accounts pour ${dossierRef}`);
     
-    // Vérifier si un compte existe déjà pour cet email
+    // ✅ CORRECTION : Vérifier si un compte existe déjà pour cet email OU ce dossier_ref
     const { data: existingAccount, error: fetchAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
       .select("id")
-      .eq("email", requestData.email)
+      .or(`email.eq.${requestData.email},dossier_ref.eq.${dossierRef}`)
       .maybeSingle();
 
     if (fetchAccountError) {
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
     let insertAccountError;
     if (existingAccount) {
       // Mise à jour du compte existant
-      console.log(`ℹ️ Compte existant trouvé pour ${requestData.email}, mise à jour`);
+      console.log(`ℹ️ Compte existant trouvé pour ${requestData.email} ou ${dossierRef}, mise à jour`);
       const { error: updateError } = await supabaseAdmin
         .from("messagerie_accounts")
         .update({
