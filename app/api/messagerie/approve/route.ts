@@ -16,6 +16,8 @@ import { requestDB } from "@/lib/github-db/request";
  * 
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
  * ✅ CORRECTION : Suppression de l’appel à createRequest() (la demande existe déjà)
+ * ✅ AJOUT : Création de messagerie_conversations
+ * ✅ AJOUT : Retrait du message de bienvenue (sera envoyé après login)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -263,7 +265,7 @@ export async function POST(request: NextRequest) {
         phone: requestData.phone,
         dossier_ref: dossierRef,
         role: "partner",
-        status: "active",
+        status: "pending", // ⚠️ status = "pending" jusqu'à confirmation email
         created_by: staffEmail,
         created_at: now,
       });
@@ -275,6 +277,30 @@ export async function POST(request: NextRequest) {
         { error: "Erreur lors de l’enregistrement du compte" },
         { status: 500 }
       );
+    }
+
+    // ✅ 8b. Créer la conversation dans messagerie_conversations (nécessaire pour les échanges)
+    const conversationWelcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Un message de bienvenue vous sera envoyé après votre première connexion.";
+    
+    const { error: insertConversationError } = await supabaseAdmin
+      .from("messagerie_conversations")
+      .insert({
+        id: randomUUID(),
+        dossier_ref: dossierRef,
+        participant_email: requestData.email,
+        participant_name: requestData.full_name,
+        participant_company: requestData.company || null,
+        last_message: conversationWelcomeMessage.substring(0, 200),
+        last_message_at: now,
+        created_at: now,
+        updated_at: now,
+      });
+
+    if (insertConversationError) {
+      console.error("Erreur insertion messagerie_conversations:", insertConversationError);
+      // Non bloquant – la conversation pourra être créée plus tard
+    } else {
+      console.log(`✅ Conversation créée pour ${dossierRef}`);
     }
 
     // 9. Mettre à jour le statut de la demande
@@ -305,15 +331,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 10. Ajouter un message de bienvenue dans GitHub
-    const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
-    
-    await requestDB.addRequestMessage(dossierRef, {
-      sender_email: "system@vagondys.com",
-      sender_name: "Système VAGONDYS",
-      content: welcomeMessage,
-      is_staff: false,
-    });
+    // 10. ✅ RETIRÉ : Le message de bienvenue ne sera plus envoyé ici
+    // Il sera envoyé après la première connexion réelle (dans set-password/page.tsx)
 
     // 11. Envoi de l’email de confirmation
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";

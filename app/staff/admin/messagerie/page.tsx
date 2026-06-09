@@ -244,6 +244,21 @@ export default function AdminMessageriePage() {
     }
   }, [loadRequests]);
 
+  // ✅ AJOUT : Rechargement automatique quand la page devient visible (retour de set-password)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Recharger les données quand l'utilisateur revient sur l'onglet
+        loadRequests();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadRequests]);
+
   // ✅ RÉCUPÉRER L'ID DE CONVERSATION À PARTIR DE L'EMAIL
   const getConversationId = async (email: string): Promise<string | null> => {
     try {

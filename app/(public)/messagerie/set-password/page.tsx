@@ -83,9 +83,43 @@ function SetPasswordContent() {
 
       setSuccess(true);
       
-      // ✅ REDIRECTION VERS LA PAGE DE CONNEXION MESSAGERIE
+      // ✅ Envoi du message de bienvenue après définition du mot de passe
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        
+        if (supabaseUrl && supabaseKey) {
+          const { createClient } = await import("@supabase/supabase-js");
+          const supabaseClient = createClient(supabaseUrl, supabaseKey);
+          
+          // Récupérer le compte messagerie pour obtenir dossier_ref
+          const { data: account } = await supabaseClient
+            .from("messagerie_accounts")
+            .select("dossier_ref")
+            .eq("email", email.toLowerCase())
+            .maybeSingle();
+          
+          if (account?.dossier_ref) {
+            // Envoyer le message de bienvenue via l'API messages
+            await fetch("/api/messagerie/messages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversationId: account.dossier_ref,
+                content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
+              }),
+            });
+            console.log(`✅ Message de bienvenue envoyé pour ${email}`);
+          }
+        }
+      } catch (welcomeErr) {
+        console.error("Erreur envoi message de bienvenue:", welcomeErr);
+        // Non bloquant – l'utilisateur peut toujours se connecter
+      }
+      
+      // ✅ REDIRECTION VERS LA PAGE DE CONNEXION MESSAGERIE avec paramètre ref pour l'admin
       setTimeout(() => {
-        router.push("/messagerie/connexion?message=compte_active");
+        router.push(`/messagerie/connexion?message=compte_active&ref=${encodeURIComponent(email.toLowerCase())}`);
       }, 3000);
       
     } catch (err) {

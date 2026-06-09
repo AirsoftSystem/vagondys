@@ -152,10 +152,6 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ messages/                              ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ request/                               ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ reopen/                             ✅ EXISTANT
-┃  ┃  ┃  ┃  ┃  ┗━ route.ts                         ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ notify-read/                              ✅ EXISTANT

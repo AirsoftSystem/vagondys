@@ -1,6 +1,5 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { requestDB } from "@/lib/github-db/request";
 
 /**
  * API de confirmation du compte messagerie
@@ -10,7 +9,8 @@ import { requestDB } from "@/lib/github-db/request";
  * 
  * ✅ CORRECTION : Récupère la référence dossier_ref depuis messagerie_accounts
  * ✅ AJOUT : Archivage GitHub après activation (comme pour les athlètes)
- * ✅ AJOUT : Message de bienvenue dans le fil de discussion après activation
+ * 
+ * ⚠️ CORRECTION : Le message de bienvenue a été supprimé (sera envoyé après définition du mot de passe)
  */
 export async function GET(request: NextRequest) {
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -136,21 +136,8 @@ export async function GET(request: NextRequest) {
       console.error("Erreur confirmation email Auth:", updateAuthError);
     }
 
-    // ✅ AJOUT : Envoyer un message de bienvenue dans GitHub APRÈS activation
-    const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Votre compte est maintenant activé. Vous pouvez échanger avec notre équipe.";
-    
-    try {
-      await requestDB.addRequestMessage(dossierRef, {
-        sender_email: "system@vagondys.com",
-        sender_name: "Système VAGONDYS",
-        content: welcomeMessage,
-        is_staff: false,
-      });
-      console.log(`✅ Message de bienvenue ajouté dans GitHub pour ${dossierRef}`);
-    } catch (msgError) {
-      console.error("Erreur ajout message bienvenue:", msgError);
-      // Non bloquant
-    }
+    // ✅ Le message de bienvenue a été SUPPRIMÉ d’ici
+    // Il sera envoyé dans set-password/page.tsx après définition du mot de passe
 
     // ✅ AJOUT : Archivage GitHub (comme pour les athlètes dans confirm-email)
     try {
