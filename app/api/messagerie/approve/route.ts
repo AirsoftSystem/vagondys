@@ -6,6 +6,19 @@ import { createClient } from "@supabase/supabase-js";
 import { requestDB } from "@/lib/github-db/request";
 
 /**
+ * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
+ * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
+ */
+function generateVGDReference(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VGD-${result}`;
+}
+
+/**
  * API d’approbation des demandes d’inscription à la messagerie privée
  * POST /api/messagerie/approve
  * Body: { requestId, action, notes? }
@@ -14,7 +27,7 @@ import { requestDB } from "@/lib/github-db/request";
  * 
  * Sécurité : Seul le staff/admin peut appeler cette API
  * 
- * ✅ CORRECTION : Utilisation de GitHub pour les demandes (plus de Supabase)
+ * ✅ CORRECTION : Fallback vers Supabase si la demande n'est pas dans GitHub
  */
 export async function POST(request: NextRequest) {
   try {
@@ -97,18 +110,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ 5. Récupérer la demande depuis GITHUB
-    // Note: requestId correspond au dossier_ref dans la nouvelle architecture
-    const pendingRequest = await requestDB.getRequest(requestId);
+    // ✅ 5. Récupérer la demande : d'abord dans GitHub, fallback Supabase
+    let pendingRequest = null;
+    let requestData = null;
+    let isFromSupabase = false;
+    let dossierRef = requestId; // tentative avec requestId comme dossier_ref
 
+    // Essayer de lire depuis GitHub
+    pendingRequest = await requestDB.getRequest(requestId);
+    
     if (!pendingRequest) {
-      return NextResponse.json(
-        { error: "Demande introuvable" },
-        { status: 404 }
-      );
+      // Fallback : lire depuis Supabase (ancienne table)
+      console.log(`📦 Demande ${requestId} non trouvée dans GitHub, fallback vers Supabase`);
+      
+      const { data: supabaseRequest, error: supabaseError } = await supabaseAdmin
+        .from("pending_messagerie_requests")
+        .select("*")
+        .eq("id", requestId)
+        .single();
+      
+      if (supabaseError || !supabaseRequest) {
+        // Essayer avec l'email ? Non, on retourne l'erreur
+        console.error("Demande introuvable dans Supabase également:", supabaseError);
+        return NextResponse.json(
+          { error: "Demande introuvable" },
+          { status: 404 }
+        );
+      }
+      
+      pendingRequest = supabaseRequest;
+      requestData = pendingRequest;
+      isFromSupabase = true;
+      
+      // Utiliser le dossier_ref existant ou en générer un nouveau
+      dossierRef = pendingRequest.dossier_ref || generateVGDReference();
+    } else {
+      requestData = pendingRequest;
     }
-
-    const requestData = pendingRequest;
 
     if (requestData.status !== "pending") {
       return NextResponse.json(
@@ -118,18 +156,40 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    const displayId = requestId.substring(0, 8).toUpperCase();
+    const displayId = (dossierRef || requestId).substring(0, 8).toUpperCase();
 
     if (action === "reject") {
-      // ✅ Rejet de la demande via GitHub
-      const success = await requestDB.updateRequestStatus(requestId, "rejected", staffEmail);
-
-      if (!success) {
-        console.error("Erreur mise à jour demande rejetée");
-        return NextResponse.json(
-          { error: "Erreur lors du rejet de la demande" },
-          { status: 500 }
-        );
+      // Rejet de la demande
+      if (isFromSupabase) {
+        // Mettre à jour dans Supabase
+        const { error: updateError } = await supabaseAdmin
+          .from("pending_messagerie_requests")
+          .update({
+            status: "rejected",
+            reviewed_by: staffEmail,
+            reviewed_at: now,
+            updated_at: now,
+            dossier_ref: dossierRef,
+          })
+          .eq("id", requestId);
+        
+        if (updateError) {
+          console.error("Erreur mise à jour demande rejetée:", updateError);
+          return NextResponse.json(
+            { error: "Erreur lors du rejet de la demande" },
+            { status: 500 }
+          );
+        }
+      } else {
+        // Mettre à jour dans GitHub
+        const success = await requestDB.updateRequestStatus(dossierRef, "rejected", staffEmail);
+        if (!success) {
+          console.error("Erreur mise à jour demande rejetée dans GitHub");
+          return NextResponse.json(
+            { error: "Erreur lors du rejet de la demande" },
+            { status: 500 }
+          );
+        }
       }
 
       const rejectHtml = `
@@ -162,7 +222,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. APPROBATION DE LA DEMANDE
-    const dossierRef = requestId; // Le dossier_ref est déjà l'ID
     const confirmationToken = randomUUID();
 
     // Génération d'un mot de passe temporaire
@@ -224,15 +283,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ 9. Mettre à jour le statut de la demande dans GitHub
-    const updateSuccess = await requestDB.updateRequestStatus(dossierRef, "approved", staffEmail);
-
-    if (!updateSuccess) {
-      console.error("Erreur mise à jour demande approuvée dans GitHub");
-      // Non bloquant, on continue
+    // 9. Mettre à jour le statut de la demande
+    if (isFromSupabase) {
+      // Mettre à jour dans Supabase
+      const { error: updateRequestError } = await supabaseAdmin
+        .from("pending_messagerie_requests")
+        .update({
+          status: "approved",
+          reviewed_by: staffEmail,
+          reviewed_at: now,
+          updated_at: now,
+          dossier_ref: dossierRef,
+        })
+        .eq("id", requestId);
+      
+      if (updateRequestError) {
+        console.error("Erreur mise à jour demande approuvée:", updateRequestError);
+      }
+      
+      // Créer la demande dans GitHub (migration)
+      try {
+        await requestDB.createRequest({
+          full_name: requestData.full_name,
+          email: requestData.email,
+          company: requestData.company,
+          phone: requestData.phone,
+          reason: requestData.reason,
+          city: requestData.city || "NANTES",
+          country: requestData.country || "FR",
+          kbis_url: requestData.kbis_url,
+          kbis_key: requestData.kbis_key,
+          kbis_validated: requestData.kbis_validated,
+          kbis_scan_result: requestData.kbis_scan_result,
+        });
+        console.log(`✅ Demande migrée vers GitHub: ${dossierRef}`);
+      } catch (migrationError) {
+        console.error("Erreur migration vers GitHub:", migrationError);
+      }
+    } else {
+      // Mettre à jour dans GitHub
+      const updateSuccess = await requestDB.updateRequestStatus(dossierRef, "approved", staffEmail);
+      if (!updateSuccess) {
+        console.error("Erreur mise à jour demande approuvée dans GitHub");
+      }
     }
 
-    // ✅ 10. Ajouter un message de bienvenue dans GitHub
+    // 10. Ajouter un message de bienvenue dans GitHub
     const welcomeMessage = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
     
     await requestDB.addRequestMessage(dossierRef, {
@@ -299,7 +395,7 @@ export async function POST(request: NextRequest) {
       console.error("Erreur insertion token confirmation:", tokenError);
     }
 
-    // 13. Archivage GitHub (déjà fait, mais on peut le refaire pour mettre à jour)
+    // 13. Archivage GitHub (pour mise à jour)
     try {
       const archivePayload = {
         message: {
