@@ -147,24 +147,29 @@ export async function getAllRequests(options?: {
 
 /**
  * Crée une nouvelle demande
- * @param data - Données de la demande (sans dossier_ref, id, dates)
+ * @param data - Données de la demande (sans id, dates)
+ * @param existingDossierRef - Optionnel : dossier_ref existant à utiliser (pour migration)
  * @returns La demande créée avec dossier_ref
  */
-export async function createRequest(data: {
-  full_name: string;
-  email: string;
-  company?: string | null;
-  phone?: string | null;
-  reason: string;
-  city: string;
-  country?: string;
-  kbis_url?: string | null;
-  kbis_key?: string | null;
-  kbis_validated?: boolean;
-  kbis_scan_result?: KbisScanResult | null;
-}): Promise<MessagerieRequest | null> {
+export async function createRequest(
+  data: {
+    full_name: string;
+    email: string;
+    company?: string | null;
+    phone?: string | null;
+    reason: string;
+    city: string;
+    country?: string;
+    kbis_url?: string | null;
+    kbis_key?: string | null;
+    kbis_validated?: boolean;
+    kbis_scan_result?: KbisScanResult | null;
+  },
+  existingDossierRef?: string
+): Promise<MessagerieRequest | null> {
   try {
-    const dossierRef = generateDossierRef();
+    // ✅ Utiliser le dossier_ref existant s'il est fourni, sinon en générer un nouveau
+    const dossierRef = existingDossierRef || generateDossierRef();
     const now = new Date().toISOString();
     
     const newRequest: MessagerieRequest = {

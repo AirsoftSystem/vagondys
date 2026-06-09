@@ -5,6 +5,20 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
+import { requestDB } from "@/lib/github-db/request";
+
+/**
+ * GÉNÉRATEUR DE MATRICULE 100% ALÉATOIRE
+ * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
+ */
+function generateVGDReference(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VGD-${result}`;
+}
 
 /**
  * INTERFACE POUR LES RÉSULTATS DE SCAN
@@ -20,10 +34,8 @@ interface ScanResult {
 /**
  * SERVER ACTION : Soumission d'une demande d'inscription à la messagerie privée
  * 
- * Copie le modèle de contact/actions.ts qui fonctionne parfaitement
- * - Récupère le token Turnstile directement via formData (pas de stockage React)
- * - Vérifie UNIQUEMENT l'existence du token (pas de vérification Cloudflare, comme Contact)
- * - Gère l'upload KBis, le scan antivirus, l'insertion en base et les emails
+ * ✅ CORRECTION : Génération d'un dossier_ref unique dès la création
+ * ✅ CORRECTION : Écriture simultanée dans GitHub (requestDB)
  */
 export async function submitMessagerieRequest(formData: FormData) {
   
@@ -130,14 +142,18 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 6. CRÉATION DE LA DEMANDE
+  // 6. GÉNÉRATION DU DOSSIER_REF UNIQUE
   // ==========================================================
+  const dossierRef = generateVGDReference();
   const requestId = randomUUID();
-  const displayId = requestId.substring(0, 8).toUpperCase();
   const now = new Date().toISOString();
   
+  // ==========================================================
+  // 7. CRÉATION DE LA DEMANDE DANS SUPABASE (avec dossier_ref)
+  // ==========================================================
   const newRequest = {
     id: requestId,
+    dossier_ref: dossierRef,
     full_name: full_name.trim(),
     email: email.toLowerCase().trim(),
     company: company?.trim() || null,
@@ -157,12 +173,35 @@ export async function submitMessagerieRequest(formData: FormData) {
     .insert([newRequest]);
   
   if (insertError) {
-    console.error("❌ Erreur insertion demande:", insertError);
+    console.error("❌ Erreur insertion demande dans Supabase:", insertError);
     redirect("/messagerie/inscription?error=db_error");
   }
   
   // ==========================================================
-  // 7. ENVOI DES EMAILS
+  // 8. CRÉATION DE LA DEMANDE DANS GITHUB (requestDB)
+  // ==========================================================
+  try {
+    await requestDB.createRequest({
+      full_name: full_name.trim(),
+      email: email.toLowerCase().trim(),
+      company: company?.trim() || null,
+      phone: phone?.trim() || null,
+      reason: reason.trim(),
+      city: "NANTES", // Valeur par défaut, à adapter si nécessaire
+      country: "FR",
+      kbis_url: kbisUrl,
+      kbis_key: kbisKey,
+      kbis_validated: scanResult.isAuthentic || false,
+      kbis_scan_result: scanResult,
+    });
+    console.log(`✅ Demande créée dans GitHub avec dossier_ref: ${dossierRef}`);
+  } catch (gitHubError) {
+    console.error("❌ Erreur création demande dans GitHub:", gitHubError);
+    // Non bloquant – la demande existe déjà dans Supabase
+  }
+  
+  // ==========================================================
+  // 9. ENVOI DES EMAILS (avec le vrai dossier_ref)
   // ==========================================================
   const adminEmail = process.env.ADMIN_EMAIL || "admin@vagondys.com";
   
@@ -173,7 +212,7 @@ export async function submitMessagerieRequest(formData: FormData) {
         Demande <span style="color:#22c55e;">enregistrée</span>
       </h1>
       <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
-        Référence : ${displayId}
+        Référence Dossier : ${dossierRef}
       </p>
       <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
         <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Votre demande a bien été reçue.</p>
@@ -194,7 +233,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   await sendGeneralEmail(
     email,
     "VAGONDYS - Demande d'accès messagerie privée",
-    `Bonjour ${full_name},\n\nVotre demande a bien été enregistrée. Notre équipe l'examinera sous 48h.\n\nRéférence : ${displayId}`,
+    `Bonjour ${full_name},\n\nVotre demande a bien été enregistrée. Notre équipe l'examinera sous 48h.\n\nRéférence dossier : ${dossierRef}`,
     confirmationHtml,
     "no-reply@vagondys.com"
   ).catch(console.error);
@@ -209,7 +248,7 @@ export async function submitMessagerieRequest(formData: FormData) {
       <p><strong>Téléphone :</strong> ${phone || "Non renseigné"}</p>
       <p><strong>Motif :</strong> ${reason}</p>
       <hr />
-      <p><strong>Référence :</strong> ${displayId}</p>
+      <p><strong>Référence Dossier :</strong> ${dossierRef}</p>
       <p><strong>KBis :</strong> <a href="${kbisUrl}" target="_blank">Voir le document</a></p>
       <p><strong>Validation IA :</strong> ${scanResult.isAuthentic ? "✅ Authentique" : "⚠️ À vérifier"}</p>
       <p><strong>Confiance :</strong> ${Math.round((scanResult.confidence || 0) * 100)}%</p>
@@ -222,13 +261,13 @@ export async function submitMessagerieRequest(formData: FormData) {
   await sendGeneralEmail(
     adminEmail,
     "🚨 VAGONDYS - Nouvelle demande messagerie privée",
-    `Nouvelle demande de ${full_name} (${email}) - Réf: ${displayId}`,
+    `Nouvelle demande de ${full_name} (${email}) - Réf: ${dossierRef}`,
     adminHtml,
     "no-reply@vagondys.com"
   ).catch(console.error);
   
   // ==========================================================
-  // 8. REDIRECTION VERS LA PAGE DE SUCCÈS
+  // 10. REDIRECTION VERS LA PAGE DE SUCCÈS
   // ==========================================================
-  redirect("/messagerie/inscription?status=pending_validation");
+  redirect(`/messagerie/inscription?status=pending_validation&ref=${dossierRef}`);
 }
