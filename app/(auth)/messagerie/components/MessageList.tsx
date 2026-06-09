@@ -18,7 +18,7 @@ interface MessageListProps {
 
 /**
  * Composant d’affichage de la liste des conversations
- * Affiche chaque conversation avec son sujet, dernier message, date et compteur de non lus
+ * Affiche chaque conversation avec le nom du correspondant, dernier message, date et compteur de non lus
  */
 export default function MessageList({
   conversations,
@@ -64,17 +64,17 @@ export default function MessageList({
     <div className="divide-y divide-zinc-900 max-h-[60vh] overflow-y-auto">
       {conversations.map((conv) => (
         <button
-          key={conv.id}
+          key={conv.dossier_ref}
           onClick={() => onSelectConversation(conv)}
           className={`w-full p-4 text-left transition-all hover:bg-white/5 ${
-            selectedConversation?.id === conv.id
+            selectedConversation?.dossier_ref === conv.dossier_ref
               ? "bg-red-600/10 border-l-2 border-red-600"
               : ""
           }`}
         >
           <div className="flex justify-between items-start mb-1">
             <span className="text-[11px] font-black uppercase text-white">
-              {conv.subject}
+              {conv.participant_name}
             </span>
             {conv.unread_count > 0 && (
               <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">

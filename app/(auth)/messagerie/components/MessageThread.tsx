@@ -55,7 +55,7 @@ export default function MessageThread({
       {/* En-tête de la conversation */}
       <div className="p-4 border-b border-zinc-900 bg-black/30 shrink-0">
         <h3 className="text-xs font-black uppercase tracking-wider text-white">
-          {conversation.subject}
+          {conversation.participant_name}
         </h3>
         <p className="text-[8px] text-zinc-500 font-mono mt-0.5">
           Référence : {conversation.dossier_ref}
