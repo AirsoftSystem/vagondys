@@ -16,7 +16,7 @@ import { createClient } from "@supabase/supabase-js";
  * ✅ CORRECTION : Lecture UNIQUEMENT depuis Supabase (pas GitHub)
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
  * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
- * ✅ SUPPRESSION : Création de messagerie_conversations (inutile)
+ * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
  */
 export async function POST(request: NextRequest) {
   try {
@@ -201,6 +201,7 @@ export async function POST(request: NextRequest) {
     const tempPassword = generateSegment(12);
 
     // 7. Création du compte Supabase Auth
+    console.log(`📝 Création compte Auth pour ${requestData.email}`);
     const { data: authData, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
       email: requestData.email,
       password: tempPassword,
@@ -214,14 +215,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (createUserError) {
-      console.error("Erreur création utilisateur Auth:", createUserError);
+      console.error("❌ Erreur création utilisateur Auth (détail):", {
+        message: createUserError.message,
+        status: createUserError.status,
+        name: createUserError.name,
+      });
       return NextResponse.json(
-        { error: "Erreur lors de la création du compte utilisateur" },
+        { error: `Erreur création compte: ${createUserError.message}` },
         { status: 500 }
       );
     }
 
     const userId = authData.user.id;
+    console.log(`✅ Compte Auth créé pour ${requestData.email} (ID: ${userId})`);
 
     // 8. UPSERT dans messagerie_accounts - Vérification par email OU dossier_ref
     console.log(`📝 UPSERT dans messagerie_accounts pour ${dossierRef}`);
@@ -229,14 +235,16 @@ export async function POST(request: NextRequest) {
     // ✅ CORRECTION : Vérifier si un compte existe déjà pour cet email OU ce dossier_ref
     const { data: existingAccount, error: fetchAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
-      .select("id")
+      .select("id, email, dossier_ref")
       .or(`email.eq.${requestData.email},dossier_ref.eq.${dossierRef}`)
       .maybeSingle();
 
     if (fetchAccountError) {
-      console.error("Erreur vérification compte existant:", fetchAccountError);
-      // On continue, on tentera l'insertion
+      console.error("❌ Erreur vérification compte existant:", fetchAccountError);
     }
+
+    // Log pour voir ce qui est trouvé
+    console.log(`🔍 existingAccount trouvé:`, existingAccount ? `ID=${existingAccount.id}, email=${existingAccount.email}, dossier_ref=${existingAccount.dossier_ref}` : "AUCUN");
 
     let insertAccountError;
     if (existingAccount) {
@@ -256,9 +264,19 @@ export async function POST(request: NextRequest) {
           updated_at: now,
         })
         .eq("id", existingAccount.id);
+      
+      if (updateError) {
+        console.error("❌ Erreur détaillée mise à jour messagerie_accounts:", {
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          code: updateError.code,
+        });
+      }
       insertAccountError = updateError;
     } else {
       // Insertion d'un nouveau compte
+      console.log(`ℹ️ Aucun compte existant, insertion d'un nouveau`);
       const { error: insertError } = await supabaseAdmin
         .from("messagerie_accounts")
         .insert({
@@ -273,14 +291,23 @@ export async function POST(request: NextRequest) {
           created_by: staffEmail,
           created_at: now,
         });
+      
+      if (insertError) {
+        console.error("❌ Erreur détaillée insertion messagerie_accounts:", {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        });
+      }
       insertAccountError = insertError;
     }
 
     if (insertAccountError) {
-      console.error("❌ Erreur upsert messagerie_accounts:", insertAccountError);
+      console.error("❌ Erreur upsert messagerie_accounts (final):", insertAccountError.message);
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json(
-        { error: "Erreur lors de l’enregistrement du compte" },
+        { error: `Erreur lors de l'enregistrement du compte: ${insertAccountError.message}` },
         { status: 500 }
       );
     }
