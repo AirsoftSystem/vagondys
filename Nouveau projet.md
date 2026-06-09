@@ -1101,3 +1101,16 @@ UI → affiche la liste des documents avec liens
 
 **Bon test !**
 */
+
+
+
+
+
+
+Email > ACTIVER MON COMPTE > Compte activé. Vous pouvez maintenant vous connecter.
+
+https://vagondys.com/messagerie > Plus de message de bien venue
+
+
+https://staff.vagondys.com/staff/admin/messagerie > Liste des demandes > Demandeur > Airsoft System Admin
+

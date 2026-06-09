@@ -49,6 +49,9 @@ interface MessagerieRequest {
     isAuthentic?: boolean;
     confidence?: number;
   } | null;
+  // ✅ NOUVEAUX CHAMPS
+  account_status?: "active" | "inactive" | "suspended" | "not_created";
+  is_online?: boolean;
 }
 
 interface GlobalRequestsStats {
@@ -99,7 +102,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-// ✅ FONCTION POUR LE BADGE DE STATUT
+// ✅ FONCTION POUR LE BADGE DE STATUT DE LA DEMANDE
 function getStatusBadge(status: "pending" | "approved" | "rejected") {
   switch (status) {
     case "approved":
@@ -124,6 +127,24 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
         </span>
       );
   }
+}
+
+// ✅ FONCTION POUR LE BADGE DE STATUT DU COMPTE
+function getAccountStatusBadge(accountStatus?: string) {
+  if (accountStatus === "active") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-600/20 border border-green-600/30">
+        <CheckCircle className="w-3 h-3 text-green-500" />
+        <span className="text-[8px] font-black uppercase tracking-widest text-green-500">Compte activé</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 border border-red-600/30">
+      <XCircle className="w-3 h-3 text-red-500" />
+      <span className="text-[8px] font-black uppercase tracking-widest text-red-500">Compte non activé</span>
+    </span>
+  );
 }
 
 export default function AdminMessageriePage() {
@@ -839,6 +860,7 @@ export default function AdminMessageriePage() {
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Société</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Compte</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500"></th>
               </tr>
             </thead>
@@ -854,7 +876,9 @@ export default function AdminMessageriePage() {
                             {request.full_name.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <span className="text-sm font-black text-white">{request.full_name}</span>
+                        <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
+                          {request.full_name}
+                        </span>
                       </div>
                     </td>
                     <td className="p-4">
@@ -876,6 +900,9 @@ export default function AdminMessageriePage() {
                       {getStatusBadge(request.status)}
                     </td>
                     <td className="p-4">
+                      {getAccountStatusBadge(request.account_status)}
+                    </td>
+                    <td className="p-4">
                       {expandedRequest === request.id ? (
                         <ChevronUp className="w-4 h-4 text-zinc-500" />
                       ) : (
@@ -885,7 +912,8 @@ export default function AdminMessageriePage() {
                   </tr>
                   {expandedRequest === request.id && (
                     <tr className="bg-black/50">
-                      <td colSpan={6} className="p-5">
+                      <td colSpan={7} className="p-5">
+                        {/* Contenu de l'expansion inchangé */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Colonne gauche : Coordonnées + motif + KBis */}
                           <div className="space-y-4">

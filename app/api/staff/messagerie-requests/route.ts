@@ -10,7 +10,7 @@ import { cookies } from "next/headers";
  * 
  * Sécurité : Réservé au staff (email @vagondys.com ou dans staff_registry)
  * 
- * ✅ CORRECTION : La colonne 'dossier_ref' est désormais incluse (table mise à jour)
+ * ✅ CORRECTION : Ajout du statut d'activation du compte (messagerie_accounts.status)
  */
 export async function GET() {
   try {
@@ -74,7 +74,6 @@ export async function GET() {
     }
 
     // 4. Récupérer les demandes (ordre chronologique inverse)
-    // ✅ La colonne 'dossier_ref' est maintenant incluse (table mise à jour)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const { data: requests, error: fetchError } = await supabaseAdmin
       .from("pending_messagerie_requests")
@@ -89,7 +88,37 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ requests: requests || [] });
+    if (!requests || requests.length === 0) {
+      return NextResponse.json({ requests: [] });
+    }
+
+    // ✅ 5. Récupérer les comptes messagerie associés (pour le statut d'activation)
+    const emails = requests.map(r => r.email);
+    const { data: accounts, error: accountsError } = await supabaseAdmin
+      .from("messagerie_accounts")
+      .select("email, status")
+      .in("email", emails);
+
+    if (accountsError) {
+      console.error("Erreur récupération comptes messagerie:", accountsError);
+      // Non bloquant – on continue sans le statut
+    }
+
+    // ✅ 6. Construire un map email -> status
+    const accountStatusMap = new Map();
+    if (accounts) {
+      for (const account of accounts) {
+        accountStatusMap.set(account.email, account.status);
+      }
+    }
+
+    // ✅ 7. Ajouter le champ account_status à chaque demande
+    const enrichedRequests = requests.map(request => ({
+      ...request,
+      account_status: accountStatusMap.get(request.email) || "not_created",
+    }));
+
+    return NextResponse.json({ requests: enrichedRequests });
   } catch (error) {
     console.error("Erreur API staff/messagerie-requests:", error);
     return NextResponse.json(
