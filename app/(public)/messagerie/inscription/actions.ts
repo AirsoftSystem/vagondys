@@ -35,7 +35,7 @@ interface ScanResult {
  * SERVER ACTION : Soumission d'une demande d'inscription à la messagerie privée
  * 
  * ✅ CORRECTION : Génération d'un dossier_ref unique dès la création
- * ✅ CORRECTION : Écriture simultanée dans GitHub (requestDB)
+ * ✅ CORRECTION : Écriture simultanée dans GitHub (requestDB) avec le même dossier_ref
  */
 export async function submitMessagerieRequest(formData: FormData) {
   
@@ -178,22 +178,25 @@ export async function submitMessagerieRequest(formData: FormData) {
   }
   
   // ==========================================================
-  // 8. CRÉATION DE LA DEMANDE DANS GITHUB (requestDB)
+  // 8. CRÉATION DE LA DEMANDE DANS GITHUB (avec le MÊME dossier_ref)
   // ==========================================================
   try {
-    await requestDB.createRequest({
-      full_name: full_name.trim(),
-      email: email.toLowerCase().trim(),
-      company: company?.trim() || null,
-      phone: phone?.trim() || null,
-      reason: reason.trim(),
-      city: "NANTES", // Valeur par défaut, à adapter si nécessaire
-      country: "FR",
-      kbis_url: kbisUrl,
-      kbis_key: kbisKey,
-      kbis_validated: scanResult.isAuthentic || false,
-      kbis_scan_result: scanResult,
-    });
+    await requestDB.createRequest(
+      {
+        full_name: full_name.trim(),
+        email: email.toLowerCase().trim(),
+        company: company?.trim() || null,
+        phone: phone?.trim() || null,
+        reason: reason.trim(),
+        city: "NANTES", // Valeur par défaut, à adapter si nécessaire
+        country: "FR",
+        kbis_url: kbisUrl,
+        kbis_key: kbisKey,
+        kbis_validated: scanResult.isAuthentic || false,
+        kbis_scan_result: scanResult,
+      },
+      dossierRef // ✅ CORRECTION : Passer le dossier_ref existant
+    );
     console.log(`✅ Demande créée dans GitHub avec dossier_ref: ${dossierRef}`);
   } catch (gitHubError) {
     console.error("❌ Erreur création demande dans GitHub:", gitHubError);

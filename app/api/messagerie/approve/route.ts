@@ -15,6 +15,7 @@ import { requestDB } from "@/lib/github-db/request";
  * Sécurité : Seul le staff/admin peut appeler cette API
  * 
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
+ * ✅ CORRECTION : Suppression de l’appel à createRequest() (la demande existe déjà)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -293,28 +294,9 @@ export async function POST(request: NextRequest) {
         console.error("Erreur mise à jour demande approuvée:", updateRequestError);
       }
       
-      // Créer la demande dans GitHub (migration) si elle n'existe pas
-      try {
-        const existingInGitHub = await requestDB.getRequest(dossierRef);
-        if (!existingInGitHub) {
-          await requestDB.createRequest({
-            full_name: requestData.full_name,
-            email: requestData.email,
-            company: requestData.company,
-            phone: requestData.phone,
-            reason: requestData.reason,
-            city: requestData.city || "NANTES",
-            country: requestData.country || "FR",
-            kbis_url: requestData.kbis_url,
-            kbis_key: requestData.kbis_key,
-            kbis_validated: requestData.kbis_validated,
-            kbis_scan_result: requestData.kbis_scan_result,
-          });
-          console.log(`✅ Demande migrée vers GitHub: ${dossierRef}`);
-        }
-      } catch (migrationError) {
-        console.error("Erreur migration vers GitHub:", migrationError);
-      }
+      // ✅ CORRECTION : NE PAS créer la demande dans GitHub (elle existe déjà)
+      // La demande est déjà dans GitHub (créée à l'inscription)
+      console.log(`✅ Demande ${dossierRef} déjà présente dans GitHub (créée à l'inscription)`);
     } else {
       // Mettre à jour dans GitHub
       const updateSuccess = await requestDB.updateRequestStatus(dossierRef, "approved", staffEmail);
