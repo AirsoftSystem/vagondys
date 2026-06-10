@@ -31,8 +31,12 @@ interface GitHubMessage {
  * ✅ CORRECTION : Plus d'utilisation de messagerie_conversations
  * ✅ CORRECTION : Utilisation directe de dossier_ref comme identifiant
  * ✅ CORRECTION : Vérification des droits via messagerie_accounts
+ * ✅ AJOUT : Logs détaillés pour debug
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  console.log(`🔍 [GET] Début - ${new Date().toISOString()}`);
+  
   try {
     // 1. Vérification des variables d’environnement
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,7 +44,7 @@ export async function GET(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-      console.error("Variables Supabase manquantes");
+      console.error("❌ [GET] Variables Supabase manquantes");
       return NextResponse.json(
         { error: "Configuration serveur invalide" },
         { status: 500 }
@@ -65,6 +69,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
 
     if (authError || !user) {
+      console.error(`❌ [GET] Non authentifié - authError: ${authError?.message || "no user"}`);
       return NextResponse.json(
         { error: "Non authentifié" },
         { status: 401 }
@@ -73,23 +78,25 @@ export async function GET(request: NextRequest) {
 
     const userEmail = user.email?.toLowerCase() || "";
     const isStaff = userEmail.endsWith("@vagondys.com");
+    console.log(`👤 [GET] Utilisateur: ${userEmail}, isStaff: ${isStaff}`);
 
     // 3. Récupérer le paramètre dossierRef (au lieu de conversationId)
     const { searchParams } = new URL(request.url);
     const dossierRef = searchParams.get("dossierRef");
 
     if (!dossierRef) {
+      console.error(`❌ [GET] dossierRef manquant`);
       return NextResponse.json(
         { error: "dossierRef manquant" },
         { status: 400 }
       );
     }
+    console.log(`📁 [GET] dossierRef: ${dossierRef}`);
 
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // 5. Vérifier que l’utilisateur a accès à ce dossier
-    // Le dossier_ref doit exister dans messagerie_accounts (lien email ↔ dossier)
     let hasAccess = false;
     let participantName = "";
     let participantEmail = "";
@@ -97,20 +104,30 @@ export async function GET(request: NextRequest) {
     if (isStaff) {
       // Le staff a accès à tous les dossiers
       hasAccess = true;
+      console.log(`🔓 [GET] Staff - accès automatique au dossier ${dossierRef}`);
       
       // Récupérer les infos du participant pour l'affichage
-      const { data: account } = await supabaseAdmin
+      const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
       
+      if (accountError) {
+        console.error(`⚠️ [GET] Erreur récupération compte pour ${dossierRef}:`, accountError.message);
+      }
+      
       if (account) {
         participantName = account.full_name;
         participantEmail = account.email;
+        console.log(`👤 [GET] Participant trouvé: ${participantName} (${participantEmail})`);
+      } else {
+        console.log(`⚠️ [GET] Aucun compte trouvé pour le dossier ${dossierRef}`);
       }
     } else {
       // Un partenaire ne peut voir que son propre dossier
+      console.log(`🔍 [GET] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
+      
       const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("dossier_ref, full_name, email")
@@ -119,18 +136,21 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
 
       if (accountError) {
-        console.error("Erreur vérification accès:", accountError);
+        console.error(`⚠️ [GET] Erreur vérification accès partenaire:`, accountError.message);
       }
 
       if (account) {
         hasAccess = true;
         participantName = account.full_name;
         participantEmail = account.email;
+        console.log(`✅ [GET] Accès partenaire validé pour ${dossierRef}`);
+      } else {
+        console.log(`❌ [GET] Aucun compte trouvé pour ${userEmail} avec dossier ${dossierRef}`);
       }
     }
 
     if (!hasAccess) {
-      console.error(`Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
+      console.error(`❌ [GET] Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
       return NextResponse.json(
         { error: "Accès non autorisé à cette conversation" },
         { status: 403 }
@@ -139,21 +159,35 @@ export async function GET(request: NextRequest) {
 
     // ✅ 6. Lire les messages depuis GITHUB (uniquement)
     const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+    console.log(`📖 [GET] Lecture GitHub: ${gitHubPath}`);
     
     let messages: GitHubMessage[] = [];
     try {
       const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
-      if (existing) {
+      if (existing && Array.isArray(existing)) {
         messages = existing;
-        console.log(`📦 Lecture de ${messages.length} messages depuis GitHub: ${gitHubPath}`);
+        console.log(`✅ [GET] ${messages.length} messages lus depuis GitHub (${gitHubPath})`);
+      } else if (existing) {
+        console.log(`⚠️ [GET] Données lues mais pas un tableau:`, typeof existing);
+        messages = [];
+      } else {
+        console.log(`ℹ️ [GET] Aucun message trouvé dans GitHub pour ${dossierRef}`);
+        messages = [];
       }
-    } catch {
-      console.log(`ℹ️ Aucun message trouvé dans GitHub pour ${dossierRef}`);
+    } catch (readError) {
+      console.log(`⚠️ [GET] Erreur lecture GitHub (probablement fichier inexistant):`, readError instanceof Error ? readError.message : String(readError));
       messages = [];
     }
 
     // 7. Trier par date croissante
     messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+    if (messages.length > 0) {
+      console.log(`📅 [GET] Messages triés, premier: ${messages[0]?.created_at}, dernier: ${messages[messages.length-1]?.created_at}`);
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [GET] Terminé en ${duration}ms - ${messages.length} messages retournés`);
 
     return NextResponse.json({
       success: true,
@@ -163,7 +197,9 @@ export async function GET(request: NextRequest) {
       messages: messages,
     });
   } catch (error) {
-    console.error("Erreur API messagerie/messages GET:", error);
+    const duration = Date.now() - startTime;
+    console.error(`❌ [GET] Erreur après ${duration}ms:`, error instanceof Error ? error.message : String(error));
+    console.error("❌ [GET] Stack:", error instanceof Error ? error.stack : "no stack");
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
@@ -177,10 +213,14 @@ export async function GET(request: NextRequest) {
  * 
  * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
+ * ✅ AJOUT : Logs détaillés pour debug
  * 
  * - Notification email au partenaire lorsque le staff envoie un message
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  console.log(`✏️ [POST] Début - ${new Date().toISOString()}`);
+  
   try {
     // 1. Vérification des variables d’environnement
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -188,7 +228,7 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-      console.error("Variables Supabase manquantes");
+      console.error("❌ [POST] Variables Supabase manquantes");
       return NextResponse.json(
         { error: "Configuration serveur invalide" },
         { status: 500 }
@@ -213,6 +253,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser();
 
     if (authError || !user) {
+      console.error(`❌ [POST] Non authentifié - authError: ${authError?.message || "no user"}`);
       return NextResponse.json(
         { error: "Non authentifié" },
         { status: 401 }
@@ -222,17 +263,20 @@ export async function POST(request: NextRequest) {
     const userEmail = user.email?.toLowerCase() || "";
     const userName = user.user_metadata?.full_name || userEmail.split("@")[0];
     const isStaff = userEmail.endsWith("@vagondys.com");
+    console.log(`👤 [POST] Utilisateur: ${userEmail}, isStaff: ${isStaff}, userName: ${userName}`);
 
     // 3. Récupérer le body (avec dossierRef au lieu de conversationId)
     const body = await request.json();
     const { dossierRef, content, fileUrl, fileKey } = body;
 
     if (!dossierRef || !content || !content.trim()) {
+      console.error(`❌ [POST] Paramètres invalides - dossierRef: ${dossierRef}, content length: ${content?.length || 0}`);
       return NextResponse.json(
         { error: "dossierRef et content sont requis" },
         { status: 400 }
       );
     }
+    console.log(`📁 [POST] dossierRef: ${dossierRef}, content length: ${content.length}, hasFile: ${!!fileUrl}`);
 
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -245,19 +289,25 @@ export async function POST(request: NextRequest) {
     if (isStaff) {
       // Le staff a accès à tous les dossiers
       hasAccess = true;
+      console.log(`🔓 [POST] Staff - accès automatique au dossier ${dossierRef}`);
       
       // Récupérer les infos du participant
-      const { data: account } = await supabaseAdmin
+      const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
       
+      if (accountError) {
+        console.error(`⚠️ [POST] Erreur récupération compte:`, accountError.message);
+      }
+      
       if (account) {
         participantName = account.full_name;
         participantEmail = account.email;
+        console.log(`👤 [POST] Participant trouvé: ${participantName} (${participantEmail})`);
       } else {
-        console.error(`Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
+        console.error(`❌ [POST] Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
         return NextResponse.json(
           { error: "Dossier introuvable" },
           { status: 404 }
@@ -265,6 +315,8 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Un partenaire ne peut envoyer que depuis son propre dossier
+      console.log(`🔍 [POST] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
+      
       const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
@@ -273,18 +325,21 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (accountError) {
-        console.error("Erreur vérification accès:", accountError);
+        console.error(`⚠️ [POST] Erreur vérification accès partenaire:`, accountError.message);
       }
 
       if (account) {
         hasAccess = true;
         participantName = account.full_name;
         participantEmail = account.email;
+        console.log(`✅ [POST] Accès partenaire validé pour ${dossierRef}`);
+      } else {
+        console.error(`❌ [POST] Aucun compte trouvé pour ${userEmail} avec dossier ${dossierRef}`);
       }
     }
 
     if (!hasAccess) {
-      console.error(`Accès non autorisé pour envoyer un message dans ${dossierRef} (${userEmail})`);
+      console.error(`❌ [POST] Accès non autorisé pour envoyer un message dans ${dossierRef} (${userEmail})`);
       return NextResponse.json(
         { error: "Accès non autorisé à cette conversation" },
         { status: 403 }
@@ -306,40 +361,63 @@ export async function POST(request: NextRequest) {
       is_read: false,
       created_at: now,
     };
+    console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}, content length: ${newMessage.content.length}`);
 
     // ✅ 7. Écrire le message UNIQUEMENT dans GITHUB
     const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+    console.log(`💾 [POST] Tentative d'écriture GitHub: ${gitHubPath}`);
     
     try {
       // Lire les messages existants
       let existingMessages: GitHubMessage[] = [];
       try {
         const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
-        if (existing) existingMessages = existing;
-      } catch {
-        // Fichier n'existe pas encore
+        if (existing && Array.isArray(existing)) {
+          existingMessages = existing;
+          console.log(`📖 [POST] ${existingMessages.length} messages existants lus`);
+        } else if (existing) {
+          console.log(`⚠️ [POST] Données existantes non tableau, type: ${typeof existing}`);
+          existingMessages = [];
+        } else {
+          console.log(`ℹ️ [POST] Aucun message existant, création du fichier`);
+          existingMessages = [];
+        }
+      } catch (readError) {
+        console.log(`ℹ️ [POST] Lecture existante échouée (fichier probablement inexistant):`, readError instanceof Error ? readError.message : String(readError));
         existingMessages = [];
       }
       
       // Ajouter le nouveau message
       existingMessages.push(newMessage);
+      console.log(`📊 [POST] Total messages après ajout: ${existingMessages.length}`);
       
       // Écrire dans GitHub (compressé)
+      const writeStartTime = Date.now();
       await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
-      console.log(`✅ Message écrit dans GitHub: ${gitHubPath}`);
+      const writeDuration = Date.now() - writeStartTime;
+      console.log(`✅ [POST] Message écrit dans GitHub en ${writeDuration}ms: ${gitHubPath}`);
+      
     } catch (gitHubError) {
-      console.error("❌ Erreur écriture GitHub:", gitHubError);
+      const errorMessage = gitHubError instanceof Error ? gitHubError.message : String(gitHubError);
+      const errorStatus = (gitHubError as { status?: number })?.status;
+      console.error(`❌ [POST] Erreur écriture GitHub - status: ${errorStatus}, message: ${errorMessage}`);
+      
+      // Retourner une erreur explicite
       return NextResponse.json(
-        { error: "Erreur lors de l’envoi du message (GitHub)" },
+        { 
+          error: "Erreur lors de l’envoi du message (GitHub)", 
+          details: errorMessage,
+          status: errorStatus 
+        },
         { status: 500 }
       );
     }
 
-    // ✅ 8. Plus de mise à jour de messagerie_conversations (cette table est supprimée de l'architecture)
-    // Les métadonnées de conversation sont implicites via le dossier_ref
+    // ✅ 8. Plus de mise à jour de messagerie_conversations
 
     // 9. Envoyer une notification email au partenaire lorsque le staff envoie un message
     if (isStaff && participantEmail) {
+      console.log(`📧 [POST] Envoi notification email à ${participantEmail}`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
       const notificationHtml = `
@@ -378,19 +456,24 @@ export async function POST(request: NextRequest) {
 
       const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${frontendUrl}/messagerie\n\nRéférence dossier : ${dossierRef}`;
 
-      await sendGeneralEmail(
-        participantEmail,
-        "📩 VAGONDYS - Nouveau message dans votre messagerie",
-        textContent,
-        notificationHtml,
-        "no-reply@vagondys.com"
-      ).catch(console.error);
-      
-      console.log(`📧 Email de notification envoyé à ${participantEmail} (nouveau message staff)`);
+      try {
+        await sendGeneralEmail(
+          participantEmail,
+          "📩 VAGONDYS - Nouveau message dans votre messagerie",
+          textContent,
+          notificationHtml,
+          "no-reply@vagondys.com"
+        );
+        console.log(`✅ [POST] Email notification envoyé à ${participantEmail}`);
+      } catch (emailError) {
+        console.error(`❌ [POST] Erreur envoi email à ${participantEmail}:`, emailError instanceof Error ? emailError.message : String(emailError));
+        // Non bloquant
+      }
     }
     
     // 10. Si le message vient d’un partenaire, notifier le staff
     if (!isStaff) {
+      console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName}`);
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
@@ -408,21 +491,32 @@ export async function POST(request: NextRequest) {
         </div>
       `;
 
-      await sendGeneralEmail(
-        staffEmails.join(","),
-        `📩 Nouveau message de ${participantName}`,
-        `Nouveau message dans le dossier ${dossierRef}:\n\n${content.trim()}`,
-        notificationHtml,
-        "no-reply@vagondys.com"
-      ).catch(console.error);
+      try {
+        await sendGeneralEmail(
+          staffEmails.join(","),
+          `📩 Nouveau message de ${participantName}`,
+          `Nouveau message dans le dossier ${dossierRef}:\n\n${content.trim()}`,
+          notificationHtml,
+          "no-reply@vagondys.com"
+        );
+        console.log(`✅ [POST] Notification staff envoyée pour ${dossierRef}`);
+      } catch (emailError) {
+        console.error(`❌ [POST] Erreur envoi notification staff:`, emailError instanceof Error ? emailError.message : String(emailError));
+        // Non bloquant
+      }
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [POST] Terminé en ${duration}ms - Message envoyé avec succès`);
 
     return NextResponse.json({
       success: true,
       message: newMessage,
     });
   } catch (error) {
-    console.error("Erreur API messagerie/messages POST:", error);
+    const duration = Date.now() - startTime;
+    console.error(`❌ [POST] Erreur après ${duration}ms:`, error instanceof Error ? error.message : String(error));
+    console.error("❌ [POST] Stack:", error instanceof Error ? error.stack : "no stack");
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
