@@ -83,54 +83,6 @@ function SetPasswordContent() {
 
       setSuccess(true);
       
-      // ✅ Envoi du message de bienvenue après définition du mot de passe
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        
-        if (supabaseUrl && supabaseKey) {
-          const { createClient } = await import("@supabase/supabase-js");
-          const supabaseClient = createClient(supabaseUrl, supabaseKey);
-          
-          // Récupérer le compte messagerie pour obtenir dossier_ref
-          const { data: account } = await supabaseClient
-            .from("messagerie_accounts")
-            .select("dossier_ref")
-            .eq("email", email.toLowerCase())
-            .maybeSingle();
-          
-          if (account?.dossier_ref) {
-            console.log(`📤 Envoi du message de bienvenue pour ${account.dossier_ref}`);
-            
-            // Envoyer le message de bienvenue via l'API messages
-            const welcomeResponse = await fetch("/api/messagerie/messages", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                dossierRef: account.dossier_ref,
-                content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
-              }),
-            });
-            
-            if (!welcomeResponse.ok) {
-              const errorData = await welcomeResponse.json();
-              console.error("❌ Erreur API message de bienvenue:", {
-                status: welcomeResponse.status,
-                error: errorData.error || "Erreur inconnue"
-              });
-              alert(`Erreur lors de l'envoi du message de bienvenue: ${welcomeResponse.status} - ${errorData.error || "Erreur inconnue"}`);
-            } else {
-              console.log(`✅ Message de bienvenue envoyé avec succès pour ${email}`);
-            }
-          } else {
-            console.warn(`⚠️ Aucun dossier_ref trouvé pour ${email}, message de bienvenue non envoyé`);
-          }
-        }
-      } catch (welcomeErr) {
-        console.error("❌ Exception lors de l'envoi du message de bienvenue:", welcomeErr);
-        alert(`Erreur technique lors de l'envoi du message de bienvenue: ${welcomeErr instanceof Error ? welcomeErr.message : "Erreur inconnue"}`);
-      }
-      
       // ✅ REDIRECTION VERS LA PAGE DE CONNEXION MESSAGERIE avec paramètre ref pour l'admin
       setTimeout(() => {
         router.push(`/messagerie/connexion?message=compte_active&ref=${encodeURIComponent(email.toLowerCase())}`);

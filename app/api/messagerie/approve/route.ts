@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
+import { GitHubDB } from "@/lib/github-db/client"; // ✅ AJOUTÉ
 
 /**
  * API d’approbation des demandes d’inscription à la messagerie privée
@@ -18,6 +19,7 @@ import { createClient } from "@supabase/supabase-js";
  * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
  * ✅ CORRECTION : Status 'active' au lieu de 'pending' (contrainte CHECK)
  * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
+ * ✅ AJOUT : Création du fichier GitHub avec message de bienvenue à l'approbation
  */
 export async function POST(request: NextRequest) {
   try {
@@ -260,7 +262,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "active", // ✅ CORRECTION : 'active' au lieu de 'pending'
+          status: "active",
           created_by: staffEmail,
           updated_at: now,
         })
@@ -288,7 +290,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "active", // ✅ CORRECTION : 'active' au lieu de 'pending'
+          status: "active",
           created_by: staffEmail,
           created_at: now,
         });
@@ -313,6 +315,35 @@ export async function POST(request: NextRequest) {
       );
     }
     console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef}`);
+
+    // ✅ 8bis. CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE
+    console.log(`📝 Création du fichier GitHub pour ${dossierRef} avec message de bienvenue`);
+    
+    try {
+      const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
+      
+      // Créer le message de bienvenue
+      const welcomeMessage = {
+        id: randomUUID(),
+        dossier_ref: dossierRef,
+        sender_email: staffEmail,
+        sender_name: "Staff VAGONDYS",
+        content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
+        file_url: null,
+        file_key: null,
+        is_read: false,
+        created_at: now,
+      };
+      
+      // Écrire dans GitHub (compressé)
+      await GitHubDB.write(gitHubPath, [welcomeMessage], { compress: true });
+      console.log(`✅ Fichier GitHub créé avec message de bienvenue: ${gitHubPath}`);
+      
+    } catch (gitHubError) {
+      console.error("❌ Erreur création fichier GitHub:", gitHubError);
+      // Non bloquant - on continue même si GitHub échoue
+      // Le message sera créé lors du premier échange réel
+    }
 
     // 9. Mettre à jour le statut de la demande
     const { error: updateRequestError } = await supabaseAdmin
