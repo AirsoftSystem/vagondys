@@ -82,12 +82,20 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
  * @returns Liste des messages ou tableau vide
  */
 async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[]> {
+  const startTime = Date.now();
+  const path = `conversations/${dossierRef}/messages.json.gz`;
+  console.log(`📖 [GitHub] Lecture ${path}`);
+  
   try {
-    const path = `conversations/${dossierRef}/messages.json.gz`;
     const messages = await GitHubDB.read<GitHubMessage[]>(path);
+    const count = messages?.length || 0;
+    const duration = Date.now() - startTime;
+    console.log(`✅ [GitHub] ${count} messages lus depuis ${path} en ${duration}ms`);
     return messages || [];
   } catch (err) {
-    console.error(`Erreur lecture GitHub pour ${dossierRef}:`, err);
+    const duration = Date.now() - startTime;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.log(`⚠️ [GitHub] Lecture échouée pour ${path} en ${duration}ms: ${errorMsg}`);
     return [];
   }
 }
@@ -98,28 +106,53 @@ async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[
  * @param message - Message à ajouter
  */
 async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): Promise<boolean> {
+  const startTime = Date.now();
+  const path = `conversations/${dossierRef}/messages.json.gz`;
+  console.log(`💾 [GitHub] Écriture dans ${path}`);
+  console.log(`📝 [GitHub] Message: id=${message.id}, sender=${message.sender_email}, content length=${message.content.length}`);
+  
   try {
-    const path = `conversations/${dossierRef}/messages.json.gz`;
-    
     // Lire les messages existants
     let existingMessages: GitHubMessage[] = [];
     try {
       const existing = await GitHubDB.read<GitHubMessage[]>(path);
-      if (existing) existingMessages = existing;
-    } catch {
-      // Fichier n'existe pas encore
+      if (existing && Array.isArray(existing)) {
+        existingMessages = existing;
+        console.log(`📖 [GitHub] ${existingMessages.length} messages existants lus`);
+      } else if (existing) {
+        console.log(`⚠️ [GitHub] Données existantes non tableau, type: ${typeof existing}`);
+        existingMessages = [];
+      } else {
+        console.log(`ℹ️ [GitHub] Aucun message existant, création du fichier`);
+        existingMessages = [];
+      }
+    } catch (readError) {
+      const readErrorMsg = readError instanceof Error ? readError.message : String(readError);
+      console.log(`ℹ️ [GitHub] Lecture existante échouée (fichier probablement inexistant): ${readErrorMsg}`);
       existingMessages = [];
     }
     
     // Ajouter le nouveau message
     existingMessages.push(message);
+    console.log(`📊 [GitHub] Total messages après ajout: ${existingMessages.length}`);
     
     // Écrire dans GitHub (compressé)
+    const writeStartTime = Date.now();
     await GitHubDB.write(path, existingMessages, { compress: true });
-    console.log(`✅ Message écrit dans GitHub: ${path}`);
+    const writeDuration = Date.now() - writeStartTime;
+    const totalDuration = Date.now() - startTime;
+    
+    console.log(`✅ [GitHub] Message écrit dans GitHub en ${writeDuration}ms (total ${totalDuration}ms): ${path}`);
     return true;
+    
   } catch (err) {
-    console.error(`Erreur écriture GitHub pour ${dossierRef}:`, err);
+    const totalDuration = Date.now() - startTime;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    // ✅ Correction : remplacer "any" par un type explicite { status?: number }
+    const errorStatus = (err as { status?: number })?.status;
+    
+    console.error(`❌ [GitHub] Erreur écriture - status: ${errorStatus}, message: ${errorMsg}, durée: ${totalDuration}ms`);
+    console.error(`❌ [GitHub] Détail erreur:`, err);
     return false;
   }
 }
@@ -134,6 +167,9 @@ async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): P
  * Une conversation = un dossier_ref associé à l'utilisateur
  */
 export async function getUserConversations(userEmail: string): Promise<Conversation[]> {
+  const startTime = Date.now();
+  console.log(`👤 [getUserConversations] Début pour ${userEmail}`);
+  
   try {
     // Récupérer tous les dossiers associés à cet email
     const { data: accounts, error } = await supabase
@@ -142,13 +178,16 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
       .eq("email", userEmail.toLowerCase());
 
     if (error) {
-      console.error("Erreur récupération comptes messagerie:", error);
+      console.error(`❌ [getUserConversations] Erreur récupération comptes:`, error);
       return [];
     }
 
     if (!accounts || accounts.length === 0) {
+      console.log(`ℹ️ [getUserConversations] Aucun compte trouvé pour ${userEmail}`);
       return [];
     }
+    
+    console.log(`📁 [getUserConversations] ${accounts.length} comptes trouvés pour ${userEmail}`);
 
     // Pour chaque dossier, récupérer le dernier message depuis GitHub
     const conversations: Conversation[] = await Promise.all(
@@ -165,9 +204,10 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
             );
             lastMessage = sorted[0].content.substring(0, 100);
             lastMessageDate = sorted[0].created_at;
+            console.log(`📬 [getUserConversations] Dernier message pour ${account.dossier_ref}: ${lastMessage.substring(0, 30)}...`);
           }
         } catch (err) {
-          console.error(`Erreur lecture messages pour ${account.dossier_ref}:`, err);
+          console.error(`⚠️ [getUserConversations] Erreur lecture messages pour ${account.dossier_ref}:`, err);
         }
 
         return {
@@ -176,7 +216,7 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
           last_message_date: lastMessageDate,
           participant_name: account.full_name,
           participant_email: account.email,
-          unread_count: 0, // Pas de comptage des non lus (tout est dans GitHub)
+          unread_count: 0,
           created_at: account.created_at,
         };
       })
@@ -187,9 +227,12 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
       (a, b) => new Date(b.last_message_date).getTime() - new Date(a.last_message_date).getTime()
     );
 
+    const duration = Date.now() - startTime;
+    console.log(`✅ [getUserConversations] ${conversations.length} conversations retournées en ${duration}ms`);
     return conversations;
   } catch (err) {
-    console.error("Erreur getUserConversations:", err);
+    const duration = Date.now() - startTime;
+    console.error(`❌ [getUserConversations] Erreur après ${duration}ms:`, err);
     return [];
   }
 }
@@ -202,6 +245,9 @@ export async function getConversationMessages(
   dossierRef: string,
   userEmail: string
 ): Promise<Message[]> {
+  const startTime = Date.now();
+  console.log(`💬 [getConversationMessages] Début pour dossier ${dossierRef}, user ${userEmail}`);
+  
   try {
     // 1. Vérifier que l’utilisateur a accès à ce dossier
     const isStaff = userEmail.endsWith("@vagondys.com");
@@ -209,10 +255,9 @@ export async function getConversationMessages(
     let hasAccess = false;
     
     if (isStaff) {
-      // Le staff a accès à tous les dossiers
       hasAccess = true;
+      console.log(`🔓 [getConversationMessages] Staff - accès automatique au dossier ${dossierRef}`);
     } else {
-      // Vérifier que le dossier appartient bien à l'utilisateur
       const { data: account, error: accountError } = await supabase
         .from("messagerie_accounts")
         .select("dossier_ref")
@@ -221,14 +266,19 @@ export async function getConversationMessages(
         .maybeSingle();
 
       if (accountError) {
-        console.error("Erreur vérification accès:", accountError);
+        console.error(`⚠️ [getConversationMessages] Erreur vérification accès:`, accountError);
       }
 
       hasAccess = !!account;
+      if (hasAccess) {
+        console.log(`✅ [getConversationMessages] Accès validé pour ${userEmail} sur ${dossierRef}`);
+      } else {
+        console.log(`❌ [getConversationMessages] Accès refusé pour ${userEmail} sur ${dossierRef}`);
+      }
     }
 
     if (!hasAccess) {
-      console.error(`Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
+      console.error(`❌ [getConversationMessages] Accès non autorisé au dossier ${dossierRef} pour ${userEmail}`);
       return [];
     }
 
@@ -257,9 +307,12 @@ export async function getConversationMessages(
       };
     });
 
+    const duration = Date.now() - startTime;
+    console.log(`✅ [getConversationMessages] ${formattedMessages.length} messages retournés pour ${dossierRef} en ${duration}ms`);
     return formattedMessages;
   } catch (err) {
-    console.error("Erreur getConversationMessages:", err);
+    const duration = Date.now() - startTime;
+    console.error(`❌ [getConversationMessages] Erreur après ${duration}ms:`, err);
     return [];
   }
 }
@@ -270,15 +323,20 @@ export async function getConversationMessages(
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
+  const startTime = Date.now();
   const { dossierRef, content, userId, userEmail, fileUrl, fileKey } = params;
 
+  console.log(`📤 [sendMessage] Début - dossier: ${dossierRef}, user: ${userEmail}, content length: ${content?.length || 0}, hasFile: ${!!fileUrl}`);
+
   if (!dossierRef || !content || !userId || !userEmail) {
+    console.error(`❌ [sendMessage] Paramètres manquants - dossierRef: ${!!dossierRef}, content: ${!!content}, userId: ${!!userId}, userEmail: ${!!userEmail}`);
     return { success: false, error: "Paramètres manquants" };
   }
 
   try {
     // 1. Vérifier que l’utilisateur a accès à ce dossier
     const isStaff = userEmail.endsWith("@vagondys.com");
+    console.log(`🔍 [sendMessage] isStaff: ${isStaff}`);
     
     let hasAccess = false;
     let participantName = "";
@@ -286,22 +344,30 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     if (isStaff) {
       // Le staff a accès à tous les dossiers
       hasAccess = true;
+      console.log(`🔓 [sendMessage] Staff - accès automatique au dossier ${dossierRef}`);
       
       // Récupérer le nom du participant pour l'affichage
-      const { data: account } = await supabase
+      const { data: account, error: accountError } = await supabase
         .from("messagerie_accounts")
         .select("full_name")
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
       
+      if (accountError) {
+        console.error(`⚠️ [sendMessage] Erreur récupération compte:`, accountError);
+      }
+      
       if (account) {
         participantName = account.full_name;
+        console.log(`👤 [sendMessage] Participant trouvé: ${participantName}`);
       } else {
-        console.error(`Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
+        console.error(`❌ [sendMessage] Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
         return { success: false, error: "Dossier introuvable" };
       }
     } else {
       // Vérifier que le dossier appartient bien à l'utilisateur
+      console.log(`🔍 [sendMessage] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
+      
       const { data: account, error: accountError } = await supabase
         .from("messagerie_accounts")
         .select("full_name")
@@ -310,16 +376,20 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
         .maybeSingle();
 
       if (accountError) {
-        console.error("Erreur vérification accès:", accountError);
+        console.error(`⚠️ [sendMessage] Erreur vérification accès:`, accountError);
       }
 
       if (account) {
         hasAccess = true;
         participantName = account.full_name;
+        console.log(`✅ [sendMessage] Accès partenaire validé pour ${dossierRef}, nom: ${participantName}`);
+      } else {
+        console.log(`❌ [sendMessage] Aucun compte trouvé pour ${userEmail} avec dossier ${dossierRef}`);
       }
     }
 
     if (!hasAccess) {
+      console.error(`❌ [sendMessage] Accès non autorisé pour ${userEmail} sur ${dossierRef}`);
       return { success: false, error: "Accès non autorisé" };
     }
 
@@ -339,38 +409,28 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       is_read: false,
       created_at: now,
     };
+    
+    console.log(`📝 [sendMessage] Message préparé - id: ${messageId}, sender: ${senderName}, content length: ${newMessage.content.length}`);
 
     // 3. Écrire UNIQUEMENT dans GitHub
     const success = await addMessageToGitHub(dossierRef, newMessage);
 
     if (!success) {
+      console.error(`❌ [sendMessage] Échec écriture GitHub pour ${dossierRef}`);
       return { success: false, error: "Erreur lors de l’écriture dans GitHub" };
     }
 
-    // ✅ 4. Plus de mise à jour de messagerie_conversations (table supprimée de l'architecture)
-    // Les métadonnées de conversation sont implicites via le dossier_ref
-
+    // ✅ 4. Plus de mise à jour de messagerie_conversations
     revalidatePath("/messagerie");
 
+    const duration = Date.now() - startTime;
+    console.log(`✅ [sendMessage] Terminé en ${duration}ms - Message envoyé avec succès`);
     return { success: true };
   } catch (err) {
-    console.error("Erreur sendMessage:", err);
+    const duration = Date.now() - startTime;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`❌ [sendMessage] Erreur après ${duration}ms:`, errorMsg);
+    console.error(`❌ [sendMessage] Stack:`, err instanceof Error ? err.stack : "no stack");
     return { success: false, error: "Erreur interne" };
   }
 }
-
-/**
- * Marque tous les messages d'une conversation comme lus
- * ❌ SUPPRIMÉ : Plus de table messagerie_messages dans Supabase
- * Les messages sont en lecture seule dans GitHub
- */
-// Cette fonction n'est plus nécessaire. Les messages sont toujours "lus" dans GitHub.
-
-/**
- * Vérifie si un utilisateur a des messages non lus
- * ❌ SUPPRIMÉ : Plus de table messagerie_messages dans Supabase
- */
-// Cette fonction n'est plus nécessaire.
-
-// Note: Les fonctions markConversationAsRead et hasUnreadMessages ont été supprimées
-// car elles n'ont plus de sens sans la table messagerie_messages dans Supabase.
