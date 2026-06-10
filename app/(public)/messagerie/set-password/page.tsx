@@ -100,9 +100,10 @@ function SetPasswordContent() {
             .maybeSingle();
           
           if (account?.dossier_ref) {
+            console.log(`📤 Envoi du message de bienvenue pour ${account.dossier_ref}`);
+            
             // Envoyer le message de bienvenue via l'API messages
-            // ✅ CORRECTION : utiliser "dossierRef" au lieu de "conversationId"
-            await fetch("/api/messagerie/messages", {
+            const welcomeResponse = await fetch("/api/messagerie/messages", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -110,12 +111,24 @@ function SetPasswordContent() {
                 content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
               }),
             });
-            console.log(`✅ Message de bienvenue envoyé pour ${email}`);
+            
+            if (!welcomeResponse.ok) {
+              const errorData = await welcomeResponse.json();
+              console.error("❌ Erreur API message de bienvenue:", {
+                status: welcomeResponse.status,
+                error: errorData.error || "Erreur inconnue"
+              });
+              alert(`Erreur lors de l'envoi du message de bienvenue: ${welcomeResponse.status} - ${errorData.error || "Erreur inconnue"}`);
+            } else {
+              console.log(`✅ Message de bienvenue envoyé avec succès pour ${email}`);
+            }
+          } else {
+            console.warn(`⚠️ Aucun dossier_ref trouvé pour ${email}, message de bienvenue non envoyé`);
           }
         }
       } catch (welcomeErr) {
-        console.error("Erreur envoi message de bienvenue:", welcomeErr);
-        // Non bloquant – l'utilisateur peut toujours se connecter
+        console.error("❌ Exception lors de l'envoi du message de bienvenue:", welcomeErr);
+        alert(`Erreur technique lors de l'envoi du message de bienvenue: ${welcomeErr instanceof Error ? welcomeErr.message : "Erreur inconnue"}`);
       }
       
       // ✅ REDIRECTION VERS LA PAGE DE CONNEXION MESSAGERIE avec paramètre ref pour l'admin
