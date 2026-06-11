@@ -60,19 +60,20 @@ export async function GET(request: Request) {
 
     console.log(`✅ history: client ADMIN créé pour ${cityUpper}/${countryUpper}`);
 
-    // 1. Récupérer les réponses du staff (avec filtre city)
+    // 1. Récupérer les réponses du staff
+    // ✅ CORRECTION : Suppression des filtres city/country pour les replies
+    // Une réponse Staff appartient à un dossier spécifique (dossier_ref)
+    // Le filtre city est redondant et bloque les admins (MASTER)
     const { data: replies, error: repliesError } = await adminClient
       .from("communication_replies")
       .select("*")
       .eq("dossier_ref", dossierRef)
-      .eq("city", cityUpper)
-      .eq("country", countryUpper)
       .order("created_at", { ascending: false });
 
     if (repliesError) {
       console.error("❌ history: erreur récupération replies:", repliesError);
     } else {
-      console.log(`📦 history: ${replies?.length || 0} réponses staff trouvées`);
+      console.log(`📦 history: ${replies?.length || 0} réponses staff trouvées pour dossier ${dossierRef}`);
     }
 
     // 2. Récupérer le signal client (un seul par dossier) (avec filtre city)
@@ -229,7 +230,7 @@ export async function GET(request: Request) {
     const allMessages = [...clientHistoryMessages, ...staffHistory];
     allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef}`);
+    console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef} (dont ${staffHistory.length} staff, ${clientHistoryMessages.length} client)`);
 
     return NextResponse.json({ 
       history: allMessages,
