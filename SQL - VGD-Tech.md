@@ -241,6 +241,7 @@ CREATE TABLE public.communication_replies (
     agent_email TEXT NOT NULL,
     content TEXT NOT NULL,
     document_url TEXT,
+    file_key TEXT,
     city TEXT NOT NULL,
     country TEXT DEFAULT 'FR'
 );
