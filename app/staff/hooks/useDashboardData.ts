@@ -63,6 +63,9 @@ export function useDashboardData(
       // ✅ Option B : Plus de getStationConfig
       // Les données de la ville sont directement utilisées
       const cityName = userCity.toUpperCase().trim();
+      
+      // ✅ Détection des admins (MASTER) pour qu'ils voient TOUS les messages
+      const isAdmin = cityName === 'MASTER';
 
       // ✅ Récupérer les données PUBLIC via l'API Route
       const publicDataResponse = await fetch(`/api/staff/public-data?city=${userCity}&country=FR`);
@@ -86,12 +89,18 @@ export function useDashboardData(
       let totalGameLaunches = 0;
 
       if (client) {
-        // ✅ Ajout du filtre city pour les pending_signals
-        const { count: msgCount } = await client
+        // ✅ CORRECTION : Pour les admins (MASTER), NE PAS filtrer par ville
+        // Pour les agents normaux, filtrer par leur ville
+        let pendingQuery = client
           .from('pending_signals')
           .select('*', { count: 'exact', head: true })
-          .eq('is_read', false)
-          .eq('city', cityName);
+          .eq('is_read', false);
+        
+        if (!isAdmin) {
+          pendingQuery = pendingQuery.eq('city', cityName);
+        }
+        
+        const { count: msgCount } = await pendingQuery;
         pendingMessages = msgCount || 0;
 
         // ✅ Ajout du filtre city pour les game_launches
@@ -121,13 +130,18 @@ export function useDashboardData(
       const activities: RecentActivity[] = [];
 
       if (client) {
-        // ✅ Ajout du filtre city pour les messages récents
-        const { data: recentMessages } = await client
+        // ✅ CORRECTION : Pour les admins (MASTER), NE PAS filtrer par ville pour les messages récents
+        let messagesQuery = client
           .from('pending_signals')
           .select('*')
-          .eq('city', cityName)
           .order('created_at', { ascending: false })
           .limit(3);
+        
+        if (!isAdmin) {
+          messagesQuery = messagesQuery.eq('city', cityName);
+        }
+        
+        const { data: recentMessages } = await messagesQuery;
 
         if (recentMessages) {
           recentMessages.forEach(msg => {

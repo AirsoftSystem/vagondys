@@ -47,18 +47,43 @@ export async function GET(request: Request) {
 
     const cityUpper = city.toUpperCase().trim();
     const countryUpper = country.toUpperCase().trim();
+    
+    // ✅ Détection des admins (MASTER) pour qu'ils voient TOUTES les données
+    const isAdmin = cityUpper === 'MASTER';
 
-    // Récupérer toutes les données nécessaires pour le dashboard (avec filtres city/country)
-    const [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
-      adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
-      adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
-      adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("is_read", false),
-      adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
-      adminClient.from("pending_signals").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
-      adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
-      adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
-      adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", countryUpper).order("points", { ascending: false }).limit(5),
-    ]);
+    // Récupérer toutes les données nécessaires pour le dashboard (avec ou sans filtre city selon le rôle)
+    let athletesResult, activeAthletesResult, messagesResult, launchesResult;
+    let recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult;
+
+    if (isAdmin) {
+      // ✅ ADMIN (MASTER) : PAS de filtre city - voit TOUTES les données
+      console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city");
+      
+      [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
+        adminClient.from("athletes").select("*", { count: "exact", head: true }),
+        adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
+        adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("is_read", false),
+        adminClient.from("game_launches").select("*", { count: "exact", head: true }),
+        adminClient.from("pending_signals").select("*").order("created_at", { ascending: false }).limit(3),
+        adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
+        adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
+        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
+      ]);
+    } else {
+      // ✅ AGENT STANDARD : filtre par city ET country
+      console.log("🔍 Dashboard API: Mode STANDARD - filtre city=", cityUpper);
+      
+      [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
+        adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
+        adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
+        adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("is_read", false),
+        adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
+        adminClient.from("pending_signals").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
+        adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
+        adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
+        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", countryUpper).order("points", { ascending: false }).limit(5),
+      ]);
+    }
 
     // Traitement des activités récentes
     const activities: Activity[] = [];
@@ -110,20 +135,25 @@ export async function GET(request: Request) {
     const topPlayers = [];
     if (topPlayersResult.data) {
       for (const player of topPlayersResult.data) {
-        const { count: matchesPlayed } = await adminClient
+        let matchesQuery = adminClient
+          .from("match_history")
+          .select("*", { count: "exact", head: true })
+          .eq("player_id", player.id);
+        
+        let winsQuery = adminClient
           .from("match_history")
           .select("*", { count: "exact", head: true })
           .eq("player_id", player.id)
-          .eq("city", cityUpper)
-          .eq("country", countryUpper);
-
-        const { count: wins } = await adminClient
-          .from("match_history")
-          .select("*", { count: "exact", head: true })
-          .eq("player_id", player.id)
-          .eq("city", cityUpper)
-          .eq("country", countryUpper)
           .eq("win", true);
+        
+        // ✅ Pour les agents standards, ajouter le filtre city/country
+        if (!isAdmin) {
+          matchesQuery = matchesQuery.eq("city", cityUpper).eq("country", countryUpper);
+          winsQuery = winsQuery.eq("city", cityUpper).eq("country", countryUpper);
+        }
+        
+        const { count: matchesPlayed } = await matchesQuery;
+        const { count: wins } = await winsQuery;
 
         const totalMatches = matchesPlayed || 0;
         const winRate = totalMatches > 0 ? Math.round((wins || 0) / totalMatches * 100) : 0;
