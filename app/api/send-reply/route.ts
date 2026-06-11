@@ -290,7 +290,7 @@ export async function POST(req: Request) {
                   </div>
                   <div style="display:none !important; font-size:0px;">ID-${uniqueSalt}</div>
                 </td>
-              </table>
+              </td>
             </table>
           </body>
           </html>
