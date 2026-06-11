@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 // ==========================================================
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // ==========================================================
 // TYPES
@@ -28,6 +29,14 @@ interface AuthResult {
   email: string;
   isStaff: boolean;
   userMetadata?: UserMetadata;
+}
+
+interface AthleteRecord {
+  dossier_ref: string | null;
+  full_name: string;
+  pseudo: string | null;
+  city: string;
+  country: string;
 }
 
 // ==========================================================
@@ -144,6 +153,91 @@ function createPublicProfile(profile: PlayerProfile): Omit<PlayerProfile, 'email
   return publicProfile;
 }
 
+/**
+ * ✅ NOUVELLE FONCTION : Récupérer le dossier_ref depuis Supabase
+ */
+async function getDossierRefFromSupabase(userId: string): Promise<string | null> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.warn("⚠️ Supabase non configuré pour récupérer dossier_ref");
+    return null;
+  }
+  
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    
+    const { data: athlete, error } = await supabaseAdmin
+      .from("athletes")
+      .select("dossier_ref")
+      .eq("id", userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("❌ Erreur récupération dossier_ref:", error);
+      return null;
+    }
+    
+    if (athlete?.dossier_ref && athlete.dossier_ref !== "0") {
+      console.log(`✅ dossier_ref trouvé dans athletes: ${athlete.dossier_ref}`);
+      return athlete.dossier_ref;
+    }
+    
+    // Fallback: recherche dans athletes_registry
+    const { data: registry, error: registryError } = await supabaseAdmin
+      .from("athletes_registry")
+      .select("dossier_ref")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    if (registryError) {
+      console.error("❌ Erreur récupération registry:", registryError);
+      return null;
+    }
+    
+    if (registry?.dossier_ref && registry.dossier_ref !== "0") {
+      console.log(`✅ dossier_ref trouvé dans athletes_registry: ${registry.dossier_ref}`);
+      return registry.dossier_ref;
+    }
+    
+    return null;
+  } catch (err) {
+    console.error("❌ Exception récupération dossier_ref:", err);
+    return null;
+  }
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Récupérer les infos complètes du joueur depuis Supabase
+ */
+async function getAthleteFromSupabase(userId: string): Promise<AthleteRecord | null> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null;
+  }
+  
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    
+    const { data: athlete, error } = await supabaseAdmin
+      .from("athletes")
+      .select("dossier_ref, full_name, pseudo, city, country")
+      .eq("id", userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("❌ Erreur récupération athlète:", error);
+      return null;
+    }
+    
+    return athlete as AthleteRecord | null;
+  } catch (err) {
+    console.error("❌ Exception récupération athlète:", err);
+    return null;
+  }
+}
+
 // ==========================================================
 // GET - Récupérer le profil d'un joueur
 // ==========================================================
@@ -173,50 +267,65 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // 5. Récupérer le profil
+    // 5. Récupérer le profil depuis GitHub
     let profile = await PlayerDB.getProfile(targetPlayerId);
     
     // 6. Si le profil n'existe pas encore (nouveau joueur), le créer
     if (!profile) {
+      // ✅ CORRECTION : Récupérer le dossier_ref depuis Supabase AVANT création
+      const existingAthlete = await getAthleteFromSupabase(targetPlayerId);
+      const existingDossierRef = await getDossierRefFromSupabase(targetPlayerId);
+      
       // Récupérer les infos depuis Supabase si disponibles
-      if (supabaseUrl && supabaseAnonKey) {
+      let athleteData: AthleteRecord | null = existingAthlete;
+      
+      if (!athleteData && supabaseUrl && supabaseAnonKey) {
+        // Fallback: récupérer depuis l'auth
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
         const { data: userData } = await supabaseClient.auth.getUser();
         
-        const newProfile: PlayerProfile = {
-          id: targetPlayerId,
-          email: auth.email || userData?.user?.email || "",
-          full_name: auth.userMetadata?.full_name || "",
-          pseudo: auth.userMetadata?.pseudo || `Joueur_${targetPlayerId.slice(0, 8)}`,
-          city: auth.userMetadata?.city || "NANTES",
-          country: auth.userMetadata?.country || "FR",
-          dossier_ref: "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          total_matches: 0,
-          total_score: 0,
-          total_shots: 0,
-          total_kills: 0,
-          total_deaths: 0,
-          total_assists: 0,
-          total_hits_head: 0,
-          total_hits_body: 0,
-          total_hits_legs: 0,
-          current_rank: "Guerrier I",
-          current_grade_id: 1,
-          precision_progress: 0,
-          current_cycle_shot_count: 0,
-          current_cycle_precision: 0,
+        athleteData = {
+          dossier_ref: existingDossierRef || "",
+          full_name: auth.userMetadata?.full_name || userData?.user?.user_metadata?.full_name || "",
+          pseudo: auth.userMetadata?.pseudo || userData?.user?.user_metadata?.pseudo || `Joueur_${targetPlayerId.slice(0, 8)}`,
+          city: auth.userMetadata?.city || userData?.user?.user_metadata?.city || "NANTES",
+          country: auth.userMetadata?.country || userData?.user?.user_metadata?.country || "FR",
         };
-        
-        await PlayerDB.createProfile(newProfile);
-        profile = newProfile;
-      } else {
-        return NextResponse.json(
-          { error: "Profil non trouvé" },
-          { status: 404 }
-        );
       }
+      
+      // ✅ CORRECTION : Utiliser le dossier_ref existant s'il est disponible
+      const finalDossierRef = existingDossierRef || athleteData?.dossier_ref || "";
+      
+      console.log(`📝 Création profil pour ${targetPlayerId} avec dossier_ref: "${finalDossierRef}"`);
+      
+      const newProfile: PlayerProfile = {
+        id: targetPlayerId,
+        email: auth.email || "",
+        full_name: athleteData?.full_name || auth.userMetadata?.full_name || "",
+        pseudo: athleteData?.pseudo || auth.userMetadata?.pseudo || `Joueur_${targetPlayerId.slice(0, 8)}`,
+        city: athleteData?.city || auth.userMetadata?.city || "NANTES",
+        country: athleteData?.country || auth.userMetadata?.country || "FR",
+        dossier_ref: finalDossierRef,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        total_matches: 0,
+        total_score: 0,
+        total_shots: 0,
+        total_kills: 0,
+        total_deaths: 0,
+        total_assists: 0,
+        total_hits_head: 0,
+        total_hits_body: 0,
+        total_hits_legs: 0,
+        current_rank: "Guerrier I",
+        current_grade_id: 1,
+        precision_progress: 0,
+        current_cycle_shot_count: 0,
+        current_cycle_precision: 0,
+      };
+      
+      await PlayerDB.createProfile(newProfile);
+      profile = newProfile;
     }
     
     // 7. Ne pas exposer les données sensibles si c'est un staff qui consulte
