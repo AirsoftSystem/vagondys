@@ -76,13 +76,13 @@ export async function GET(request: Request) {
       console.log(`📦 history: ${replies?.length || 0} réponses staff trouvées pour dossier ${dossierRef}`);
     }
 
-    // 2. Récupérer le signal client (un seul par dossier) (avec filtre city)
+    // 2. Récupérer le signal client (un seul par dossier)
+    // ✅ CORRECTION : Suppression des filtres city/country pour pending_signals
+    // Le dossier_ref est unique et suffit pour identifier le signal
     const { data: clientSignal, error: clientError } = await adminClient
       .from("pending_signals")
       .select("*")
       .eq("dossier_ref", dossierRef)
-      .eq("city", cityUpper)
-      .eq("country", countryUpper)
       .maybeSingle();
 
     if (clientError) {

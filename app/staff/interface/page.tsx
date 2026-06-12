@@ -11,8 +11,8 @@ import {
   RefreshCcw, ShieldCheck, Files, DatabaseBackup, Search,
   AlertTriangle,
   User,
-  UserCheck,  // ✅ AJOUTÉ pour différencier staff
-  Bot,        // ✅ AJOUTÉ pour système
+  UserCheck,
+  Bot,
 } from "lucide-react";
 import Link from "next/link";
 import FileUploader from "@/components/FileUploader";
@@ -112,7 +112,6 @@ export default function StaffMessagesPage() {
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  // ✅ NOUVELLE FONCTION : Rafraîchir les messages après restauration
   const refreshMessages = useCallback(async () => {
     try {
       const response = await fetch(`/api/staff/pending-signals?view=${view}`);
@@ -147,10 +146,7 @@ export default function StaffMessagesPage() {
       }
       
       console.log(`✅ Dossier ${dossierRef} restauré avec succès`);
-      
-      // ✅ AJOUT : Rafraîchir les messages après restauration réussie
       await refreshMessages();
-      
       return true;
       
     } catch (err) {
@@ -159,7 +155,6 @@ export default function StaffMessagesPage() {
     }
   };
 
-  // Chargement unique au montage
   useEffect(() => {
     let isMounted = true;
     let isLoading = false;
@@ -207,7 +202,6 @@ export default function StaffMessagesPage() {
     return () => { isMounted = false; };
   }, [view]);
 
-  // Regroupement des messages
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
     
@@ -228,7 +222,6 @@ export default function StaffMessagesPage() {
     return subject.split('_')[0].toUpperCase();
   };
 
-  // ✅ CORRECTION : Dédoublonnage des messages par contenu + date
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -256,13 +249,10 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      // Collecter tous les messages (base + GitHub)
       const allRawMessages: ExtendedHistoryMessage[] = [];
       
-      // Ajouter les messages de la base STAFF
       formattedHistory.forEach(msg => allRawMessages.push(msg));
       
-      // Ajouter les messages client depuis l'archive GitHub (fil_de_discussion)
       if (archivedData && archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
         archivedData.fil_de_discussion.forEach(msg => {
           if (msg.role === "public" && msg.content && msg.created_at) {
@@ -277,10 +267,8 @@ export default function StaffMessagesPage() {
             });
           }
         });
-        console.log(`📦 GitHub: ${archivedData.fil_de_discussion.filter(m => m.role === "public").length} messages client ajoutés depuis fil_de_discussion`);
       }
       
-      // Ajouter les messages staff depuis GitHub (echanges_staff)
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         archivedData.echanges_staff.forEach(h => {
           allRawMessages.push({
@@ -296,7 +284,6 @@ export default function StaffMessagesPage() {
         setGithubArchive(archivedData);
       }
       
-      // Dédoublonner par contenu (garder le message le plus récent)
       const uniqueByContentMap = new Map<string, ExtendedHistoryMessage>();
       
       allRawMessages.forEach(msg => {
@@ -306,11 +293,8 @@ export default function StaffMessagesPage() {
         }
       });
       
-      // Convertir en tableau et trier par date (du plus récent au plus ancien)
       const mergedHistory = Array.from(uniqueByContentMap.values());
       mergedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      
-      console.log(`🧹 Dédoublonnage par contenu: ${allRawMessages.length} messages → ${mergedHistory.length} messages uniques`);
       
       setHistoryMessages(mergedHistory);
       
@@ -352,7 +336,6 @@ export default function StaffMessagesPage() {
         const restored = await restoreArchivedDossier(searchRef.trim().toUpperCase());
         if (restored) {
           console.log(`📦 Dossier restauré, rafraîchissement de la vue...`);
-          // ✅ AJOUT : Rafraîchir la vue après restauration
           await refreshMessages();
         }
         setIsRestoring(false);
@@ -362,10 +345,8 @@ export default function StaffMessagesPage() {
           id: `archived-${archivedData.dossier.dossier_ref}`
         };
         
-        // Extraire et dédoublonner les messages par contenu
         const allMessages: ExtendedHistoryMessage[] = [];
         
-        // Ajouter les messages staff
         if (archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
           archivedData.echanges_staff.forEach(h => {
             allMessages.push({
@@ -376,7 +357,6 @@ export default function StaffMessagesPage() {
           });
         }
         
-        // Ajouter les messages client depuis fil_de_discussion
         if (archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
           archivedData.fil_de_discussion.forEach(msg => {
             if (msg.role === "public" && msg.content && msg.created_at) {
@@ -393,7 +373,6 @@ export default function StaffMessagesPage() {
           });
         }
         
-        // Dédoublonner par contenu (garder le plus récent)
         const uniqueMap = new Map<string, ExtendedHistoryMessage>();
         allMessages.forEach(msg => {
           const existing = uniqueMap.get(msg.content);
@@ -402,7 +381,6 @@ export default function StaffMessagesPage() {
           }
         });
         
-        // Trier par date (du plus récent au plus ancien)
         const uniqueMessages = Array.from(uniqueMap.values());
         uniqueMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
@@ -593,7 +571,8 @@ export default function StaffMessagesPage() {
     }
   };
 
-  // ✅ Fonction pour déterminer l'icône et le style selon le type de message
+  // ✅ CORRECTION : Inversion des couleurs
+  // Client (Contact) = Rouge, Staff = Gris
   const getMessageStyle = (agentEmail: string, isInitial?: boolean) => {
     const isClient = agentEmail === "CLIENT";
     const isSystem = agentEmail === "SYSTEM" || agentEmail === "system@vagondys.com";
@@ -610,23 +589,25 @@ export default function StaffMessagesPage() {
     }
     
     if (isClient) {
+      // ✅ CLIENT (Contact) → fond rouge
       return {
-        bgClass: "bg-zinc-900/50 border-zinc-800",
+        bgClass: "bg-red-600/5 border-red-600/20",
         icon: User,
-        iconColor: "text-zinc-400",
-        textClass: "text-zinc-400",
+        iconColor: "text-red-600",
+        textClass: "text-red-300",
         badgeText: isInitial ? "MESSAGE INITIAL" : "CLIENT",
-        badgeClass: "bg-zinc-700/30 text-zinc-400"
+        badgeClass: "bg-red-600/20 text-red-400"
       };
     }
     
+    // ✅ STAFF → fond gris
     return {
-      bgClass: "bg-red-600/5 border-red-600/20",
+      bgClass: "bg-zinc-900/50 border-zinc-800",
       icon: UserCheck,
-      iconColor: "text-red-600",
+      iconColor: "text-zinc-400",
       textClass: "text-zinc-200",
       badgeText: "STAFF",
-      badgeClass: "bg-red-600/20 text-red-400"
+      badgeClass: "bg-zinc-700/30 text-zinc-400"
     };
   };
 
@@ -881,7 +862,7 @@ export default function StaffMessagesPage() {
                       
                       return (
                         <div key={h.id || idx} className={`${style.bgClass} border p-4 rounded-2xl relative transition-all hover:border-opacity-50`}>
-                          <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-zinc-500" : isSystem ? "border-blue-500" : "border-red-600"} flex items-center justify-center`}>
+                          <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-red-600" : isSystem ? "border-blue-500" : "border-zinc-500"} flex items-center justify-center`}>
                             <IconComponent className={`w-2 h-2 ${style.iconColor}`} />
                           </div>
                           <div className="flex justify-between items-center mb-2">
@@ -895,7 +876,7 @@ export default function StaffMessagesPage() {
                             </div>
                             <span className="text-[8px] font-mono text-zinc-500">{new Date(h.created_at).toLocaleString()}</span>
                           </div>
-                          <p className={`text-xs leading-relaxed font-medium ${isClient ? "text-zinc-400 italic" : isSystem ? "text-blue-300" : "text-zinc-200"}`}>
+                          <p className={`text-xs leading-relaxed font-medium ${isClient ? "text-red-300" : isSystem ? "text-blue-300" : "text-zinc-200"}`}>
                             {h.content}
                           </p>
                           {h.document_url && (
