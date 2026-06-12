@@ -9,7 +9,8 @@ import {
   MapPin,
   Archive,
   Activity,
-  Trophy
+  Trophy,
+  MessageSquare  // ✅ AJOUTÉ pour l'icône Messagerie
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -525,12 +526,6 @@ export default function EspaceJoueur() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-zinc-500 hover:text-red-600 transition-colors text-[10px] font-black uppercase tracking-widest"
-            >
-              <LogOut className="w-4 h-4" /> Déconnexion
-            </button>
 
             <Link
               href="/carte-id"
@@ -539,6 +534,22 @@ export default function EspaceJoueur() {
               <ShieldCheck className="w-3 h-3 text-red-600 group-hover:scale-110 transition-transform" />
               Carte ID
             </Link>
+
+            {/* ✅ AJOUT : Lien vers la messagerie */}
+            <Link
+              href="/espace-joueur/messagerie"
+              className="flex items-center gap-2 bg-zinc-900/50 hover:bg-red-600/10 border border-zinc-800 hover:border-red-600/50 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white transition-all group"
+            >
+              <MessageSquare className="w-3 h-3 text-red-600 group-hover:scale-110 transition-transform" />
+              Messagerie
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-zinc-500 hover:text-red-600 transition-colors text-[10px] font-black uppercase tracking-widest"
+            >
+              <LogOut className="w-4 h-4" /> Déconnexion
+            </button>            
           </div>
         </header>
 

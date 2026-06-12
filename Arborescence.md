@@ -3,7 +3,7 @@
 VAGONDYS/
 ┃
 ┣━ .next/                                          ✅ EXISTANT
-┣━ .vscode                                         ✅ EXISTANT   
+┣━ .vscode                                         ✅ EXISTANT
 ┃  ┣━ .vercel/                                     ✅ EXISTANT
 ┃  ┃  ┣━ project.json                              ✅ EXISTANT
 ┃  ┃  ┗━ README.txt                                ✅ EXISTANT
@@ -37,7 +37,7 @@ VAGONDYS/
 ┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css            ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx            ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┃  ┗━ types.tsx                       ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ ArchiveViewer.tsx                  ✅ EXISTANT                 
+┃  ┃  ┃  ┃   ┣━ ArchiveViewer.tsx                  ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx              ✅ EXISTANT
@@ -74,9 +74,9 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┗━ [year]/                             ✅ EXISTANT
 ┃  ┃  ┃  ┃     ┗━ page.tsx                         ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ communication/                            ✅ EXISTANT 
+┃  ┃  ┣━ communication/                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ competition/                              ✅ EXISTANT 
+┃  ┃  ┣━ competition/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ contact/                                  ✅ EXISTANT
 ┃  ┃  ┃  ┣━ actions.tsx                            ✅ EXISTANT
@@ -121,7 +121,7 @@ VAGONDYS/
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ archive-year                              ✅ EXISTANT
-┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT 
+┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ as-eg/                                    ✅ EXISTANT
 ┃  ┃  ┃  ┗━ session/                               ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
@@ -281,7 +281,7 @@ VAGONDYS/
 ┃  ┣━ FileUploader.tsx                             ✅ EXISTANT
 ┃  ┗━ Footer.tsx                                   ✅ EXISTANT
 ┃
-┣━ lib/                                            ✅ EXISTANT 
+┣━ lib/                                            ✅ EXISTANT
 ┃  ┣━ archive/                                     ✅ EXISTANT
 ┃  ┃  ┗━ yearly-archiver.ts                        ✅ EXISTANT
 ┃  ┣━ archive-external/                            ✅ EXISTANT
@@ -297,7 +297,7 @@ VAGONDYS/
 ┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ player.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ ranking.ts                                ✅ EXISTANT
-┃  ┃  ┗━ tournament.ts                             ✅ EXISTANT 
+┃  ┃  ┗━ tournament.ts                             ✅ EXISTANT
 ┃  ┣━ hooks/                                       ✅ EXISTANT
 ┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT
 ┃  ┃  ┗━ usePhysicalButton.ts                      ✅ EXISTANT
@@ -307,9 +307,9 @@ VAGONDYS/
 ┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ master.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ server.ts                                 ✅ EXISTANT
-┃  ┃  ┗━ unified-client.ts                         ✅ EXISTANT 
+┃  ┃  ┗━ unified-client.ts                         ✅ EXISTANT
 ┃  ┣━ websocket/                                   ✅ EXISTANT
-┃  ┃  ┗━ client.ts                                 ✅ EXISTANT   
+┃  ┃  ┗━ client.ts                                 ✅ EXISTANT
 ┃  ┗━ rate-limit.ts                                ✅ EXISTANT
 ┃
 ┣━ public/                                         ✅ EXISTANT
@@ -399,3 +399,15 @@ VAGONDYS/
 ┣━ tsconfig.json                                   ✅ EXISTANT
 ┗━ vercel.json                                     ✅ EXISTANT
 */
+
+app/(auth)/espace-joueur/
+├── page.tsx (existant)
+├── carte-id/
+│   └── page.tsx (existant)
+└── messagerie/                    (NOUVEAU)
+    ├── page.tsx                   (Page principale)
+    ├── actions.ts                 (Actions serveur)
+    └── components/                (Liens symboliques ou copie)
+        ├── MessageList.tsx        (lien vers ../../messagerie/components/MessageList)
+        ├── MessageThread.tsx      (lien vers ../../messagerie/components/MessageThread)
+        └── MessageInput.tsx       (lien vers ../../messagerie/components/MessageInput)
