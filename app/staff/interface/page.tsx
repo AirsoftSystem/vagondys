@@ -8,9 +8,11 @@ import {
   Mail, Phone, Clock,
   MessageSquare, Send, X, 
   Link as LinkIcon, ChevronLeft, Archive, History, ChevronDown, ChevronUp,
-  RefreshCcw, ShieldCheck, CheckCircle2, Files, DatabaseBackup, Search,
+  RefreshCcw, ShieldCheck, Files, DatabaseBackup, Search,
   AlertTriangle,
   User,
+  UserCheck,  // ✅ AJOUTÉ pour différencier staff
+  Bot,        // ✅ AJOUTÉ pour système
 } from "lucide-react";
 import Link from "next/link";
 import FileUploader from "@/components/FileUploader";
@@ -110,6 +112,19 @@ export default function StaffMessagesPage() {
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
+  // ✅ NOUVELLE FONCTION : Rafraîchir les messages après restauration
+  const refreshMessages = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/staff/pending-signals?view=${view}`);
+      const result = await response.json();
+      if (response.ok) {
+        setMessages(result.messages || []);
+      }
+    } catch (err) {
+      console.error("Erreur rafraîchissement messages:", err);
+    }
+  }, [view]);
+
   const restoreArchivedDossier = async (dossierRef: string) => {
     if (!userCity) return false;
     
@@ -132,6 +147,10 @@ export default function StaffMessagesPage() {
       }
       
       console.log(`✅ Dossier ${dossierRef} restauré avec succès`);
+      
+      // ✅ AJOUT : Rafraîchir les messages après restauration réussie
+      await refreshMessages();
+      
       return true;
       
     } catch (err) {
@@ -210,8 +229,6 @@ export default function StaffMessagesPage() {
   };
 
   // ✅ CORRECTION : Dédoublonnage des messages par contenu + date
-  // ✅ AJOUT : Extraction des messages client depuis fil_de_discussion de l'archive GitHub
-  // ✅ NOUVELLE CORRECTION : Dédoublonnage par contenu (garder le plus récent) pour éliminer les artefacts
   const fetchHistoryAndLinks = useCallback(async (ref: string) => {
     if (!ref) return;
     setLoadingHistory(true);
@@ -239,7 +256,7 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      // ✅ ÉTAPE 1 : Collecter tous les messages (base + GitHub)
+      // Collecter tous les messages (base + GitHub)
       const allRawMessages: ExtendedHistoryMessage[] = [];
       
       // Ajouter les messages de la base STAFF
@@ -279,8 +296,7 @@ export default function StaffMessagesPage() {
         setGithubArchive(archivedData);
       }
       
-      // ✅ ÉTAPE 2 : Dédoublonner par contenu (garder le message le plus récent pour chaque contenu)
-      // Cela élimine les artefacts comme les messages avec la date du signal
+      // Dédoublonner par contenu (garder le message le plus récent)
       const uniqueByContentMap = new Map<string, ExtendedHistoryMessage>();
       
       allRawMessages.forEach(msg => {
@@ -336,13 +352,8 @@ export default function StaffMessagesPage() {
         const restored = await restoreArchivedDossier(searchRef.trim().toUpperCase());
         if (restored) {
           console.log(`📦 Dossier restauré, rafraîchissement de la vue...`);
-          if (view === "archived") {
-            const response = await fetch(`/api/staff/pending-signals?view=archived`);
-            const result = await response.json();
-            if (response.ok) {
-              setMessages(result.messages || []);
-            }
-          }
+          // ✅ AJOUT : Rafraîchir la vue après restauration
+          await refreshMessages();
         }
         setIsRestoring(false);
         
@@ -351,7 +362,7 @@ export default function StaffMessagesPage() {
           id: `archived-${archivedData.dossier.dossier_ref}`
         };
         
-        // ✅ Extraire et dédoublonner les messages par contenu
+        // Extraire et dédoublonner les messages par contenu
         const allMessages: ExtendedHistoryMessage[] = [];
         
         // Ajouter les messages staff
@@ -382,7 +393,7 @@ export default function StaffMessagesPage() {
           });
         }
         
-        // ✅ Dédoublonner par contenu (garder le plus récent)
+        // Dédoublonner par contenu (garder le plus récent)
         const uniqueMap = new Map<string, ExtendedHistoryMessage>();
         allMessages.forEach(msg => {
           const existing = uniqueMap.get(msg.content);
@@ -467,7 +478,6 @@ export default function StaffMessagesPage() {
     setExpandedMessages(newExpanded);
   };
 
-  // ✅ CORRECTION : Suppression de "history: historyMessages" pour que l'API aille chercher l'historique complet en base
   const handleDeepArchive = async (msg: SignalMessage) => {
     if (!confirm(`ATTENTION : Le dossier ${msg.dossier_ref} va être sauvegardé sur GitHub puis SUPPRIMÉ définitivement des bases actives. Confirmer ?`)) return;
     
@@ -517,7 +527,6 @@ export default function StaffMessagesPage() {
     setIsSending(true);
     
     const sharedId = self.crypto.randomUUID();
-    // Suppression du footer - le contenu est identique pour l'email et la base
     const cleanContent = replyContent;
 
     try {
@@ -582,6 +591,43 @@ export default function StaffMessagesPage() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  // ✅ Fonction pour déterminer l'icône et le style selon le type de message
+  const getMessageStyle = (agentEmail: string, isInitial?: boolean) => {
+    const isClient = agentEmail === "CLIENT";
+    const isSystem = agentEmail === "SYSTEM" || agentEmail === "system@vagondys.com";
+    
+    if (isSystem) {
+      return {
+        bgClass: "bg-blue-600/5 border-blue-600/20",
+        icon: Bot,
+        iconColor: "text-blue-500",
+        textClass: "text-blue-300",
+        badgeText: "SYSTÈME",
+        badgeClass: "bg-blue-600/20 text-blue-400"
+      };
+    }
+    
+    if (isClient) {
+      return {
+        bgClass: "bg-zinc-900/50 border-zinc-800",
+        icon: User,
+        iconColor: "text-zinc-400",
+        textClass: "text-zinc-400",
+        badgeText: isInitial ? "MESSAGE INITIAL" : "CLIENT",
+        badgeClass: "bg-zinc-700/30 text-zinc-400"
+      };
+    }
+    
+    return {
+      bgClass: "bg-red-600/5 border-red-600/20",
+      icon: UserCheck,
+      iconColor: "text-red-600",
+      textClass: "text-zinc-200",
+      badgeText: "STAFF",
+      badgeClass: "bg-red-600/20 text-red-400"
+    };
   };
 
   return (
@@ -827,20 +873,29 @@ export default function StaffMessagesPage() {
                 ) : historyMessages.length > 0 ? (
                   <div className="space-y-4 ml-4 md:ml-8 border-l-2 border-red-600/10 pl-4 md:pl-8">
                     {historyMessages.map((h, idx) => {
+                      const style = getMessageStyle(h.agent_email, h.is_initial);
+                      const IconComponent = style.icon;
                       const isClient = h.agent_email === "CLIENT";
                       const isInitial = h.is_initial === true;
+                      const isSystem = h.agent_email === "SYSTEM" || h.agent_email === "system@vagondys.com";
+                      
                       return (
-                        <div key={h.id || idx} className={`${isClient ? "bg-zinc-900/50 border-zinc-800" : "bg-red-600/5 border-red-600/20"} border p-4 rounded-2xl relative`}>
-                          <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-zinc-500" : "border-red-600"} flex items-center justify-center`}>
-                            {isClient ? <User className="w-2 h-2 text-zinc-500" /> : <CheckCircle2 className="w-2 h-2 text-red-600" />}
+                        <div key={h.id || idx} className={`${style.bgClass} border p-4 rounded-2xl relative transition-all hover:border-opacity-50`}>
+                          <div className={`absolute left-[-18px] md:left-[-34px] top-5 w-4 h-4 rounded-full bg-black border-2 ${isClient ? "border-zinc-500" : isSystem ? "border-blue-500" : "border-red-600"} flex items-center justify-center`}>
+                            <IconComponent className={`w-2 h-2 ${style.iconColor}`} />
                           </div>
                           <div className="flex justify-between items-center mb-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isClient ? "text-zinc-400" : "text-white"}`}>
-                              {isClient ? (isInitial ? "Message initial" : "Message Client") : `Agent: ${h.agent_email}`}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${style.textClass}`}>
+                                {isClient ? (isInitial ? "Message initial" : "Message Client") : isSystem ? "Système VAGONDYS" : `Agent: ${h.agent_email}`}
+                              </span>
+                              <span className={`text-[7px] px-1.5 py-0.5 rounded-full ${style.badgeClass}`}>
+                                {style.badgeText}
+                              </span>
+                            </div>
                             <span className="text-[8px] font-mono text-zinc-500">{new Date(h.created_at).toLocaleString()}</span>
                           </div>
-                          <p className={`text-xs leading-relaxed font-medium ${isClient ? "text-zinc-400 italic" : "text-zinc-200"}`}>
+                          <p className={`text-xs leading-relaxed font-medium ${isClient ? "text-zinc-400 italic" : isSystem ? "text-blue-300" : "text-zinc-200"}`}>
                             {h.content}
                           </p>
                           {h.document_url && (

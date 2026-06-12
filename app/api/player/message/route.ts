@@ -4,10 +4,11 @@
  * API PLAYER MESSAGE - ENVOI DE MESSAGE JOUEUR VERS STAFF
  * ==========================================================
  * POST /api/player/message
- * Body: { dossierRef, content, fileUrl?, fileKey? }
+ * Body: { dossierRef, content, targetCity?, fileUrl?, fileKey? }
  * 
  * Cette API est dédiée aux joueurs authentifiés.
- * Elle route automatiquement le message vers le staff de la ville du joueur.
+ * Elle route le message vers le staff de la ville choisie (targetCity).
+ * Si targetCity n'est pas fourni, utilise la ville du joueur par défaut.
  * 
  * ✅ Différence avec /api/send-reply :
  * - send-reply est conçu pour le STAFF répondant aux joueurs
@@ -36,9 +37,10 @@ const STAFF_EMAILS: Record<string, string> = {
   "LILLE": "lille@vagondys.com",
   "TOULOUSE": "toulouse@vagondys.com",
   "MADRID": "madrid@vagondys.com",
+  "MASTER": "admin@vagondys.com",
 };
 
-const ADMIN_EMAILS = ["admin@vagondys.com", "vagondys@gmail.com", "contact@vagondys.com"];
+// ✅ SUPPRESSION de ADMIN_EMAILS (inutilisé)
 
 // ==========================================================
 // TYPES
@@ -47,6 +49,7 @@ const ADMIN_EMAILS = ["admin@vagondys.com", "vagondys@gmail.com", "contact@vagon
 interface PlayerMessageRequest {
   dossierRef: string;
   content: string;
+  targetCity?: string;  // ✅ NOUVEAU : ville destinataire
   fileUrl?: string;
   fileKey?: string;
 }
@@ -57,7 +60,6 @@ interface PlayerInfo {
   userName: string;
   playerCity: string;
   playerCountry: string;
-  staffEmail: string;
 }
 
 // ==========================================================
@@ -132,12 +134,8 @@ async function authenticateAndGetPlayerInfo(
 
   const playerCity = registry.city || "NANTES";
   const playerCountry = registry.country || "FR";
-  
-  // Déterminer l'email du staff
-  const upperCity = playerCity.toUpperCase().trim();
-  const staffEmail = STAFF_EMAILS[upperCity] || ADMIN_EMAILS[0];
 
-  console.log(`📍 [player/message] Joueur: ${playerCity}, staff: ${staffEmail}`);
+  console.log(`📍 [player/message] Joueur: ${playerCity}/${playerCountry}`);
 
   return {
     userId,
@@ -145,50 +143,38 @@ async function authenticateAndGetPlayerInfo(
     userName,
     playerCity,
     playerCountry,
-    staffEmail,
   };
 }
 
 /**
- * Récupère la ville depuis le dossier_ref (fallback)
+ * Récupère l'email du staff pour une ville donnée
  */
-async function getCityFromDossierRef(dossierRef: string): Promise<string> {
-  if (!supabaseUrl || !supabaseServiceKey) return "NANTES";
-
-  try {
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    const { data: registry } = await supabaseAdmin
-      .from("athletes_registry")
-      .select("city")
-      .eq("dossier_ref", dossierRef)
-      .maybeSingle();
-
-    return registry?.city || "NANTES";
-  } catch {
-    return "NANTES";
-  }
+function getStaffEmailForCity(city: string): string {
+  const upperCity = city.toUpperCase().trim();
+  return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
 }
 
 /**
- * Envoie un email au staff
+ * Envoie un email au staff de la ville cible
  */
 async function notifyStaff(
-  staffEmail: string,
+  targetCity: string,
   playerName: string,
   playerEmail: string,
   dossierRef: string,
   content: string,
-  playerCity: string,
   fileUrl?: string
 ): Promise<boolean> {
+  const staffEmail = getStaffEmailForCity(targetCity);
+  const cityDisplayName = targetCity === "MASTER" ? "ADMINISTRATION CENTRALE" : targetCity;
+  
+  console.log(`📧 [player/message] Envoi email à ${staffEmail} (${cityDisplayName})`);
+
   try {
     const html = `
       <div style="font-family:sans-serif; padding:20px; border:1px solid #eee; background:#fff; color:#000;">
         <h2 style="color:#cc0000; border-bottom:2px solid #cc0000; padding-bottom:10px;">
-          📩 NOUVEAU MESSAGE JOUEUR - ${playerCity}
+          📩 NOUVEAU MESSAGE JOUEUR - ${cityDisplayName}
         </h2>
         <p><strong>EXPÉDITEUR :</strong> ${playerName}</p>
         <p><strong>EMAIL :</strong> ${playerEmail}</p>
@@ -208,13 +194,13 @@ async function notifyStaff(
 
     await sendGeneralEmail(
       staffEmail,
-      `[VAGONDYS] Nouveau message de ${playerName} (${dossierRef})`,
+      `[VAGONDYS] Nouveau message de ${playerName} (${dossierRef}) - ${cityDisplayName}`,
       `Nouveau message de ${playerName} (${dossierRef})\n\n${content}`,
       html,
       "contact@vagondys.com"
     );
 
-    console.log(`📧 [player/message] Email envoyé à ${staffEmail}`);
+    console.log(`📧 [player/message] Email envoyé avec succès à ${staffEmail}`);
     return true;
   } catch (err) {
     console.error(`❌ [player/message] Erreur envoi email:`, err);
@@ -224,6 +210,7 @@ async function notifyStaff(
 
 /**
  * Sauvegarde le message dans communication_replies
+ * (utilise la ville du joueur pour traçabilité, pas la ville cible)
  */
 async function saveMessageToDatabase(
   dossierRef: string,
@@ -256,7 +243,7 @@ async function saveMessageToDatabase(
         content: content,
         document_url: fileUrl || null,
         file_key: fileKey || null,
-        city: playerCity,
+        city: playerCity,  // ✅ Ville du joueur (traçabilité)
         country: playerCountry,
         created_at: new Date().toISOString(),
       });
@@ -276,7 +263,6 @@ async function saveMessageToDatabase(
 
 /**
  * Met à jour pending_signals avec l'historique des messages
- * ✅ CORRECTION : Suppression du paramètre playerCity (inutilisé)
  */
 async function updatePendingSignalsHistory(
   dossierRef: string,
@@ -335,7 +321,7 @@ async function updatePendingSignalsHistory(
 
 /**
  * POST /api/player/message
- * Envoie un message du joueur vers le staff de sa ville
+ * Envoie un message du joueur vers le staff de la ville choisie
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -353,7 +339,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Récupérer le body
     const body = await request.json();
-    const { dossierRef, content, fileUrl, fileKey }: PlayerMessageRequest = body;
+    const { dossierRef, content, targetCity, fileUrl, fileKey }: PlayerMessageRequest = body;
 
     if (!dossierRef || !content) {
       return NextResponse.json(
@@ -362,19 +348,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que le dossierRef correspond à l'utilisateur
-    if (dossierRef !== playerInfo.userId && dossierRef !== playerInfo.userEmail) {
-      // Vérification supplémentaire via registry
-      const cityFromRef = await getCityFromDossierRef(dossierRef);
-      if (cityFromRef !== playerInfo.playerCity) {
-        console.warn(`⚠️ [player/message] Incohérence dossierRef: ${dossierRef} vs ville ${playerInfo.playerCity}`);
+    // 3. Déterminer la ville cible (destinataire)
+    // Si targetCity est fourni et valide, l'utiliser, sinon utiliser la ville du joueur
+    let effectiveTargetCity = playerInfo.playerCity;
+    if (targetCity) {
+      const upperTarget = targetCity.toUpperCase().trim();
+      // Vérifier que la ville cible existe dans le mapping
+      if (STAFF_EMAILS[upperTarget] || upperTarget === "MASTER") {
+        effectiveTargetCity = upperTarget;
+        console.log(`📍 [player/message] Ville cible sélectionnée: ${effectiveTargetCity}`);
+      } else {
+        console.warn(`⚠️ [player/message] Ville cible inconnue: ${targetCity}, utilisation de la ville du joueur`);
       }
     }
 
     console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef}`);
     console.log(`📝 [player/message] Contenu: ${content.substring(0, 100)}...`);
+    console.log(`📍 [player/message] Destinataire: ${effectiveTargetCity}`);
+    console.log(`📍 [player/message] Expéditeur (ville): ${playerInfo.playerCity}`);
 
-    // 3. Sauvegarder dans communication_replies
+    // 4. Sauvegarder dans communication_replies (avec ville du joueur)
     const saved = await saveMessageToDatabase(
       dossierRef,
       playerInfo.userEmail,
@@ -393,17 +386,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Mettre à jour l'historique dans pending_signals
+    // 5. Mettre à jour l'historique dans pending_signals
     await updatePendingSignalsHistory(dossierRef, playerInfo.userEmail, content);
 
-    // 5. Envoyer l'email au staff
+    // 6. Envoyer l'email au staff de la ville cible
     const emailSent = await notifyStaff(
-      playerInfo.staffEmail,
+      effectiveTargetCity,
       playerInfo.userName,
       playerInfo.userEmail,
       dossierRef,
       content,
-      playerInfo.playerCity,
       fileUrl
     );
 
@@ -412,8 +404,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Message envoyé avec succès",
+      message: `Message envoyé avec succès à ${effectiveTargetCity}`,
       staffNotified: emailSent,
+      targetCity: effectiveTargetCity,
     });
   } catch (error) {
     const duration = Date.now() - startTime;

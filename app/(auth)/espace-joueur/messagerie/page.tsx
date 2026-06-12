@@ -3,14 +3,13 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft } from "lucide-react";
+import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 import { createVagondysClient } from "@/lib/supabase/client";
 import {
   getPlayerConversation,
   getPlayerMessages,
   sendPlayerMessage,
-  // ✅ SUPPRESSION des types inutilisés
 } from "./actions";
 import MessageInput from "@/app/(auth)/messagerie/components/MessageInput";
 import MessageThread from "@/app/(auth)/messagerie/components/MessageThread";
@@ -36,6 +35,19 @@ interface AdaptedMessage {
   document_url?: string | null;
 }
 
+// ✅ Liste des villes disponibles pour l'envoi
+const AVAILABLE_CITIES = [
+  { code: "NANTES", name: "NANTES", country: "FR" },
+  { code: "LYON", name: "LYON", country: "FR" },
+  { code: "PARIS", name: "PARIS", country: "FR" },
+  { code: "MARSEILLE", name: "MARSEILLE", country: "FR" },
+  { code: "BORDEAUX", name: "BORDEAUX", country: "FR" },
+  { code: "LILLE", name: "LILLE", country: "FR" },
+  { code: "TOULOUSE", name: "TOULOUSE", country: "FR" },
+  { code: "MADRID", name: "MADRID", country: "ES" },
+  { code: "MASTER", name: "ADMINISTRATION CENTRALE", country: "FR" },
+];
+
 /**
  * Page Messagerie pour l'espace joueur
  * Utilise les mêmes composants que la messagerie des demandeurs
@@ -51,6 +63,10 @@ export default function EspaceJoueurMessageriePage() {
   const [messages, setMessages] = useState<AdaptedMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  
+  // ✅ État pour la ville cible (destinataire)
+  const [targetCity, setTargetCity] = useState<string>("MASTER");
+  const [showCitySelector, setShowCitySelector] = useState(false);
 
   // 1. Vérifier l'authentification et charger la conversation
   useEffect(() => {
@@ -117,18 +133,20 @@ export default function EspaceJoueurMessageriePage() {
     checkAuthAndLoad();
   }, [supabase, router]);
 
-  // 2. Envoyer un nouveau message
+  // 2. Envoyer un nouveau message vers la ville sélectionnée
   const handleSendMessage = useCallback(async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!conversation || !user) {
       throw new Error("Conversation non disponible");
     }
 
+    // ✅ Appeler sendPlayerMessage avec la ville cible
     const result = await sendPlayerMessage({
       dossierRef: conversation.dossier_ref,
       content: content,
       userId: user.id,
       userEmail: user.email,
       userName: user.name,
+      targetCity: targetCity, // ✅ Ajout de la ville cible
       fileUrl: fileUrl,
       fileKey: fileKey,
     });
@@ -155,7 +173,7 @@ export default function EspaceJoueurMessageriePage() {
       last_message: content.substring(0, 100),
       last_message_date: new Date().toISOString(),
     } : null);
-  }, [conversation, user]);
+  }, [conversation, user, targetCity]);
 
   // 3. Rafraîchir les messages
   const refreshMessages = useCallback(async () => {
@@ -179,6 +197,12 @@ export default function EspaceJoueurMessageriePage() {
       setLoadingMessages(false);
     }
   }, [conversation, user]);
+
+  // ✅ Obtenir le nom de la ville sélectionnée
+  const getSelectedCityName = () => {
+    const city = AVAILABLE_CITIES.find(c => c.code === targetCity);
+    return city?.name || "ADMINISTRATION CENTRALE";
+  };
 
   if (loading) {
     return (
@@ -249,7 +273,7 @@ export default function EspaceJoueurMessageriePage() {
 
       {conversation && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne gauche : Liste des conversations (une seule pour le joueur) */}
+          {/* Colonne gauche : Liste des conversations + sélecteur de ville */}
           <div className="lg:col-span-1 bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-zinc-900">
               <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
@@ -260,9 +284,56 @@ export default function EspaceJoueurMessageriePage() {
             <MessageList
               conversations={[conversation]}
               selectedConversation={conversation}
-              onSelectConversation={() => {}} // Une seule conversation, pas de sélection nécessaire
+              onSelectConversation={() => {}}
               loading={false}
             />
+
+            {/* ✅ Sélecteur de ville destinataire */}
+            <div className="p-4 border-t border-zinc-900 mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="w-3 h-3 text-red-600" />
+                <span className="text-[8px] font-black uppercase text-zinc-500">
+                  DESTINATAIRE
+                </span>
+              </div>
+              
+              <button
+                onClick={() => setShowCitySelector(!showCitySelector)}
+                className="w-full flex items-center justify-between bg-black border border-zinc-800 rounded-lg px-3 py-2 hover:border-red-600/50 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3 h-3 text-zinc-500" />
+                  <span className="text-[9px] font-mono text-white uppercase">
+                    {getSelectedCityName()}
+                  </span>
+                </div>
+                <span className="text-[8px] text-zinc-600">▼</span>
+              </button>
+
+              {showCitySelector && (
+                <div className="mt-2 bg-black border border-zinc-800 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+                  {AVAILABLE_CITIES.map((city) => (
+                    <button
+                      key={city.code}
+                      onClick={() => {
+                        setTargetCity(city.code);
+                        setShowCitySelector(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
+                        targetCity === city.code
+                          ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
+                          : "text-zinc-400 hover:bg-white/5"
+                      }`}
+                    >
+                      {city.name} {city.country !== "FR" && `(${city.country})`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[6px] text-zinc-700 uppercase tracking-wider mt-2 text-center">
+                Sélectionnez la ville du destinataire
+              </p>
+            </div>
           </div>
 
           {/* Colonne droite : Messages + saisie */}
@@ -280,7 +351,7 @@ export default function EspaceJoueurMessageriePage() {
               dossierRef={conversation.dossier_ref}
               onSend={handleSendMessage}
               disabled={loadingMessages}
-              placeholder="Saisissez votre message (Ctrl+Entrée pour envoyer)..."
+              placeholder={`Saisissez votre message pour ${getSelectedCityName()} (Ctrl+Entrée pour envoyer)...`}
             />
           </div>
         </div>

@@ -74,14 +74,13 @@ const STAFF_EMAILS: Record<string, string> = {
   "MASTER": "admin@vagondys.com",
 };
 
-// ✅ SUPPRESSION de ADMIN_EMAILS (inutilisé)
-
 // ==========================================================
 // FONCTIONS PRINCIPALES
 // ==========================================================
 
 /**
  * Récupère les informations du joueur depuis athletes_registry
+ * ✅ CORRECTION : Fallback sur userEmail si athletes n'existe pas
  */
 async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossier_ref: string; city: string; country: string; full_name: string } | null> {
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -119,18 +118,35 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
       return null;
     }
 
-    // Récupérer le nom depuis athletes
-    const { data: athlete } = await supabase
-      .from("athletes")
-      .select("full_name")
-      .eq("id", registry.user_id || userId)
-      .maybeSingle();
+    // Récupérer le nom depuis athletes (fallback sur userEmail si pas trouvé)
+    let fullName = "Joueur";
+    try {
+      const { data: athlete } = await supabase
+        .from("athletes")
+        .select("full_name")
+        .eq("id", registry.user_id || userId)
+        .maybeSingle();
+      
+      if (athlete?.full_name) {
+        fullName = athlete.full_name;
+      } else {
+        // Fallback: extraire le nom du joueur depuis l'email
+        const emailParts = userEmail.split('@')[0];
+        fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      }
+    } catch {
+      // ✅ CORRECTION : Suppression du paramètre inutilisé
+      console.warn("⚠️ Table athletes inaccessible, utilisation du nom par défaut");
+      // Fallback: extraire le nom du joueur depuis l'email
+      const emailParts = userEmail.split('@')[0];
+      fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
 
     return {
       dossier_ref: registry.dossier_ref,
       city: registry.city || "NANTES",
       country: registry.country || "FR",
-      full_name: athlete?.full_name || "Joueur",
+      full_name: fullName,
     };
   } catch (err) {
     console.error("Erreur getPlayerInfo:", err);
@@ -157,7 +173,6 @@ async function getAuthToken(): Promise<string | null> {
 
 /**
  * Convertit un message de l'archive GitHub en format frontend
- * Utilise un type flexible pour éviter les erreurs de typage
  */
 function convertArchiveMessageToPlayerMessage(
   msg: RawMessage,
@@ -207,15 +222,16 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
+ * ✅ CORRECTION : Gère correctement tous les messages, même non confirmés
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
   playerEmail: string
 ): PlayerMessage | null {
   const payload = signal.payload;
-  if (!payload || !payload.message) return null;
+  if (!payload) return null;
 
-  const content = payload.message;
+  const content = payload.message || "Message sans contenu";
   const createdAt = signal.created_at;
 
   // Déterminer l'expéditeur
@@ -239,7 +255,6 @@ function convertReplyToPlayerMessage(
 ): PlayerMessage | null {
   if (!reply.content) return null;
 
-  // L'expéditeur est toujours staff pour communication_replies
   return {
     id: reply.id,
     content: reply.content,
@@ -302,7 +317,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 2: pending_signals (messages client non archivés)
+    // Source 2: pending_signals (TOUS les messages client, même non confirmés)
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -311,21 +326,24 @@ export async function getPlayerConversation(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
-        // Ajouter le message principal
+        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) allMessages.push(mainMsg);
         
         // Ajouter l'historique des messages (messages_history)
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            allMessages.push({
-              id: `${signal.id}_hist_${histMsg.created_at}`,
-              content: histMsg.content,
-              created_at: histMsg.created_at,
-              sender: "player",
-              sender_name: "Moi",
-              document_url: null,
-            });
+            // Éviter les doublons avec le message principal
+            if (histMsg.content !== signal.payload.message) {
+              allMessages.push({
+                id: `${signal.id}_hist_${histMsg.created_at}`,
+                content: histMsg.content,
+                created_at: histMsg.created_at,
+                sender: "player",
+                sender_name: "Moi",
+                document_url: null,
+              });
+            }
           }
         }
       }
@@ -380,6 +398,7 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
+ * ✅ CORRECTION : Récupère TOUS les pending_signals (même non confirmés)
  */
 export async function getPlayerMessages(
   userId: string,
@@ -414,7 +433,6 @@ export async function getPlayerMessages(
     const allMessages: PlayerMessage[] = [];
     const messageKeys = new Set<string>(); // Pour dédoublonner
 
-    // Fonction pour ajouter un message sans doublon
     const addUniqueMessage = (msg: PlayerMessage) => {
       const key = `${msg.content}_${msg.created_at}`;
       if (!messageKeys.has(key)) {
@@ -443,7 +461,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 2: pending_signals (messages client non archivés)
+    // Source 2: pending_signals (TOUS les messages, même non confirmés)
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -459,14 +477,17 @@ export async function getPlayerMessages(
         // Historique des messages
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            addUniqueMessage({
-              id: `${signal.id}_hist_${histMsg.created_at}`,
-              content: histMsg.content,
-              created_at: histMsg.created_at,
-              sender: "player",
-              sender_name: "Moi",
-              document_url: null,
-            });
+            // Éviter les doublons avec le message principal
+            if (histMsg.content !== signal.payload.message) {
+              addUniqueMessage({
+                id: `${signal.id}_hist_${histMsg.created_at}`,
+                content: histMsg.content,
+                created_at: histMsg.created_at,
+                sender: "player",
+                sender_name: "Moi",
+                document_url: null,
+              });
+            }
           }
         }
       }
@@ -501,9 +522,8 @@ export async function getPlayerMessages(
 }
 
 /**
- * Envoie un message depuis le joueur vers le staff de sa ville
- * ✅ CORRECTION : Utilise la nouvelle API /api/player/message (dédiée aux joueurs)
- * au lieu de /api/send-reply (conçue pour le staff)
+ * Envoie un message depuis le joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Ajout du paramètre targetCity pour choisir le destinataire
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -511,27 +531,26 @@ export async function sendPlayerMessage(params: {
   userId: string;
   userEmail: string;
   userName: string;
+  targetCity?: string;  // ✅ NOUVEAU : ville destinataire (défaut: MASTER)
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  const { dossierRef, content, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, content length: ${content?.length || 0}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, content length: ${content?.length || 0}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
   }
 
   try {
-    // Récupérer le token d'authentification
     const token = await getAuthToken();
     if (!token) {
       console.error("❌ [sendPlayerMessage] Impossible d'obtenir le token d'authentification");
       return { success: false, error: "Session expirée, veuillez vous reconnecter" };
     }
 
-    // Appel à la nouvelle API dédiée aux joueurs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
     const response = await fetch(`${baseUrl}/api/player/message`, {
       method: "POST",
@@ -542,6 +561,7 @@ export async function sendPlayerMessage(params: {
       body: JSON.stringify({
         dossierRef,
         content,
+        targetCity: targetCity || "MASTER",  // ✅ Transmission de la ville cible
         fileUrl: fileUrl || null,
         fileKey: fileKey || null,
       }),
