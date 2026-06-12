@@ -61,6 +61,21 @@ interface CommunicationReply {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Mapping ville → email staff
+const STAFF_EMAILS: Record<string, string> = {
+  "NANTES": "nantes@vagondys.com",
+  "LYON": "lyon@vagondys.com",
+  "PARIS": "paris@vagondys.com",
+  "MARSEILLE": "marseille@vagondys.com",
+  "BORDEAUX": "bordeaux@vagondys.com",
+  "LILLE": "lille@vagondys.com",
+  "TOULOUSE": "toulouse@vagondys.com",
+  "MADRID": "madrid@vagondys.com",
+  "MASTER": "admin@vagondys.com",
+};
+
+// ✅ SUPPRESSION de ADMIN_EMAILS (inutilisé)
+
 // ==========================================================
 // FONCTIONS PRINCIPALES
 // ==========================================================
@@ -121,6 +136,23 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
     console.error("Erreur getPlayerInfo:", err);
     return null;
   }
+}
+
+/**
+ * Récupère l'email du staff responsable d'une ville
+ */
+function getStaffEmailForCity(city: string): string {
+  const upperCity = city.toUpperCase().trim();
+  return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
+}
+
+/**
+ * Récupère le token d'authentification pour appeler l'API
+ */
+async function getAuthToken(): Promise<string | null> {
+  const supabase = createClient(supabaseUrl!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
 }
 
 /**
@@ -201,7 +233,6 @@ function convertPendingSignalToPlayerMessage(
 
 /**
  * Convertit un message de communication_replies en format frontend
- * ✅ CORRECTION : Suppression du paramètre playerEmail (inutile)
  */
 function convertReplyToPlayerMessage(
   reply: CommunicationReply
@@ -221,7 +252,6 @@ function convertReplyToPlayerMessage(
 
 /**
  * Récupère la conversation du joueur (une seule, basée sur son dossier_ref)
- * ✅ CORRECTION : Lit aussi depuis pending_signals et communication_replies
  */
 export async function getPlayerConversation(
   userId: string,
@@ -320,7 +350,7 @@ export async function getPlayerConversation(
       return {
         dossier_ref: playerInfo.dossier_ref,
         participant_name: "Support VAGONDYS",
-        participant_email: "support@vagondys.com",
+        participant_email: getStaffEmailForCity(playerInfo.city),
         last_message: "Aucun message",
         last_message_date: new Date().toISOString(),
         created_at: new Date().toISOString(),
@@ -336,7 +366,7 @@ export async function getPlayerConversation(
     return {
       dossier_ref: playerInfo.dossier_ref,
       participant_name: "Support VAGONDYS",
-      participant_email: "support@vagondys.com",
+      participant_email: getStaffEmailForCity(playerInfo.city),
       last_message: latest.content.substring(0, 100),
       last_message_date: latest.created_at,
       created_at: archive?.dossier.created_at || new Date().toISOString(),
@@ -350,7 +380,6 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Lit aussi depuis pending_signals et communication_replies
  */
 export async function getPlayerMessages(
   userId: string,
@@ -472,9 +501,9 @@ export async function getPlayerMessages(
 }
 
 /**
- * Envoie un message depuis le joueur vers le staff
- * Utilise l'API /api/send-reply qui gère déjà l'archivage GitHub
- * ✅ CORRECTION : silent: false pour que le message soit bien traité
+ * Envoie un message depuis le joueur vers le staff de sa ville
+ * ✅ CORRECTION : Utilise la nouvelle API /api/player/message (dédiée aux joueurs)
+ * au lieu de /api/send-reply (conçue pour le staff)
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -486,64 +515,47 @@ export async function sendPlayerMessage(params: {
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { dossierRef, content, userId, userEmail, userName: _userName, fileUrl, fileKey } = params;
+  const { dossierRef, content, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, user: ${userEmail}, content length: ${content?.length || 0}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, content length: ${content?.length || 0}`);
 
-  if (!dossierRef || !content || !userId || !userEmail) {
+  if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
   }
 
   try {
-    // Récupérer la ville du joueur pour l'archivage
-    let playerCity = "NANTES";
-    let playerCountry = "FR";
-
-    if (supabaseUrl && supabaseServiceKey) {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-      const { data: registry } = await supabase
-        .from("athletes_registry")
-        .select("city, country")
-        .eq("dossier_ref", dossierRef)
-        .maybeSingle();
-      if (registry) {
-        playerCity = registry.city || "NANTES";
-        playerCountry = registry.country || "FR";
-      }
+    // Récupérer le token d'authentification
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("❌ [sendPlayerMessage] Impossible d'obtenir le token d'authentification");
+      return { success: false, error: "Session expirée, veuillez vous reconnecter" };
     }
 
-    // Appel à l'API send-reply (réutilise la logique existante)
+    // Appel à la nouvelle API dédiée aux joueurs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
-    const response = await fetch(`${baseUrl}/api/send-reply`, {
+    const response = await fetch(`${baseUrl}/api/player/message`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-        messageId: `player_${Date.now()}`,
-        to: "support@vagondys.com",
-        subject: "MESSAGE JOUEUR",
-        message: content,
-        agentEmail: userEmail,
-        docLink: fileUrl || null,
+        dossierRef,
+        content,
+        fileUrl: fileUrl || null,
         fileKey: fileKey || null,
-        dossierRef: dossierRef,
-        cityCode: playerCity,
-        countryCode: playerCountry,
-        silent: false, // ✅ CORRECTION : false pour que le message soit bien traité
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ [sendPlayerMessage] Erreur API: ${response.status} - ${errorText}`);
-      return { success: false, error: `Erreur API: ${response.status}` };
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      console.error(`❌ [sendPlayerMessage] Erreur API: ${response.status} - ${result.error}`);
+      return { success: false, error: result.error || `Erreur API: ${response.status}` };
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms`);
+    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès`);
 
     return { success: true };
   } catch (err) {
