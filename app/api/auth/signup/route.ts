@@ -3,8 +3,95 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendVerificationEmail } from "@/lib/email/gmail";
 import { registerAthlete } from "@/lib/supabase/master";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 // ✅ PLUS DE CRÉATION DE CLIENT DYNAMIQUE - Version Option B (un seul projet)
+
+/**
+ * Générateur de matricule 100% ALÉATOIRE
+ * Format : VGD- + 8 caractères (Mélange aléatoire Lettres/Chiffres)
+ */
+function generateVGDReference(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+  let result = "";
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `VGD-${result}`;
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Recherche un dossier_ref existant pour un email
+ * Ordre de recherche :
+ * 1. athletes_registry
+ * 2. pending_signals
+ * 3. Archive GitHub
+ * ✅ CORRECTION : Remplacé 'any' par 'SupabaseClient'
+ */
+async function findExistingDossierRef(
+  email: string,
+  supabaseAdmin: SupabaseClient,
+  siteUrl: string
+): Promise<string | null> {
+  const cleanEmail = email.toLowerCase().trim();
+  
+  console.log(`🔍 [signup] Recherche dossier_ref existant pour ${cleanEmail}`);
+
+  // 1. Recherche dans athletes_registry
+  try {
+    const { data: registry } = await supabaseAdmin
+      .from("athletes_registry")
+      .select("dossier_ref")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (registry?.dossier_ref && registry.dossier_ref !== "0") {
+      console.log(`✅ [signup] dossier_ref trouvé dans athletes_registry: ${registry.dossier_ref}`);
+      return registry.dossier_ref;
+    }
+  } catch (err) {
+    console.warn("⚠️ [signup] Erreur recherche athletes_registry:", err);
+  }
+
+  // 2. Recherche dans pending_signals
+  try {
+    const { data: pendingSignal } = await supabaseAdmin
+      .from("pending_signals")
+      .select("dossier_ref")
+      .eq("payload->>email", cleanEmail)
+      .not("dossier_ref", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingSignal?.dossier_ref && pendingSignal.dossier_ref !== "0") {
+      console.log(`✅ [signup] dossier_ref trouvé dans pending_signals: ${pendingSignal.dossier_ref}`);
+      return pendingSignal.dossier_ref;
+    }
+  } catch (err) {
+    console.warn("⚠️ [signup] Erreur recherche pending_signals:", err);
+  }
+
+  // 3. Recherche dans Archive GitHub
+  try {
+    const emailSlug = cleanEmail.replace(/[@.]/g, "_");
+    const searchUrl = `${siteUrl}/api/archive-external?search=${emailSlug}`;
+    const searchRes = await fetch(searchUrl);
+    
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.dossier_ref) {
+        console.log(`✅ [signup] dossier_ref trouvé dans GitHub: ${searchData.dossier_ref}`);
+        return searchData.dossier_ref;
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ [signup] Erreur recherche GitHub:", err);
+  }
+
+  console.log(`ℹ️ [signup] Aucun dossier_ref existant trouvé pour ${cleanEmail}`);
+  return null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +101,7 @@ export async function POST(request: Request) {
     // ✅ Récupération des variables (Version Option B - un seul projet)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
     
     // ✅ Vérification des variables
     if (!supabaseUrl || !supabaseKey) {
@@ -33,7 +121,7 @@ export async function POST(request: Request) {
       phone, 
       city, 
       country, // "FRANCE" ou "ESPAGNE"
-      dossierRef, 
+      dossierRef: providedDossierRef, 
       turnstileToken 
     } = body;
 
@@ -56,6 +144,22 @@ export async function POST(request: Request) {
     // Normalisation du code pays
     const countryCode = (country === "ESPAGNE" || country === "ES") ? "ES" : "FR";
 
+    // ✅ RECHERCHE DU DOSSIER_REF EXISTANT
+    let existingDossierRef: string | null = null;
+    
+    // Si un dossierRef a été fourni dans le body, on le vérifie d'abord
+    if (providedDossierRef && providedDossierRef !== "0") {
+      existingDossierRef = providedDossierRef;
+      console.log(`📦 [signup] dossierRef fourni dans le body: ${existingDossierRef}`);
+    } else {
+      // Recherche dans les sources existantes
+      existingDossierRef = await findExistingDossierRef(cleanEmail, supabaseAdmin, frontendUrl);
+    }
+    
+    // ✅ Déterminer le dossier_ref final (existant ou nouveau)
+    const finalDossierRef = existingDossierRef || generateVGDReference();
+    console.log(`📦 [signup] dossier_ref final: ${finalDossierRef} (${existingDossierRef ? 'RÉUTILISÉ' : 'NOUVEAU'})`);
+
     // 2. Création de l'utilisateur via ADMIN
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: cleanEmail,
@@ -66,7 +170,7 @@ export async function POST(request: Request) {
         pseudo, 
         city: cityCode,
         country: countryCode,
-        dossier_ref: dossierRef 
+        dossier_ref: finalDossierRef 
       }
     });
 
@@ -99,7 +203,7 @@ export async function POST(request: Request) {
             phone: phone || null,
             city: cityCode,
             country: countryCode, 
-            dossier_ref: dossierRef || "0",
+            dossier_ref: finalDossierRef,
             status: "INACTIF",
             rank: "RECRUE",
             points: 0,
@@ -123,7 +227,7 @@ export async function POST(request: Request) {
           if (dbError.message.includes("cache")) {
              await new Promise(resolve => setTimeout(resolve, 500));
              const { error: retryError } = await supabaseAdmin.from("athletes").insert([{
-                id: userId, full_name, pseudo, email: cleanEmail, phone, city: cityCode, country: countryCode, dossier_ref: dossierRef, status: "INACTIF",
+                id: userId, full_name, pseudo, email: cleanEmail, phone, city: cityCode, country: countryCode, dossier_ref: finalDossierRef, status: "INACTIF",
                 rank: "RECRUE", points: 0, total_matches: 0, total_score: 0, total_shots: 0, total_kills: 0, total_deaths: 0, total_assists: 0,
                 total_hits_head: 0, total_hits_body: 0, total_hits_legs: 0, current_grade_id: 1, precision_progress: 0,
                 current_cycle_shot_count: 0, current_cycle_precision: 0
@@ -138,7 +242,7 @@ export async function POST(request: Request) {
         const { error: staffError } = await supabaseAdmin
           .from("pending_signals")
           .insert([{
-            dossier_ref: dossierRef || "EN COURS...",
+            dossier_ref: finalDossierRef,
             payload: {
               name: full_name,
               pseudo: pseudo,
@@ -151,7 +255,7 @@ export async function POST(request: Request) {
             },
             confirmed: false,
             is_read: false,
-            is_new_athlete: true,
+            is_new_athlete: !existingDossierRef, // ✅ Nouveau joueur si pas de dossier existant
             created_at: new Date().toISOString(),
             city: cityCode,
             country: countryCode
@@ -193,6 +297,19 @@ export async function POST(request: Request) {
           );
         } catch (emailErr) {
           console.error("Erreur envoi email (non bloquant):", emailErr);
+        }
+
+        // ✅ MISE À JOUR DU DOSSIER_REF DANS ATHLETES_REGISTRY SI NÉCESSAIRE
+        if (existingDossierRef) {
+          // Si un dossier_ref existait, on s'assure qu'il est bien lié
+          try {
+            await supabaseAdmin
+              .from("athletes_registry")
+              .update({ dossier_ref: finalDossierRef })
+              .eq("email", cleanEmail);
+          } catch (updateErr) {
+            console.warn("⚠️ [signup] Erreur mise à jour registry:", updateErr);
+          }
         }
 
       } catch (subStepError: unknown) {
