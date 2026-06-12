@@ -5,6 +5,7 @@ import { getHistoryFromDB } from "./db-client";
 import { normalizeForPath } from "./utils";
 import { HistoryRow } from "./types";
 import { gzipSync, gunzipSync } from 'zlib';
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * Interface étendue locale pour supporter file_url/file_key
@@ -263,6 +264,64 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
 }
 
 /**
+ * ✅ NOUVELLE FONCTION : Purge les données locales après archivage réussi
+ * Supprime le signal et les réponses staff de la base Supabase
+ * pour libérer de l'espace (vision "gare de triage")
+ */
+async function purgeLocalData(ref: string, archiveCity: string): Promise<{ pending_signals: boolean; communication_replies: boolean }> {
+  const result = { pending_signals: false, communication_replies: false };
+  
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.warn(`⚠️ purgeLocalData: Impossible de purger, configuration Supabase manquante`);
+      return result;
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    
+    const cityUpper = archiveCity.toUpperCase().trim();
+    
+    // 1. Purger pending_signals
+    const { error: pendingError, count: pendingCount } = await supabaseAdmin
+      .from("pending_signals")
+      .delete()
+      .eq("dossier_ref", ref)
+      .eq("city", cityUpper);
+    
+    if (pendingError) {
+      console.error(`❌ purgeLocalData: Erreur suppression pending_signals pour ${ref}:`, pendingError);
+    } else {
+      result.pending_signals = true;
+      console.log(`✅ purgeLocalData: pending_signals supprimé pour ${ref} (${pendingCount} ligne(s))`);
+    }
+    
+    // 2. Purger communication_replies
+    const { error: repliesError, count: repliesCount } = await supabaseAdmin
+      .from("communication_replies")
+      .delete()
+      .eq("dossier_ref", ref);
+    
+    if (repliesError) {
+      console.error(`❌ purgeLocalData: Erreur suppression communication_replies pour ${ref}:`, repliesError);
+    } else {
+      result.communication_replies = true;
+      console.log(`✅ purgeLocalData: communication_replies supprimé pour ${ref} (${repliesCount} ligne(s))`);
+    }
+    
+    return result;
+    
+  } catch (err) {
+    console.error(`❌ purgeLocalData: Exception pour ${ref}:`, err);
+    return result;
+  }
+}
+
+/**
  * ARCHIVE ENGINE - Version adaptée pour l'Option B
  * Utilise désormais le registry central pour obtenir la ville/pays
  * ✅ AJOUT : Dédoublonnage des messages et compression GZIP
@@ -272,7 +331,7 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
  * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
  * ✅ AJOUT : Support de file_url et file_key dans l'archive
  * ✅ AJOUT : Support des tables de messagerie privée (pending_messagerie_requests, messagerie_accounts, etc.)
- * ✅ CORRECTION : Suppression de l'appel à purgeDossierData (fonction supprimée)
+ * ✅ NOUVELLE CORRECTION : purgeLocalData après archivage réussi si purgeActive === true
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage
@@ -522,10 +581,25 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     throw new Error(`Échec GitHub (${ghResponse.status}): ${errText}`);
   }
 
-  // ✅ Aucune purge des données locales (fonction purgeDossierData supprimée)
-  // Les données restent dans GitHub uniquement
+  // ✅ NOUVELLE CORRECTION : Purge locale APRÈS archivage réussi si demandé
+  let purgeResult = { pending_signals: false, communication_replies: false };
   
-  console.log(`✅ processArchivePost: archivage terminé avec succès pour ${ref} (aucune purge locale)`);
+  if (purgeActive === true) {
+    console.log(`🗑️ processArchivePost: Purge locale demandée pour ${ref}, suppression des données dans Supabase...`);
+    purgeResult = await purgeLocalData(ref, archiveCity);
+    console.log(`🗑️ processArchivePost: Purge terminée pour ${ref} - pending_signals: ${purgeResult.pending_signals}, communication_replies: ${purgeResult.communication_replies}`);
+  } else {
+    console.log(`📦 processArchivePost: Archivage terminé avec succès pour ${ref} (aucune purge locale)`);
+  }
 
-  return { success: true, purged: false, path, repo: targetRepo, compressed: true, originalSize, compressedSize };
+  return { 
+    success: true, 
+    purged: purgeActive === true, 
+    purgeResult,
+    path, 
+    repo: targetRepo, 
+    compressed: true, 
+    originalSize, 
+    compressedSize 
+  };
 }
