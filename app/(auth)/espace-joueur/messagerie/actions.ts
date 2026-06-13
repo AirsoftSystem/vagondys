@@ -79,44 +79,65 @@ const STAFF_EMAILS: Record<string, string> = {
 // ==========================================================
 
 /**
- * ✅ CORRECTION : Normalise une date pour un tri fiable
- * Supporte les formats :
- * - ISO: "2026-06-13T09:17:15.000Z"
- * - PostgreSQL: "2026-06-13 09:17:55"
- * - Français: "13/06/2026 09:17:55"
- * - Timestamp numérique
+ * ✅ CORRECTION CRITIQUE : Convertit une date en format ISO standard
+ * Quel que soit le format d'entrée, la sortie est TOUJOURS au format ISO
+ * Cela garantit que TOUTES les dates sont comparables.
  */
-function normalizeDate(dateStr: string): number {
-  if (!dateStr) return 0;
+function normalizeDateToISO(dateStr: string): string {
+  if (!dateStr) return new Date().toISOString();
   
   try {
     let normalized = dateStr.trim();
     
-    // Format français: "13/06/2026 09:17:55" → "2026-06-13T09:17:55"
+    // Format français: "13/06/2026 09:17:55" → "2026-06-13T09:17:55.000Z"
     const frenchMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
     if (frenchMatch) {
       const [, day, month, year, time] = frenchMatch;
       normalized = `${year}-${month}-${day}T${time}.000Z`;
+      return normalized;
     }
     
-    // Format PostgreSQL: "2026-06-13 09:17:55" → "2026-06-13T09:17:55"
+    // Format PostgreSQL: "2026-06-13 09:17:55" → "2026-06-13T09:17:55.000Z"
     const pgMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/);
     if (pgMatch) {
       const [, date, time] = pgMatch;
       normalized = `${date}T${time}.000Z`;
+      return normalized;
     }
     
-    const timestamp = new Date(normalized).getTime();
-    if (isNaN(timestamp)) {
-      console.warn(`⚠️ [normalizeDate] Date invalide: "${dateStr}" → 0`);
-      return 0;
+    // Format ISO avec T mais sans millisecondes: "2026-06-13T09:17:55" → ajouter millisecondes
+    const isoNoMsMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})$/);
+    if (isoNoMsMatch) {
+      normalized = `${isoNoMsMatch[1]}.000Z`;
+      return normalized;
     }
     
-    return timestamp;
+    // Format ISO déjà correct: "2026-06-13T09:17:55.123Z"
+    const isoMatch = normalized.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    if (isoMatch) {
+      return normalized;
+    }
+    
+    // Dernier recours: tenter de parser avec Date puis reformater en ISO
+    const timestamp = Date.parse(normalized);
+    if (!isNaN(timestamp)) {
+      return new Date(timestamp).toISOString();
+    }
+    
+    console.warn(`⚠️ [normalizeDateToISO] Format non reconnu: "${dateStr}", utilisation now`);
+    return new Date().toISOString();
   } catch (err) {
-    console.warn(`⚠️ [normalizeDate] Erreur parsing: "${dateStr}"`, err);
-    return 0;
+    console.warn(`⚠️ [normalizeDateToISO] Erreur parsing: "${dateStr}"`, err);
+    return new Date().toISOString();
   }
+}
+
+/**
+ * Normalise une date pour un tri fiable (retourne timestamp numérique)
+ */
+function normalizeDate(dateStr: string): number {
+  const isoString = normalizeDateToISO(dateStr);
+  return new Date(isoString).getTime();
 }
 
 // ==========================================================
@@ -125,7 +146,6 @@ function normalizeDate(dateStr: string): number {
 
 /**
  * Récupère les informations du joueur depuis athletes_registry
- * ✅ CORRECTION : Fallback sur userEmail si athletes n'existe pas
  */
 async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossier_ref: string; city: string; country: string; full_name: string } | null> {
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -138,14 +158,12 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
   });
 
   try {
-    // Rechercher par user_id d'abord
     let { data: registry } = await supabase
       .from("athletes_registry")
       .select("dossier_ref, city, country, user_id")
       .eq("user_id", userId)
       .maybeSingle();
 
-    // Fallback par email
     if (!registry && userEmail) {
       const { data: registryByEmail } = await supabase
         .from("athletes_registry")
@@ -163,7 +181,6 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
       return null;
     }
 
-    // Récupérer le nom depuis athletes (fallback sur userEmail si pas trouvé)
     let fullName = "Joueur";
     try {
       const { data: athlete } = await supabase
@@ -175,7 +192,6 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
       if (athlete?.full_name) {
         fullName = athlete.full_name;
       } else {
-        // Fallback: extraire le nom du joueur depuis l'email
         const emailParts = userEmail.split('@')[0];
         fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       }
@@ -216,6 +232,7 @@ async function getAuthToken(): Promise<string | null> {
 
 /**
  * Convertit un message de l'archive GitHub en format frontend
+ * ✅ CORRECTION : Normalise la date en ISO
  */
 function convertArchiveMessageToPlayerMessage(
   msg: RawMessage,
@@ -256,7 +273,7 @@ function convertArchiveMessageToPlayerMessage(
   return {
     id: (msgId as string) || `msg_${createdAt}`,
     content: content,
-    created_at: createdAt,
+    created_at: normalizeDateToISO(createdAt), // ✅ Normalisation ISO
     sender: messageSender,
     sender_name: senderName,
     document_url: documentUrl || null,
@@ -265,6 +282,7 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
+ * ✅ CORRECTION : Normalise la date en ISO
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -281,7 +299,7 @@ function convertPendingSignalToPlayerMessage(
   return {
     id: signal.id,
     content: content,
-    created_at: createdAt,
+    created_at: normalizeDateToISO(createdAt), // ✅ Normalisation ISO
     sender: isPlayer ? "player" : "staff",
     sender_name: isPlayer ? "Moi" : (payload.name || "Staff VAGONDYS"),
     document_url: null,
@@ -290,6 +308,7 @@ function convertPendingSignalToPlayerMessage(
 
 /**
  * Convertit un message de communication_replies en format frontend
+ * ✅ CORRECTION : Normalise la date en ISO
  */
 function convertReplyToPlayerMessage(
   reply: CommunicationReply
@@ -299,7 +318,7 @@ function convertReplyToPlayerMessage(
   return {
     id: reply.id,
     content: reply.content,
-    created_at: reply.created_at,
+    created_at: normalizeDateToISO(reply.created_at), // ✅ Normalisation ISO
     sender: "staff",
     sender_name: reply.agent_email?.split("@")[0] || "Staff VAGONDYS",
     document_url: reply.document_url || null,
@@ -374,7 +393,7 @@ export async function getPlayerConversation(
               allMessages.push({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: histMsg.created_at,
+                created_at: normalizeDateToISO(histMsg.created_at), // ✅ Normalisation ISO
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -410,7 +429,7 @@ export async function getPlayerConversation(
       };
     }
 
-    // ✅ Tri décroissant avec normalizeDate améliorée
+    // ✅ Tri décroissant
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
     const latest = allMessages[0];
 
@@ -434,7 +453,6 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Tri décroissant robuste avec normalizeDate améliorée
  */
 export async function getPlayerMessages(
   userId: string,
@@ -513,7 +531,7 @@ export async function getPlayerMessages(
               addUniqueMessage({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: histMsg.created_at,
+                created_at: normalizeDateToISO(histMsg.created_at), // ✅ Normalisation ISO
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -538,7 +556,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // ✅ Tri décroissant avec normalizeDate améliorée
+    // ✅ Tri décroissant
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
 
     const duration = Date.now() - startTime;

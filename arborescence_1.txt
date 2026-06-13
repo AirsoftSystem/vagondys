@@ -2046,3 +2046,33 @@ MESSAGE INITIAL
 1 Player > Staff "Nantes"
 ---
 */
+Mais analyse bien ce qu'il y a dans :
+/*
+Fil de discussion du "messagerie > espace-joueur" donc faux décroissant :
+---
+Moi
+•
+13/06/2026 09:17:05
+DEMANDE d'ACTIVATION POUR : Airsoft System Admin (NANTES - FR).
+---
+nantes
+•
+13/06/2026 09:11:37
+2 Staff "Nantes" > Player
+---
+nantes
+•
+13/06/2026 09:00:53
+1 Staff "Nantes" > Player
+---
+Moi
+•
+13/06/2026 08:59:06
+1 Player > Staff "Nantes"
+---
+Moi
+•
+13/06/2026 08:58:56
+2 Player > Staff "Nantes"
+---
+*/
