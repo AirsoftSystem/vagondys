@@ -26,6 +26,8 @@ import Link from "next/link";
  * PAGE INSCRIPTION - VAGONDYS
  * Version "City-Aware" : Identifie la ville et communique avec le Master/GitHub spécifique.
  * ✅ AJOUT : Géolocalisation par IP pour pré-remplir la ville la plus proche
+ * ✅ CORRECTION : URL de recherche GitHub corrigée (/find-by-email)
+ * ✅ CORRECTION : Suppression des variables inutilisées cityCode/countryCode (ESLint)
  */
 
 type TurnstileOptions = {
@@ -150,24 +152,21 @@ export default function InscriptionJoueurPage() {
         setIsChecking(true);
         try {
           const emailSlug = formData.email.toLowerCase().trim().replace('@', '_');
-          const cityCode = formData.city.toUpperCase();
-          const countryCode = formData.country_select.toUpperCase();
           
-          const res = await fetch(`/api/archive-external?search=${emailSlug}&city_code=${cityCode}&country_code=${countryCode}`);
+          // ✅ CORRECTION : URL corrigée vers /find-by-email
+          // ✅ CORRECTION : Suppression des variables inutilisées cityCode/countryCode
+          const res = await fetch(`/api/archive-external/find-by-email?search=${emailSlug}`);
           
           if (res.ok) {
-            const text = await res.text();
-            if (text) {
-              const data = JSON.parse(text);
-              if (data && data.ref) {
-                setDossierRef(data.ref);
-              } else {
-                setDossierRef("0");
-              }
+            const data = await res.json();
+            if (data && data.dossier_ref) {
+              setDossierRef(data.dossier_ref);
+              console.log(`✅ Dossier existant trouvé: ${data.dossier_ref}`);
             } else {
               setDossierRef("0");
             }
           } else {
+            console.warn(`⚠️ Recherche GitHub échouée: ${res.status}`);
             setDossierRef("0");
           }
         } catch (err) {

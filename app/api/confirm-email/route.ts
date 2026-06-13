@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWelcomeAthleteEmail, sendStaffNotificationEmail } from "@/lib/email/gmail";
 import { getAthleteCity, getAthleteCountry, consumeEmailToken, syncAthleteReference, masterAdmin } from "@/lib/supabase/master";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Route GET /api/confirm-email?token=...
@@ -37,6 +38,78 @@ function generateVGDReference(): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `VGD-${result}`;
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Recherche un dossier_ref existant pour un email
+ * Ordre de recherche :
+ * 1. athletes_registry
+ * 2. pending_signals
+ * 3. Archive GitHub
+ */
+async function findExistingDossierRef(
+  email: string,
+  supabaseAdmin: SupabaseClient,
+  siteUrl: string
+): Promise<string | null> {
+  const cleanEmail = email.toLowerCase().trim();
+  
+  console.log(`🔍 [confirm-email] Recherche dossier_ref existant pour ${cleanEmail}`);
+
+  // 1. Recherche dans athletes_registry
+  try {
+    const { data: registry } = await supabaseAdmin
+      .from("athletes_registry")
+      .select("dossier_ref")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (registry?.dossier_ref && registry.dossier_ref !== "0") {
+      console.log(`✅ [confirm-email] dossier_ref trouvé dans athletes_registry: ${registry.dossier_ref}`);
+      return registry.dossier_ref;
+    }
+  } catch (err) {
+    console.warn("⚠️ [confirm-email] Erreur recherche athletes_registry:", err);
+  }
+
+  // 2. Recherche dans pending_signals
+  try {
+    const { data: pendingSignal } = await supabaseAdmin
+      .from("pending_signals")
+      .select("dossier_ref")
+      .eq("payload->>email", cleanEmail)
+      .not("dossier_ref", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingSignal?.dossier_ref && pendingSignal.dossier_ref !== "0") {
+      console.log(`✅ [confirm-email] dossier_ref trouvé dans pending_signals: ${pendingSignal.dossier_ref}`);
+      return pendingSignal.dossier_ref;
+    }
+  } catch (err) {
+    console.warn("⚠️ [confirm-email] Erreur recherche pending_signals:", err);
+  }
+
+  // 3. Recherche dans Archive GitHub
+  try {
+    const emailSlug = cleanEmail.replace(/[@.]/g, "_");
+    const searchUrl = `${siteUrl}/api/archive-external?search=${emailSlug}`;
+    const searchRes = await fetch(searchUrl);
+    
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.dossier_ref) {
+        console.log(`✅ [confirm-email] dossier_ref trouvé dans GitHub: ${searchData.dossier_ref}`);
+        return searchData.dossier_ref;
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ [confirm-email] Erreur recherche GitHub:", err);
+  }
+
+  console.log(`ℹ️ [confirm-email] Aucun dossier_ref existant trouvé pour ${cleanEmail}`);
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -128,23 +201,36 @@ export async function GET(request: NextRequest) {
     const userId = record.user_id;
     if (userId) {
       
-      // --- GÉNÉRATION DE MATRICULE UNIQUE AVEC VÉRIFICATION DB ---
+      // ✅ RECHERCHE DU DOSSIER_REF EXISTANT AVANT D'EN GÉNÉRER UN NOUVEAU
+      // ✅ CORRECTION : utilisation de 'const' car jamais réassigné
+      const existingDossierRef = await findExistingDossierRef(userEmail, supabaseAdmin, frontendUrl);
+      
+      // ✅ GÉNÉRATION DE MATRICULE UNIQUE AVEC VÉRIFICATION DB (seulement si pas d'existant)
       let newDossierRef = "";
       let isRefUnique = false;
       let attempts = 0;
 
-      while (!isRefUnique && attempts < 5) {
-        newDossierRef = generateVGDReference();
-        const { data: existingRef } = await supabaseAdmin
-          .from("athletes")
-          .select("dossier_ref")
-          .eq("dossier_ref", newDossierRef)
-          .maybeSingle();
-        
-        if (!existingRef) {
-          isRefUnique = true;
+      if (existingDossierRef) {
+        // ✅ On réutilise le dossier_ref existant
+        newDossierRef = existingDossierRef;
+        isRefUnique = true;
+        console.log(`📦 [confirm-email] RÉUTILISATION du dossier_ref existant: ${newDossierRef}`);
+      } else {
+        // ✅ Génération d'un nouveau dossier_ref
+        while (!isRefUnique && attempts < 5) {
+          newDossierRef = generateVGDReference();
+          const { data: existingRef } = await supabaseAdmin
+            .from("athletes")
+            .select("dossier_ref")
+            .eq("dossier_ref", newDossierRef)
+            .maybeSingle();
+          
+          if (!existingRef) {
+            isRefUnique = true;
+          }
+          attempts++;
         }
-        attempts++;
+        console.log(`📦 [confirm-email] NOUVEAU dossier_ref généré: ${newDossierRef}`);
       }
 
       // Récupération sécurisée des infos de l'athlète
@@ -244,7 +330,7 @@ export async function GET(request: NextRequest) {
               confirmed: true, 
               dossier_ref: newDossierRef,
               is_read: false,
-              is_new_athlete: true 
+              is_new_athlete: !existingDossierRef // ✅ false si dossier existant, true si nouveau
             })
             .eq("id", pendingSignal.id);
         }
@@ -256,11 +342,13 @@ export async function GET(request: NextRequest) {
           email_confirm: true,
           user_metadata: { 
             city: stationCityCode,
-            country: stationCountryCode 
+            country: stationCountryCode,
+            dossier_ref: newDossierRef // ✅ Ajout du dossier_ref dans metadata
           },
           app_metadata: { 
             city: stationCityCode,
-            country: stationCountryCode
+            country: stationCountryCode,
+            dossier_ref: newDossierRef // ✅ Ajout du dossier_ref dans app_metadata
           }
         });
       } catch (authErr) {

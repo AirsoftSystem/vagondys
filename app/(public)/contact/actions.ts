@@ -119,25 +119,36 @@ export async function submitContact(formData: FormData) {
         
         if (existingSignal?.dossier_ref) {
           existingDossierRef = existingSignal.dossier_ref;
+          console.log(`✅ submitContact: dossier_ref trouvé dans pending_signals: ${existingDossierRef}`);
         }
       } catch {
         // Ignoré
       }
     }
     
-    // 3. RECHERCHE DANS GITHUB
+    // 3. RECHERCHE DANS GITHUB (CORRECTION : URL correcte)
     if (!existingDossierRef) {
       try {
-        const searchUrl = `${siteUrl}/api/archive-external?search=${email.toLowerCase().replace(/[@.]/g, '_')}&city_code=${targetCity}&country_code=${targetCountry}`;
+        // ✅ CORRECTION : Utiliser /find-by-email au lieu de la route principale
+        const emailSlug = email.toLowerCase().replace(/[@.]/g, '_');
+        const searchUrl = `${siteUrl}/api/archive-external/find-by-email?search=${emailSlug}`;
+        
+        console.log(`🔍 submitContact: recherche GitHub pour ${email} via ${searchUrl}`);
+        
         const searchRes = await fetch(searchUrl);
         if (searchRes.ok) {
           const searchData = await searchRes.json();
           if (searchData.dossier_ref) {
             existingDossierRef = searchData.dossier_ref;
+            console.log(`✅ submitContact: dossier_ref trouvé dans GitHub: ${existingDossierRef}`);
+          } else {
+            console.log(`ℹ️ submitContact: aucun dossier_ref trouvé dans GitHub pour ${email}`);
           }
+        } else {
+          console.warn(`⚠️ submitContact: échec recherche GitHub (status ${searchRes.status})`);
         }
-      } catch {
-        // Ignoré
+      } catch (githubErr) {
+        console.error(`❌ submitContact: exception recherche GitHub:`, githubErr);
       }
     }
 
@@ -146,6 +157,7 @@ export async function submitContact(formData: FormData) {
     
     if (existingDossierRef) {
       dossier_ref = existingDossierRef;
+      console.log(`📦 submitContact: RÉUTILISATION du dossier_ref existant: ${dossier_ref}`);
     } else {
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
       const generateSegment = (length: number) => {
@@ -157,6 +169,7 @@ export async function submitContact(formData: FormData) {
       };
       dossier_ref = `VGD-${generateSegment(4)}${generateSegment(4)}`;
       isNewDossier = true;
+      console.log(`📦 submitContact: NOUVEAU dossier_ref généré: ${dossier_ref}`);
     }
 
     let insertData;

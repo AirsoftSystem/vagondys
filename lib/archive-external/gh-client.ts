@@ -1,5 +1,6 @@
 
 import { GitHubFile } from "./types";
+import { gunzipSync } from 'zlib';
 
 // Propriétaire par défaut mis à jour selon .env.local (MASTER)
 const DEFAULT_OWNER = "vagondys";
@@ -46,6 +47,96 @@ function cleanFilenameForSearch(filename: string, removeExtension: boolean = tru
     result = result.replace(/\.json(\.gz)?$/, '');
   }
   return result.toLowerCase().replace(/-/g, "");
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Vérifie si un fichier d'archive contient un email spécifique
+ * @param fileUrl - URL de téléchargement du fichier
+ * @param email - Email à rechercher
+ * @returns true si l'email est trouvé dans le contenu du fichier
+ */
+async function searchInFileContent(fileUrl: string, email: string): Promise<boolean> {
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) return false;
+    
+    let content: string;
+    const fileName = fileUrl.split('/').pop() || '';
+    
+    // Gestion des fichiers compressés
+    if (fileName.endsWith('.gz')) {
+      const arrayBuffer = await response.arrayBuffer();
+      const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+      content = decompressed.toString('utf8');
+    } else {
+      content = await response.text();
+    }
+    
+    // Recherche de l'email dans le contenu
+    const emailClean = email.toLowerCase();
+    const contentLower = content.toLowerCase();
+    
+    // Vérifier plusieurs patterns possibles
+    const patterns = [
+      `"email":"${emailClean}"`,
+      `"email": "${emailClean}"`,
+      `"client_identity":{"email":"${emailClean}"`,
+      emailClean
+    ];
+    
+    return patterns.some(pattern => contentLower.includes(pattern));
+  } catch (err) {
+    console.warn(`⚠️ searchInFileContent: erreur lecture ${fileUrl}:`, err);
+    return false;
+  }
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Recherche des fichiers d'archive par email
+ * Parcourt récursivement toutes les archives pour trouver celles qui contiennent l'email
+ * @param email - Email à rechercher
+ * @param token - Token GitHub
+ * @param repoName - Nom du repository
+ * @param path - Chemin de départ (par défaut "archives")
+ * @returns Liste des fichiers trouvés contenant l'email
+ */
+export async function findFileByEmail(
+  email: string,
+  token: string,
+  repoName: string,
+  path: string = "archives"
+): Promise<GitHubFile[]> {
+  const cleanEmail = email.toLowerCase().trim();
+  console.log(`🔍 findFileByEmail: recherche de ${cleanEmail} dans ${repoName}/${path}`);
+  
+  const matchingFiles: GitHubFile[] = [];
+  
+  // Récupérer tous les fichiers d'archive récursivement
+  const allFiles = await listAllArchiveFiles(token, repoName, path);
+  
+  if (allFiles.length === 0) {
+    console.log(`ℹ️ findFileByEmail: aucun fichier trouvé dans ${path}`);
+    return [];
+  }
+  
+  console.log(`📦 findFileByEmail: ${allFiles.length} fichiers à analyser`);
+  
+  // Parcourir chaque fichier pour vérifier s'il contient l'email
+  for (const file of allFiles) {
+    try {
+      const containsEmail = await searchInFileContent(file.download_url, cleanEmail);
+      if (containsEmail) {
+        matchingFiles.push(file);
+        console.log(`✅ findFileByEmail: email trouvé dans ${file.path}`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ findFileByEmail: erreur analyse ${file.path}:`, err);
+      continue;
+    }
+  }
+  
+  console.log(`📊 findFileByEmail: ${matchingFiles.length} fichier(s) contenant ${cleanEmail}`);
+  return matchingFiles;
 }
 
 /**

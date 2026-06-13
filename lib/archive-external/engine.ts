@@ -1,6 +1,6 @@
 
 import { getAthleteCity, getAthleteCountry } from "@/lib/supabase/master";
-import { findFileInRepo, upsertFile, deleteFile } from "./gh-client";
+import { findFileInRepo, upsertFile, deleteFile, findFileByEmail } from "./gh-client";
 import { getHistoryFromDB } from "./db-client";
 import { normalizeForPath } from "./utils";
 import { HistoryRow } from "./types";
@@ -131,6 +131,80 @@ async function fetchExistingArchive(
     console.warn(`⚠️ fetchExistingArchive: impossible de récupérer l'archive pour ${ref}:`, err);
     return null;
   }
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Recherche un dossier_ref par email dans les archives GitHub
+ * @param email - Email à rechercher
+ * @param token - Token GitHub
+ * @param repo - Nom du repository
+ * @returns Le dossier_ref trouvé ou null
+ */
+export async function findDossierRefByEmail(
+  email: string,
+  token: string,
+  repo: string
+): Promise<string | null> {
+  const cleanEmail = email.toLowerCase().trim();
+  console.log(`🔍 [engine] Recherche dossier_ref par email: ${cleanEmail}`);
+  
+  try {
+    // Utiliser gh-client pour trouver les fichiers par email
+    const files = await findFileByEmail(cleanEmail, token, repo);
+    
+    if (!files || files.length === 0) {
+      console.log(`ℹ️ [engine] Aucun fichier trouvé pour ${cleanEmail}`);
+      return null;
+    }
+    
+    // Parcourir les fichiers trouvés pour extraire le dossier_ref
+    for (const file of files) {
+      try {
+        const fileRes = await fetch(file.download_url);
+        if (!fileRes.ok) continue;
+        
+        let archiveData: FullArchiveData;
+        if (file.name.endsWith('.gz')) {
+          const arrayBuffer = await fileRes.arrayBuffer();
+          const decompressed = gunzipSync(Buffer.from(arrayBuffer));
+          archiveData = JSON.parse(decompressed.toString('utf8'));
+        } else {
+          archiveData = await fileRes.json();
+        }
+        
+        // Extraire le dossier_ref de l'archive
+        const dossierRef = archiveData.reference || archiveData.dossier_complet?.dossier_ref;
+        if (dossierRef && dossierRef !== "0") {
+          console.log(`✅ [engine] dossier_ref trouvé: ${dossierRef} dans ${file.path}`);
+          return dossierRef;
+        }
+      } catch (err) {
+        console.warn(`⚠️ [engine] Erreur lecture fichier ${file.path}:`, err);
+        continue;
+      }
+    }
+    
+    return null;
+  } catch (err) {
+    console.error(`❌ [engine] Erreur recherche par email:`, err);
+    return null;
+  }
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Recherche un dossier_ref dans une archive décompressée
+ * @param archiveData - Données de l'archive déjà décompressée
+ * @returns Le dossier_ref ou null
+ */
+export function findDossierRefInArchive(archiveData: FullArchiveData): string | null {
+  if (!archiveData) return null;
+  
+  const ref = archiveData.reference || archiveData.dossier_complet?.dossier_ref;
+  if (ref && ref !== "0") {
+    return ref;
+  }
+  
+  return null;
 }
 
 /**
@@ -332,6 +406,7 @@ async function purgeLocalData(ref: string, archiveCity: string): Promise<{ pendi
  * ✅ AJOUT : Support de file_url et file_key dans l'archive
  * ✅ AJOUT : Support des tables de messagerie privée (pending_messagerie_requests, messagerie_accounts, etc.)
  * ✅ NOUVELLE CORRECTION : purgeLocalData après archivage réussi si purgeActive === true
+ * ✅ NOUVELLE CORRECTION : Export des fonctions findDossierRefByEmail et findDossierRefInArchive pour recherche par email
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
   // city_code et country_code sont extraits mais non utilisés pour l'archivage

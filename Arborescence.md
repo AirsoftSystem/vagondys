@@ -24,30 +24,33 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ espace-joueur/                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ cibles/                            ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.css                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ CibleDetail.tsx                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ CibleSimple.tsx                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.css                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FleurCibles.tsx                 ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.css         ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FleurDeCiblesWidget.tsx         ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.css  ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FlowerCibleCamembertWidget.tsx  ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.css            ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┣━ FullscreenCibles.tsx            ✅ EXISTANT
-┃  ┃  ┃  ┃   ┃  ┗━ types.tsx                       ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ ArchiveViewer.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.css              ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ GlobalProgressBar.tsx              ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ PrecisionBar.css                   ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ PrecisionBar.tsx                   ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ RankCard.tsx                       ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ ScoreChart.css                     ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ ScoreChart.tsx                     ✅ EXISTANT
-┃  ┃  ┃  ┃   ┣━ StatsCard.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃   ┗━ TournamentHistory.tsx              ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ cibles/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ CibleDetail.css                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ CibleDetail.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ CibleSimple.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FleurCibles.css                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FleurCibles.tsx                  ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FleurDeCiblesWidget.css          ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FleurDeCiblesWidget.tsx          ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FlowerCibleCamembertWidget.css   ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FlowerCibleCamembertWidget.tsx   ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FullscreenCibles.css             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┣━ FullscreenCibles.tsx             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┃  ┗━ types.tsx                        ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ ArchiveViewer.tsx                   ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GlobalProgressBar.css               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GlobalProgressBar.css               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ GlobalProgressBar.tsx               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ PrecisionBar.css                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ PrecisionBar.tsx                    ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ RankCard.tsx                        ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ ScoreChart.css                      ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ ScoreChart.tsx                      ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ StatsCard.tsx                       ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ TournamentHistory.tsx               ✅ EXISTANT
+┃  ┃  ┃  ┣━ messagerie/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ actions.tsx                         ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┃   ┗━ index.ts                           ✅ EXISTANT
 ┃  ┃  ┃  ┣━ utils/                                 ✅ EXISTANT
@@ -100,6 +103,7 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ connexion/                             ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ inscription/                           ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ actions.tsx                         ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ set-password/                          ✅ EXISTANT
 ┃  ┃  ┃     ┗━ page.tsx                            ✅ EXISTANT
@@ -117,6 +121,8 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ stats/                                 ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
+┃  ┃  ┃  ┣━ find-by-email/                         ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ restore/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
@@ -159,6 +165,8 @@ VAGONDYS/
 ┃  ┃  ┣━ player/                                   ✅ EXISTANT
 ┃  ┃  ┃  ┣━ matches/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┣━ message/                               ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ profile/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ token/                                 ✅ EXISTANT
@@ -166,8 +174,6 @@ VAGONDYS/
 ┃  ┃  ┣━ rankings/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┗━ global/                                ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
-┃  ┃  ┣━ record-match/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ scan-document/                            ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ send-reply/                               ✅ EXISTANT
@@ -297,6 +303,7 @@ VAGONDYS/
 ┃  ┃  ┣━ client.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ player.ts                                 ✅ EXISTANT
 ┃  ┃  ┣━ ranking.ts                                ✅ EXISTANT
+┃  ┃  ┣━ request.ts                                ✅ EXISTANT
 ┃  ┃  ┗━ tournament.ts                             ✅ EXISTANT
 ┃  ┣━ hooks/                                       ✅ EXISTANT
 ┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT

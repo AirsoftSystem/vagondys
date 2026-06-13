@@ -17,8 +17,9 @@ interface MessageThreadProps {
 }
 
 /**
- * Composant d’affichage du fil de discussion
- * Messages client à droite, staff à gauche
+ * Composant d'affichage du fil de discussion
+ * ✅ CORRECTION : Messages client (envoyés) à droite en GRIS
+ * ✅ CORRECTION : Messages staff (reçus) à gauche en ROUGE
  */
 export default function MessageThread({
   conversation,
@@ -88,6 +89,9 @@ export default function MessageThread({
             const isUser = msg.sender === "user";
             const isStaff = msg.sender === "staff";
             
+            // ✅ CORRECTION DES COULEURS :
+            // - Envoyé (user) = GRIS (bg-zinc-900)
+            // - Reçu (staff) = ROUGE (bg-red-600/20)
             return (
               <div
                 key={msg.id || idx}
@@ -96,9 +100,9 @@ export default function MessageThread({
                 <div
                   className={`max-w-[80%] rounded-2xl p-3 ${
                     isUser
-                      ? "bg-red-600/20 border border-red-600/30"
+                      ? "bg-zinc-900 border border-zinc-800" // ✅ GRIS pour messages envoyés
                       : isStaff
-                      ? "bg-zinc-900 border border-zinc-800"
+                      ? "bg-red-600/20 border border-red-600/30" // ✅ ROUGE pour messages reçus
                       : "bg-zinc-800/50 border border-zinc-700 italic"
                   }`}
                 >
