@@ -57,6 +57,7 @@ const AVAILABLE_CITIES = [
  * ✅ AJOUT : Classement alphabétique des villes (sauf SUPER ADMIN en premier)
  * ✅ AJOUT : Suppression des suffixes pays inutiles
  * ✅ CORRECTION : Accessibilité du bouton X (title + aria-label)
+ * ✅ CORRECTION : Tri explicite des messages (décroissant)
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -75,6 +76,16 @@ export default function EspaceJoueurMessageriePage() {
   
   // ✅ État pour la barre de recherche
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ✅ Fonction pour normaliser une date (fallback pour tri fiable)
+  const normalizeDate = (dateStr: string): number => {
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? 0 : date.getTime();
+    } catch {
+      return 0;
+    }
+  };
 
   // ✅ Fonction pour obtenir les villes filtrées et triées
   const getSortedAndFilteredCities = useMemo(() => {
@@ -140,7 +151,12 @@ export default function EspaceJoueurMessageriePage() {
           document_url: msg.document_url,
         }));
 
-        setMessages(adaptedMessages);
+        // ✅ CORRECTION : Tri explicite des messages (décroissant = plus récent en premier)
+        const sortedMessages = [...adaptedMessages].sort((a, b) => 
+          normalizeDate(b.created_at) - normalizeDate(a.created_at)
+        );
+        
+        setMessages(sortedMessages);
         setLoadingMessages(false);
       } catch (err) {
         console.error("Erreur chargement messagerie:", err);
@@ -185,7 +201,12 @@ export default function EspaceJoueurMessageriePage() {
       sender_name: msg.sender_name,
       document_url: msg.document_url,
     }));
-    setMessages(adaptedMessages);
+
+    // ✅ CORRECTION : Tri explicite après envoi
+    const sortedMessages = [...adaptedMessages].sort((a, b) => 
+      normalizeDate(b.created_at) - normalizeDate(a.created_at)
+    );
+    setMessages(sortedMessages);
 
     // Mettre à jour le dernier message dans la conversation
     setConversation((prev) => prev ? {
@@ -210,7 +231,12 @@ export default function EspaceJoueurMessageriePage() {
         sender_name: msg.sender_name,
         document_url: msg.document_url,
       }));
-      setMessages(adaptedMessages);
+
+      // ✅ CORRECTION : Tri explicite après rafraîchissement
+      const sortedMessages = [...adaptedMessages].sort((a, b) => 
+        normalizeDate(b.created_at) - normalizeDate(a.created_at)
+      );
+      setMessages(sortedMessages);
     } catch (err) {
       console.error("Erreur rafraîchissement:", err);
     } finally {
