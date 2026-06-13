@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe } from "lucide-react";
+import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe, Search, X } from "lucide-react";
 import Link from "next/link";
 import { createVagondysClient } from "@/lib/supabase/client";
 import {
@@ -35,23 +35,28 @@ interface AdaptedMessage {
   document_url?: string | null;
 }
 
-// ✅ Liste des villes disponibles pour l'envoi
+// ✅ Liste des villes disponibles pour l'envoi (classée par ordre alphabétique)
+// "MASTER" (SUPER ADMIN) est en premier
 const AVAILABLE_CITIES = [
-  { code: "NANTES", name: "NANTES", country: "FR" },
-  { code: "LYON", name: "LYON", country: "FR" },
-  { code: "PARIS", name: "PARIS", country: "FR" },
-  { code: "MARSEILLE", name: "MARSEILLE", country: "FR" },
+  { code: "MASTER", name: "SUPER ADMIN", country: "FR" },
   { code: "BORDEAUX", name: "BORDEAUX", country: "FR" },
   { code: "LILLE", name: "LILLE", country: "FR" },
-  { code: "TOULOUSE", name: "TOULOUSE", country: "FR" },
+  { code: "LYON", name: "LYON", country: "FR" },
   { code: "MADRID", name: "MADRID", country: "ES" },
-  { code: "MASTER", name: "ADMINISTRATION CENTRALE", country: "FR" },
+  { code: "MARSEILLE", name: "MARSEILLE", country: "FR" },
+  { code: "NANTES", name: "NANTES", country: "FR" },
+  { code: "PARIS", name: "PARIS", country: "FR" },
+  { code: "TOULOUSE", name: "TOULOUSE", country: "FR" },
 ];
 
 /**
  * Page Messagerie pour l'espace joueur
  * Utilise les mêmes composants que la messagerie des demandeurs
  * mais avec des actions spécifiques lisant depuis l'archive GitHub
+ * ✅ AJOUT : Barre de recherche pour filtrer les villes destinataires
+ * ✅ AJOUT : Classement alphabétique des villes (sauf SUPER ADMIN en premier)
+ * ✅ AJOUT : Suppression des suffixes pays inutiles
+ * ✅ CORRECTION : Accessibilité du bouton X (title + aria-label)
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -67,6 +72,21 @@ export default function EspaceJoueurMessageriePage() {
   // ✅ État pour la ville cible (destinataire)
   const [targetCity, setTargetCity] = useState<string>("MASTER");
   const [showCitySelector, setShowCitySelector] = useState(false);
+  
+  // ✅ État pour la barre de recherche
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // ✅ Fonction pour obtenir les villes filtrées et triées
+  const getSortedAndFilteredCities = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return AVAILABLE_CITIES;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return AVAILABLE_CITIES.filter(city => 
+      city.name.toLowerCase().includes(query) || 
+      city.code.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
 
   // 1. Vérifier l'authentification et charger la conversation
   useEffect(() => {
@@ -201,7 +221,7 @@ export default function EspaceJoueurMessageriePage() {
   // ✅ Obtenir le nom de la ville sélectionnée
   const getSelectedCityName = () => {
     const city = AVAILABLE_CITIES.find(c => c.code === targetCity);
-    return city?.name || "ADMINISTRATION CENTRALE";
+    return city?.name || "SUPER ADMIN";
   };
 
   if (loading) {
@@ -288,7 +308,7 @@ export default function EspaceJoueurMessageriePage() {
               loading={false}
             />
 
-            {/* ✅ Sélecteur de ville destinataire */}
+            {/* ✅ Sélecteur de ville destinataire avec barre de recherche */}
             <div className="p-4 border-t border-zinc-900 mt-4">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-3 h-3 text-red-600" />
@@ -298,7 +318,10 @@ export default function EspaceJoueurMessageriePage() {
               </div>
               
               <button
-                onClick={() => setShowCitySelector(!showCitySelector)}
+                onClick={() => {
+                  setShowCitySelector(!showCitySelector);
+                  setSearchQuery(""); // Reset search when opening
+                }}
                 className="w-full flex items-center justify-between bg-black border border-zinc-800 rounded-lg px-3 py-2 hover:border-red-600/50 transition-all"
               >
                 <div className="flex items-center gap-2">
@@ -311,27 +334,64 @@ export default function EspaceJoueurMessageriePage() {
               </button>
 
               {showCitySelector && (
-                <div className="mt-2 bg-black border border-zinc-800 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
-                  {AVAILABLE_CITIES.map((city) => (
-                    <button
-                      key={city.code}
-                      onClick={() => {
-                        setTargetCity(city.code);
-                        setShowCitySelector(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
-                        targetCity === city.code
-                          ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
-                          : "text-zinc-400 hover:bg-white/5"
-                      }`}
-                    >
-                      {city.name} {city.country !== "FR" && `(${city.country})`}
-                    </button>
-                  ))}
+                <div className="mt-2 bg-black border border-zinc-800 rounded-lg overflow-hidden">
+                  {/* ✅ Barre de recherche */}
+                  <div className="p-2 border-b border-zinc-800">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher une ville..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg py-1.5 pl-8 pr-7 text-[9px] text-white placeholder:text-zinc-600 focus:border-red-600 outline-none transition-colors"
+                        autoFocus
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          title="Effacer la recherche"
+                          aria-label="Effacer la recherche"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-white transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* ✅ Liste des villes filtrées */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {getSortedAndFilteredCities.length === 0 ? (
+                      <div className="px-3 py-4 text-center">
+                        <p className="text-[8px] text-zinc-600 uppercase tracking-wider">
+                          Aucune ville trouvée
+                        </p>
+                      </div>
+                    ) : (
+                      getSortedAndFilteredCities.map((city) => (
+                        <button
+                          key={city.code}
+                          onClick={() => {
+                            setTargetCity(city.code);
+                            setShowCitySelector(false);
+                            setSearchQuery("");
+                          }}
+                          className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
+                            targetCity === city.code
+                              ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
+                              : "text-zinc-400 hover:bg-white/5"
+                          }`}
+                        >
+                          {city.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
               <p className="text-[6px] text-zinc-700 uppercase tracking-wider mt-2 text-center">
-                Sélectionnez la ville du destinataire
+                Recherchez et sélectionnez la ville du destinataire
               </p>
             </div>
           </div>

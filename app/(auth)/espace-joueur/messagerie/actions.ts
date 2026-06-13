@@ -75,6 +75,28 @@ const STAFF_EMAILS: Record<string, string> = {
 };
 
 // ==========================================================
+// FONCTIONS UTILITAIRES
+// ==========================================================
+
+/**
+ * ✅ NOUVELLE FONCTION : Normalise une date pour un tri fiable
+ * Gère les différents formats de date (ISO, timestamp, etc.)
+ */
+function normalizeDate(dateStr: string): number {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      console.warn(`⚠️ Date invalide: ${dateStr}, utilisation de 0`);
+      return 0;
+    }
+    return date.getTime();
+  } catch {
+    console.warn(`⚠️ Erreur parsing date: ${dateStr}, utilisation de 0`);
+    return 0;
+  }
+}
+
+// ==========================================================
 // FONCTIONS PRINCIPALES
 // ==========================================================
 
@@ -375,7 +397,8 @@ export async function getPlayerConversation(
       };
     }
 
-    allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // ✅ Tri décroissant pour getPlayerConversation (déjà correct)
+    allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
     const latest = allMessages[0];
 
     const duration = Date.now() - startTime;
@@ -399,6 +422,7 @@ export async function getPlayerConversation(
 /**
  * Récupère tous les messages du joueur
  * ✅ CORRECTION : Récupère TOUS les pending_signals (même non confirmés)
+ * ✅ CORRECTION : Tri décroissant (du plus récent au plus ancien)
  */
 export async function getPlayerMessages(
   userId: string,
@@ -507,11 +531,12 @@ export async function getPlayerMessages(
       }
     }
 
-    // 3. Trier par date croissante (du plus ancien au plus récent)
-    allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    // ✅ CORRECTION : Tri décroissant (du plus récent au plus ancien)
+    // Utilisation de normalizeDate pour gérer les différents formats de date
+    allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms`);
+    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms (tri décroissant)`);
 
     return allMessages;
   } catch (err) {
