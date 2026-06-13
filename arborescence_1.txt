@@ -2015,3 +2015,34 @@ VAGONDYS/
 ┗━ test_pca.py                                     ✅ EXISTANT
 */
 
+
+
+/*
+Fil de discussion du "Staff > Nantes" décroissant :
+---
+Message Client
+CLIENT
+13/06/2026 09:17:15
+FÉLICITATIONS : COMPTE ACTIF POUR LA STATION NANTES. BIENVENUE.
+---
+Agent: nantes@vagondys.com
+STAFF
+13/06/2026 09:11:37
+2 Staff "Nantes" > Player
+---
+Message Client
+CLIENT
+13/06/2026 09:09:07
+2 Player > Staff "Nantes"
+---
+Agent: nantes@vagondys.com
+STAFF
+13/06/2026 09:00:53
+1 Staff "Nantes" > Player
+---
+Message initial
+MESSAGE INITIAL
+13/06/2026 08:59:06
+1 Player > Staff "Nantes"
+---
+*/

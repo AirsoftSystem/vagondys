@@ -57,14 +57,13 @@ const SORTED_CITIES = [...AVAILABLE_CITIES].sort((a, b) => {
 
 /**
  * Page Messagerie pour l'espace joueur
- * Utilise les mêmes composants que la messagerie des demandeurs
- * mais avec des actions spécifiques lisant depuis l'archive GitHub
  * ✅ AJOUT : Barre de recherche pour filtrer les villes destinataires
  * ✅ AJOUT : Classement alphabétique des villes (sauf SUPER ADMIN en premier)
  * ✅ AJOUT : Suppression des suffixes pays inutiles
  * ✅ CORRECTION : Accessibilité du bouton X (title + aria-label)
  * ✅ CORRECTION : Tri explicite des messages (décroissant)
  * ✅ CORRECTION : Regroupement des villes par pays (MASTER → FRANCE → ESPAGNE)
+ * ✅ CORRECTION : normalizeDate() robuste supportant tous les formats de date
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -84,12 +83,43 @@ export default function EspaceJoueurMessageriePage() {
   // ✅ État pour la barre de recherche
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ✅ Fonction pour normaliser une date (fallback pour tri fiable)
+  /**
+   * ✅ CORRECTION : Normalise une date pour un tri fiable
+   * Supporte les formats :
+   * - ISO: "2026-06-13T09:17:15.000Z"
+   * - PostgreSQL: "2026-06-13 09:17:55"
+   * - Français: "13/06/2026 09:17:55"
+   * - Timestamp numérique
+   */
   const normalizeDate = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    
     try {
-      const date = new Date(dateStr);
-      return isNaN(date.getTime()) ? 0 : date.getTime();
-    } catch {
+      let normalized = dateStr.trim();
+      
+      // Format français: "13/06/2026 09:17:55" → "2026-06-13T09:17:55"
+      const frenchMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
+      if (frenchMatch) {
+        const [, day, month, year, time] = frenchMatch;
+        normalized = `${year}-${month}-${day}T${time}.000Z`;
+      }
+      
+      // Format PostgreSQL: "2026-06-13 09:17:55" → "2026-06-13T09:17:55"
+      const pgMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/);
+      if (pgMatch) {
+        const [, date, time] = pgMatch;
+        normalized = `${date}T${time}.000Z`;
+      }
+      
+      const timestamp = new Date(normalized).getTime();
+      if (isNaN(timestamp)) {
+        console.warn(`⚠️ [normalizeDate] Date invalide: "${dateStr}" → 0`);
+        return 0;
+      }
+      
+      return timestamp;
+    } catch (err) {
+      console.warn(`⚠️ [normalizeDate] Erreur parsing: "${dateStr}"`, err);
       return 0;
     }
   };
@@ -171,6 +201,7 @@ export default function EspaceJoueurMessageriePage() {
         }));
 
         // ✅ CORRECTION : Tri explicite des messages (décroissant = plus récent en premier)
+        // Utilisation de normalizeDate robuste
         const sortedMessages = [...adaptedMessages].sort((a, b) => 
           normalizeDate(b.created_at) - normalizeDate(a.created_at)
         );
@@ -194,14 +225,13 @@ export default function EspaceJoueurMessageriePage() {
       throw new Error("Conversation non disponible");
     }
 
-    // ✅ Appeler sendPlayerMessage avec la ville cible
     const result = await sendPlayerMessage({
       dossierRef: conversation.dossier_ref,
       content: content,
       userId: user.id,
       userEmail: user.email,
       userName: user.name,
-      targetCity: targetCity, // ✅ Ajout de la ville cible
+      targetCity: targetCity,
       fileUrl: fileUrl,
       fileKey: fileKey,
     });
@@ -221,7 +251,7 @@ export default function EspaceJoueurMessageriePage() {
       document_url: msg.document_url,
     }));
 
-    // ✅ CORRECTION : Tri explicite après envoi
+    // ✅ Tri explicite après envoi avec normalizeDate robuste
     const sortedMessages = [...adaptedMessages].sort((a, b) => 
       normalizeDate(b.created_at) - normalizeDate(a.created_at)
     );
@@ -251,7 +281,7 @@ export default function EspaceJoueurMessageriePage() {
         document_url: msg.document_url,
       }));
 
-      // ✅ CORRECTION : Tri explicite après rafraîchissement
+      // ✅ Tri explicite après rafraîchissement avec normalizeDate robuste
       const sortedMessages = [...adaptedMessages].sort((a, b) => 
         normalizeDate(b.created_at) - normalizeDate(a.created_at)
       );

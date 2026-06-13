@@ -79,19 +79,42 @@ const STAFF_EMAILS: Record<string, string> = {
 // ==========================================================
 
 /**
- * ✅ NOUVELLE FONCTION : Normalise une date pour un tri fiable
- * Gère les différents formats de date (ISO, timestamp, etc.)
+ * ✅ CORRECTION : Normalise une date pour un tri fiable
+ * Supporte les formats :
+ * - ISO: "2026-06-13T09:17:15.000Z"
+ * - PostgreSQL: "2026-06-13 09:17:55"
+ * - Français: "13/06/2026 09:17:55"
+ * - Timestamp numérique
  */
 function normalizeDate(dateStr: string): number {
+  if (!dateStr) return 0;
+  
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      console.warn(`⚠️ Date invalide: ${dateStr}, utilisation de 0`);
+    let normalized = dateStr.trim();
+    
+    // Format français: "13/06/2026 09:17:55" → "2026-06-13T09:17:55"
+    const frenchMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
+    if (frenchMatch) {
+      const [, day, month, year, time] = frenchMatch;
+      normalized = `${year}-${month}-${day}T${time}.000Z`;
+    }
+    
+    // Format PostgreSQL: "2026-06-13 09:17:55" → "2026-06-13T09:17:55"
+    const pgMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/);
+    if (pgMatch) {
+      const [, date, time] = pgMatch;
+      normalized = `${date}T${time}.000Z`;
+    }
+    
+    const timestamp = new Date(normalized).getTime();
+    if (isNaN(timestamp)) {
+      console.warn(`⚠️ [normalizeDate] Date invalide: "${dateStr}" → 0`);
       return 0;
     }
-    return date.getTime();
-  } catch {
-    console.warn(`⚠️ Erreur parsing date: ${dateStr}, utilisation de 0`);
+    
+    return timestamp;
+  } catch (err) {
+    console.warn(`⚠️ [normalizeDate] Erreur parsing: "${dateStr}"`, err);
     return 0;
   }
 }
@@ -157,9 +180,7 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
         fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       }
     } catch {
-      // ✅ CORRECTION : Suppression du paramètre inutilisé
       console.warn("⚠️ Table athletes inaccessible, utilisation du nom par défaut");
-      // Fallback: extraire le nom du joueur depuis l'email
       const emailParts = userEmail.split('@')[0];
       fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -244,7 +265,6 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
- * ✅ CORRECTION : Gère correctement tous les messages, même non confirmés
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -256,7 +276,6 @@ function convertPendingSignalToPlayerMessage(
   const content = payload.message || "Message sans contenu";
   const createdAt = signal.created_at;
 
-  // Déterminer l'expéditeur
   const isPlayer = payload.email === playerEmail;
   
   return {
@@ -288,7 +307,7 @@ function convertReplyToPlayerMessage(
 }
 
 /**
- * Récupère la conversation du joueur (une seule, basée sur son dossier_ref)
+ * Récupère la conversation du joueur
  */
 export async function getPlayerConversation(
   userId: string,
@@ -298,7 +317,6 @@ export async function getPlayerConversation(
   console.log(`👤 [getPlayerConversation] Début pour userId: ${userId}, email: ${userEmail}`);
 
   try {
-    // 1. Récupérer les infos du joueur
     const playerInfo = await getPlayerInfo(userId, userEmail);
     if (!playerInfo) {
       console.error("❌ [getPlayerConversation] Impossible de trouver les infos du joueur");
@@ -311,7 +329,6 @@ export async function getPlayerConversation(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 2. Récupérer tous les messages depuis les 3 sources
     const allMessages: PlayerMessage[] = [];
 
     // Source 1: Archive GitHub
@@ -339,7 +356,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 2: pending_signals (TOUS les messages client, même non confirmés)
+    // Source 2: pending_signals
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -348,14 +365,11 @@ export async function getPlayerConversation(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) allMessages.push(mainMsg);
         
-        // Ajouter l'historique des messages (messages_history)
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               allMessages.push({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
@@ -371,7 +385,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 3: communication_replies (réponses staff non archivées)
+    // Source 3: communication_replies
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -385,7 +399,6 @@ export async function getPlayerConversation(
       }
     }
 
-    // 3. Trier par date et trouver le dernier message
     if (allMessages.length === 0) {
       return {
         dossier_ref: playerInfo.dossier_ref,
@@ -397,7 +410,7 @@ export async function getPlayerConversation(
       };
     }
 
-    // ✅ Tri décroissant pour getPlayerConversation (déjà correct)
+    // ✅ Tri décroissant avec normalizeDate améliorée
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
     const latest = allMessages[0];
 
@@ -421,8 +434,7 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Récupère TOUS les pending_signals (même non confirmés)
- * ✅ CORRECTION : Tri décroissant (du plus récent au plus ancien)
+ * ✅ CORRECTION : Tri décroissant robuste avec normalizeDate améliorée
  */
 export async function getPlayerMessages(
   userId: string,
@@ -433,7 +445,6 @@ export async function getPlayerMessages(
   console.log(`💬 [getPlayerMessages] Début pour userId: ${userId}, dossierRef: ${dossierRef || "auto"}`);
 
   try {
-    // 1. Récupérer les infos du joueur si dossierRef non fourni
     let targetDossierRef = dossierRef;
     let playerCity = "NANTES";
     let playerCountry = "FR";
@@ -453,9 +464,8 @@ export async function getPlayerMessages(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 2. Collecter tous les messages depuis les 3 sources
     const allMessages: PlayerMessage[] = [];
-    const messageKeys = new Set<string>(); // Pour dédoublonner
+    const messageKeys = new Set<string>();
 
     const addUniqueMessage = (msg: PlayerMessage) => {
       const key = `${msg.content}_${msg.created_at}`;
@@ -485,7 +495,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 2: pending_signals (TOUS les messages, même non confirmés)
+    // Source 2: pending_signals
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -494,14 +504,11 @@ export async function getPlayerMessages(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) addUniqueMessage(mainMsg);
         
-        // Historique des messages
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               addUniqueMessage({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
@@ -517,7 +524,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 3: communication_replies (réponses staff non archivées)
+    // Source 3: communication_replies
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -531,8 +538,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // ✅ CORRECTION : Tri décroissant (du plus récent au plus ancien)
-    // Utilisation de normalizeDate pour gérer les différents formats de date
+    // ✅ Tri décroissant avec normalizeDate améliorée
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
 
     const duration = Date.now() - startTime;
@@ -548,7 +554,6 @@ export async function getPlayerMessages(
 
 /**
  * Envoie un message depuis le joueur vers le staff de la ville choisie
- * ✅ CORRECTION : Ajout du paramètre targetCity pour choisir le destinataire
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -556,7 +561,7 @@ export async function sendPlayerMessage(params: {
   userId: string;
   userEmail: string;
   userName: string;
-  targetCity?: string;  // ✅ NOUVEAU : ville destinataire (défaut: MASTER)
+  targetCity?: string;
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
@@ -586,7 +591,7 @@ export async function sendPlayerMessage(params: {
       body: JSON.stringify({
         dossierRef,
         content,
-        targetCity: targetCity || "MASTER",  // ✅ Transmission de la ville cible
+        targetCity: targetCity || "MASTER",
         fileUrl: fileUrl || null,
         fileKey: fileKey || null,
       }),
