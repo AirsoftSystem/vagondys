@@ -3,6 +3,7 @@
 
 import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
+// ❌ Supprimer cette ligne : import { randomUUID } from "crypto";
 
 // ==========================================================
 // TYPES
@@ -40,6 +41,7 @@ interface PendingSignalMessage {
     message?: string;
     subject?: string;
     messages_history?: Array<{ content: string; created_at: string }>;
+    attachments?: Array<{ url: string; key: string; name: string }>;
   };
   confirmed?: boolean;
 }
@@ -218,15 +220,6 @@ function getStaffEmailForCity(city: string): string {
 }
 
 /**
- * Récupère le token d'authentification pour appeler l'API
- */
-async function getAuthToken(): Promise<string | null> {
-  const supabase = createClient(supabaseUrl!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token || null;
-}
-
-/**
  * Convertit un message de l'archive GitHub en format frontend
  */
 function convertArchiveMessageToPlayerMessage(
@@ -277,8 +270,6 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
- * ✅ CORRECTION CRITIQUE : Utilise la date du dernier message de l'historique
- * au lieu de signal.created_at qui ne change jamais.
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -289,10 +280,8 @@ function convertPendingSignalToPlayerMessage(
 
   const content = payload.message || "Message sans contenu";
   
-  // ✅ CORRECTION : Utiliser la date du dernier message de l'historique si disponible
   let createdAt = signal.created_at;
   if (payload.messages_history && payload.messages_history.length > 0) {
-    // Prendre la date du dernier message de l'historique (le plus récent)
     const lastMessage = payload.messages_history[payload.messages_history.length - 1];
     if (lastMessage.created_at) {
       createdAt = lastMessage.created_at;
@@ -573,7 +562,9 @@ export async function getPlayerMessages(
 }
 
 /**
- * Envoie un message depuis le joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Envoie un message directement dans pending_signals
+ * (comme le fait le formulaire de contact qui fonctionne)
+ * ✅ CORRECTION : Stockage des fichiers joints dans attachments (pas dans messages_history)
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -585,8 +576,7 @@ export async function sendPlayerMessage(params: {
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const startTime = Date.now();
-  const { dossierRef, content, targetCity, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, userEmail, userName, fileUrl, fileKey } = params;
 
   console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, content length: ${content?.length || 0}`);
 
@@ -595,43 +585,167 @@ export async function sendPlayerMessage(params: {
   }
 
   try {
-    const token = await getAuthToken();
-    if (!token) {
-      console.error("❌ [sendPlayerMessage] Impossible d'obtenir le token d'authentification");
-      return { success: false, error: "Session expirée, veuillez vous reconnecter" };
+    // 1. Vérifier que le joueur existe
+    const playerInfo = await getPlayerInfo(params.userId, params.userEmail);
+    if (!playerInfo) {
+      return { success: false, error: "Compte joueur non trouvé" };
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
-    const response = await fetch(`${baseUrl}/api/player/message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        dossierRef,
-        content,
-        targetCity: targetCity || "MASTER",
-        fileUrl: fileUrl || null,
-        fileKey: fileKey || null,
-      }),
+    // 2. Déterminer la ville cible
+    const effectiveTargetCity = targetCity?.toUpperCase().trim() || "MASTER";
+    const effectiveTargetCountry = effectiveTargetCity === "MASTER" ? "FR" : playerInfo.country;
+
+    console.log(`📤 [sendPlayerMessage] Insertion directe dans pending_signals - dossier: ${dossierRef}, targetCity: ${effectiveTargetCity}`);
+
+    // 3. Connexion Supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return { success: false, error: "Configuration serveur invalide" };
+    }
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    const result = await response.json();
+    const now = new Date().toISOString();
 
-    if (!response.ok || !result.success) {
-      console.error(`❌ [sendPlayerMessage] Erreur API: ${response.status} - ${result.error}`);
-      return { success: false, error: result.error || `Erreur API: ${response.status}` };
+    // 4. Vérifier si un signal existe déjà pour ce dossier
+    const { data: existingSignal } = await supabaseAdmin
+      .from("pending_signals")
+      .select("id, payload, dossier_ref")
+      .eq("dossier_ref", dossierRef)
+      .maybeSingle();
+
+    if (existingSignal && existingSignal.payload) {
+      // Mise à jour du signal existant
+      const existingPayload = existingSignal.payload as {
+        name?: string;
+        email?: string;
+        message?: string;
+        subject?: string;
+        city?: string;
+        country?: string;
+        messages_history?: Array<{ content: string; created_at: string }>;
+        attachments?: Array<{ url: string; key: string; name: string }>;
+      };
+
+      const messagesHistory = [...(existingPayload.messages_history || [])];
+      const attachments = [...(existingPayload.attachments || [])];
+
+      messagesHistory.push({
+        content: content,
+        created_at: now,
+      });
+
+      // Ajouter le fichier joint si présent
+      if (fileUrl && fileKey) {
+        attachments.push({
+          url: fileUrl,
+          key: fileKey,
+          name: `piece_jointe_${Date.now()}`,
+        });
+      }
+
+      const updatedPayload = {
+        ...existingPayload,
+        message: content,
+        messages_history: messagesHistory,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+
+      const { error: updateError } = await supabaseAdmin
+        .from("pending_signals")
+        .update({
+          payload: updatedPayload,
+          is_read: false,
+          confirmed: false,
+        })
+        .eq("dossier_ref", dossierRef);
+
+      if (updateError) {
+        console.error("❌ [sendPlayerMessage] Erreur mise à jour:", updateError);
+        return { success: false, error: "Erreur lors de la mise à jour" };
+      }
+
+      console.log(`✅ [sendPlayerMessage] Message ajouté au signal existant ${dossierRef}`);
+    } else {
+      // Création d'un nouveau signal
+      const attachments = (fileUrl && fileKey) ? [{
+        url: fileUrl,
+        key: fileKey,
+        name: `piece_jointe_${Date.now()}`,
+      }] : [];
+
+      const insertPayload = {
+        name: userName,
+        email: userEmail,
+        message: content,
+        subject: "MESSAGE_JOUEUR",
+        city: playerInfo.city,
+        country: playerInfo.country,
+        messages_history: [
+          {
+            content: content,
+            created_at: now,
+          },
+        ],
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+
+      const { error: insertError } = await supabaseAdmin
+        .from("pending_signals")
+        .insert({
+          dossier_ref: dossierRef,
+          payload: insertPayload,
+          confirmed: false,
+          is_read: false,
+          is_new_athlete: false,
+          city: effectiveTargetCity,
+          country: effectiveTargetCountry,
+          created_at: now,
+        });
+
+      if (insertError) {
+        console.error("❌ [sendPlayerMessage] Erreur insertion:", insertError);
+        return { success: false, error: "Erreur lors de la création" };
+      }
+
+      console.log(`✅ [sendPlayerMessage] Nouveau signal créé pour ${dossierRef}`);
     }
 
-    const duration = Date.now() - startTime;
-    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès`);
+    // 5. Notification email au staff (optionnelle)
+    const staffEmail = getStaffEmailForCity(effectiveTargetCity);
+    if (staffEmail && staffEmail !== "admin@vagondys.com") {
+      try {
+        const { sendGeneralEmail } = await import("@/lib/email/gmail");
+        await sendGeneralEmail(
+          staffEmail,
+          `[VAGONDYS] Nouveau message de ${userName} (${dossierRef})`,
+          `Nouveau message de ${userName} (${dossierRef})\n\n${content}`,
+          `<div style="background:black; color:white; padding:20px;">
+             <h2 style="color:#dc2626;">Nouveau message joueur</h2>
+             <p><strong>Dossier:</strong> ${dossierRef}</p>
+             <p><strong>Expéditeur:</strong> ${userName} (${userEmail})</p>
+             <p><strong>Message:</strong></p>
+             <div style="background:#09090b; padding:15px; border-radius:8px;">${content}</div>
+             ${fileUrl ? `<p><strong>Pièce jointe:</strong> <a href="${fileUrl}">Voir le document</a></p>` : ""}
+             <p style="margin-top:20px; font-size:11px;">Connectez-vous à l'interface staff pour répondre.</p>
+           </div>`,
+          "no-reply@vagondys.com"
+        );
+        console.log(`📧 [sendPlayerMessage] Email envoyé à ${staffEmail}`);
+      } catch (emailErr) {
+        console.warn("⚠️ [sendPlayerMessage] Erreur envoi email (non bloquant):", emailErr);
+      }
+    }
 
     return { success: true };
   } catch (err) {
-    const duration = Date.now() - startTime;
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error(`❌ [sendPlayerMessage] Erreur après ${duration}ms:`, errorMsg);
+    console.error("❌ [sendPlayerMessage] Erreur:", errorMsg);
     return { success: false, error: "Erreur lors de l'envoi du message" };
   }
 }
