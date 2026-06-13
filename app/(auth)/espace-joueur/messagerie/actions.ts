@@ -79,9 +79,7 @@ const STAFF_EMAILS: Record<string, string> = {
 // ==========================================================
 
 /**
- * ✅ CORRECTION CRITIQUE : Convertit une date en format ISO standard
- * Quel que soit le format d'entrée, la sortie est TOUJOURS au format ISO
- * Cela garantit que TOUTES les dates sont comparables.
+ * Convertit une date en format ISO standard
  */
 function normalizeDateToISO(dateStr: string): string {
   if (!dateStr) return new Date().toISOString();
@@ -105,29 +103,27 @@ function normalizeDateToISO(dateStr: string): string {
       return normalized;
     }
     
-    // Format ISO avec T mais sans millisecondes: "2026-06-13T09:17:55" → ajouter millisecondes
+    // Format ISO avec T mais sans millisecondes
     const isoNoMsMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})$/);
     if (isoNoMsMatch) {
       normalized = `${isoNoMsMatch[1]}.000Z`;
       return normalized;
     }
     
-    // Format ISO déjà correct: "2026-06-13T09:17:55.123Z"
+    // Format ISO déjà correct
     const isoMatch = normalized.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     if (isoMatch) {
       return normalized;
     }
     
-    // Dernier recours: tenter de parser avec Date puis reformater en ISO
+    // Dernier recours
     const timestamp = Date.parse(normalized);
     if (!isNaN(timestamp)) {
       return new Date(timestamp).toISOString();
     }
     
-    console.warn(`⚠️ [normalizeDateToISO] Format non reconnu: "${dateStr}", utilisation now`);
     return new Date().toISOString();
-  } catch (err) {
-    console.warn(`⚠️ [normalizeDateToISO] Erreur parsing: "${dateStr}"`, err);
+  } catch {
     return new Date().toISOString();
   }
 }
@@ -232,7 +228,6 @@ async function getAuthToken(): Promise<string | null> {
 
 /**
  * Convertit un message de l'archive GitHub en format frontend
- * ✅ CORRECTION : Normalise la date en ISO
  */
 function convertArchiveMessageToPlayerMessage(
   msg: RawMessage,
@@ -273,7 +268,7 @@ function convertArchiveMessageToPlayerMessage(
   return {
     id: (msgId as string) || `msg_${createdAt}`,
     content: content,
-    created_at: normalizeDateToISO(createdAt), // ✅ Normalisation ISO
+    created_at: normalizeDateToISO(createdAt),
     sender: messageSender,
     sender_name: senderName,
     document_url: documentUrl || null,
@@ -282,7 +277,8 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
- * ✅ CORRECTION : Normalise la date en ISO
+ * ✅ CORRECTION CRITIQUE : Utilise la date du dernier message de l'historique
+ * au lieu de signal.created_at qui ne change jamais.
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -292,14 +288,23 @@ function convertPendingSignalToPlayerMessage(
   if (!payload) return null;
 
   const content = payload.message || "Message sans contenu";
-  const createdAt = signal.created_at;
+  
+  // ✅ CORRECTION : Utiliser la date du dernier message de l'historique si disponible
+  let createdAt = signal.created_at;
+  if (payload.messages_history && payload.messages_history.length > 0) {
+    // Prendre la date du dernier message de l'historique (le plus récent)
+    const lastMessage = payload.messages_history[payload.messages_history.length - 1];
+    if (lastMessage.created_at) {
+      createdAt = lastMessage.created_at;
+    }
+  }
 
   const isPlayer = payload.email === playerEmail;
   
   return {
     id: signal.id,
     content: content,
-    created_at: normalizeDateToISO(createdAt), // ✅ Normalisation ISO
+    created_at: normalizeDateToISO(createdAt),
     sender: isPlayer ? "player" : "staff",
     sender_name: isPlayer ? "Moi" : (payload.name || "Staff VAGONDYS"),
     document_url: null,
@@ -308,7 +313,6 @@ function convertPendingSignalToPlayerMessage(
 
 /**
  * Convertit un message de communication_replies en format frontend
- * ✅ CORRECTION : Normalise la date en ISO
  */
 function convertReplyToPlayerMessage(
   reply: CommunicationReply
@@ -318,7 +322,7 @@ function convertReplyToPlayerMessage(
   return {
     id: reply.id,
     content: reply.content,
-    created_at: normalizeDateToISO(reply.created_at), // ✅ Normalisation ISO
+    created_at: normalizeDateToISO(reply.created_at),
     sender: "staff",
     sender_name: reply.agent_email?.split("@")[0] || "Staff VAGONDYS",
     document_url: reply.document_url || null,
@@ -393,7 +397,7 @@ export async function getPlayerConversation(
               allMessages.push({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: normalizeDateToISO(histMsg.created_at), // ✅ Normalisation ISO
+                created_at: normalizeDateToISO(histMsg.created_at),
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -429,7 +433,6 @@ export async function getPlayerConversation(
       };
     }
 
-    // ✅ Tri décroissant
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
     const latest = allMessages[0];
 
@@ -531,7 +534,7 @@ export async function getPlayerMessages(
               addUniqueMessage({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: normalizeDateToISO(histMsg.created_at), // ✅ Normalisation ISO
+                created_at: normalizeDateToISO(histMsg.created_at),
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -556,7 +559,6 @@ export async function getPlayerMessages(
       }
     }
 
-    // ✅ Tri décroissant
     allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
 
     const duration = Date.now() - startTime;

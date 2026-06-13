@@ -2022,57 +2022,57 @@ Fil de discussion du "Staff > Nantes" décroissant :
 ---
 Message Client
 CLIENT
-13/06/2026 09:17:15
+13/06/2026 11:43:56
 FÉLICITATIONS : COMPTE ACTIF POUR LA STATION NANTES. BIENVENUE.
 ---
 Agent: nantes@vagondys.com
 STAFF
-13/06/2026 09:11:37
-2 Staff "Nantes" > Player
+13/06/2026 11:41:10
+2ème message : Staff "Nantes" > Player
 ---
 Message Client
 CLIENT
-13/06/2026 09:09:07
-2 Player > Staff "Nantes"
+13/06/2026 11:39:48
+2ème message : Player > Staff "Nantes"
 ---
 Agent: nantes@vagondys.com
 STAFF
-13/06/2026 09:00:53
-1 Staff "Nantes" > Player
+13/06/2026 11:38:50
+1er message : Staff "Nantes" > Player
 ---
 Message initial
 MESSAGE INITIAL
-13/06/2026 08:59:06
-1 Player > Staff "Nantes"
+13/06/2026 11:37:39
+1er message : Player > Staff "Nantes"
 ---
 */
 Mais analyse bien ce qu'il y a dans :
 /*
-Fil de discussion du "messagerie > espace-joueur" donc faux décroissant :
+Fil de discussion du "messagerie > espace-joueur" donc faux ce qui créai un mauvais ordre décroissant :
 ---
 Moi
 •
-13/06/2026 09:17:05
+13/06/2026 11:43:48
 DEMANDE d'ACTIVATION POUR : Airsoft System Admin (NANTES - FR).
 ---
 nantes
 •
-13/06/2026 09:11:37
-2 Staff "Nantes" > Player
+13/06/2026 11:41:10
+2ème message : Staff "Nantes" > Player
 ---
 nantes
 •
-13/06/2026 09:00:53
-1 Staff "Nantes" > Player
+13/06/2026 11:38:50
+1er message : Staff "Nantes" > Player
 ---
 Moi
 •
-13/06/2026 08:59:06
-1 Player > Staff "Nantes"
+13/06/2026 11:37:39
+1er message : Player > Staff "Nantes"
 ---
 Moi
 •
-13/06/2026 08:58:56
-2 Player > Staff "Nantes"
+13/06/2026 11:37:31
+2ème message : Player > Staff "Nantes"
 ---
 */
