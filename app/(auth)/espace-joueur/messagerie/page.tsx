@@ -35,19 +35,25 @@ interface AdaptedMessage {
   document_url?: string | null;
 }
 
-// ✅ Liste des villes disponibles pour l'envoi (classée par ordre alphabétique)
-// "MASTER" (SUPER ADMIN) est en premier
+// ✅ Liste des villes disponibles pour l'envoi (classée par groupe puis alphabétique)
+// "MASTER" (SUPER ADMIN) est en premier, puis FRANCE, puis ESPAGNE
 const AVAILABLE_CITIES = [
-  { code: "MASTER", name: "SUPER ADMIN", country: "FR" },
-  { code: "BORDEAUX", name: "BORDEAUX", country: "FR" },
-  { code: "LILLE", name: "LILLE", country: "FR" },
-  { code: "LYON", name: "LYON", country: "FR" },
-  { code: "MADRID", name: "MADRID", country: "ES" },
-  { code: "MARSEILLE", name: "MARSEILLE", country: "FR" },
-  { code: "NANTES", name: "NANTES", country: "FR" },
-  { code: "PARIS", name: "PARIS", country: "FR" },
-  { code: "TOULOUSE", name: "TOULOUSE", country: "FR" },
+  { code: "MASTER", name: "SUPER ADMIN", country: "FR", group: "MASTER", order: 0 },
+  { code: "BORDEAUX", name: "BORDEAUX", country: "FR", group: "FRANCE", order: 1 },
+  { code: "LILLE", name: "LILLE", country: "FR", group: "FRANCE", order: 1 },
+  { code: "LYON", name: "LYON", country: "FR", group: "FRANCE", order: 1 },
+  { code: "MARSEILLE", name: "MARSEILLE", country: "FR", group: "FRANCE", order: 1 },
+  { code: "NANTES", name: "NANTES", country: "FR", group: "FRANCE", order: 1 },
+  { code: "PARIS", name: "PARIS", country: "FR", group: "FRANCE", order: 1 },
+  { code: "TOULOUSE", name: "TOULOUSE", country: "FR", group: "FRANCE", order: 1 },
+  { code: "MADRID", name: "MADRID", country: "ES", group: "ESPAGNE", order: 2 },
 ];
+
+// ✅ Trier les villes par groupe puis par nom alphabétique
+const SORTED_CITIES = [...AVAILABLE_CITIES].sort((a, b) => {
+  if (a.order !== b.order) return a.order - b.order;
+  return a.name.localeCompare(b.name);
+});
 
 /**
  * Page Messagerie pour l'espace joueur
@@ -58,6 +64,7 @@ const AVAILABLE_CITIES = [
  * ✅ AJOUT : Suppression des suffixes pays inutiles
  * ✅ CORRECTION : Accessibilité du bouton X (title + aria-label)
  * ✅ CORRECTION : Tri explicite des messages (décroissant)
+ * ✅ CORRECTION : Regroupement des villes par pays (MASTER → FRANCE → ESPAGNE)
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -87,16 +94,28 @@ export default function EspaceJoueurMessageriePage() {
     }
   };
 
-  // ✅ Fonction pour obtenir les villes filtrées et triées
-  const getSortedAndFilteredCities = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return AVAILABLE_CITIES;
+  // ✅ Fonction pour obtenir les villes filtrées et regroupées par pays
+  const getFilteredAndGroupedCities = useMemo(() => {
+    let filtered = SORTED_CITIES;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = SORTED_CITIES.filter(city => 
+        city.name.toLowerCase().includes(query) || 
+        city.code.toLowerCase().includes(query)
+      );
     }
-    const query = searchQuery.toLowerCase().trim();
-    return AVAILABLE_CITIES.filter(city => 
-      city.name.toLowerCase().includes(query) || 
-      city.code.toLowerCase().includes(query)
-    );
+    
+    // Regrouper par pays
+    const grouped: Record<string, typeof filtered> = {};
+    for (const city of filtered) {
+      if (!grouped[city.group]) {
+        grouped[city.group] = [];
+      }
+      grouped[city.group].push(city);
+    }
+    
+    return grouped;
   }, [searchQuery]);
 
   // 1. Vérifier l'authentification et charger la conversation
@@ -246,7 +265,7 @@ export default function EspaceJoueurMessageriePage() {
 
   // ✅ Obtenir le nom de la ville sélectionnée
   const getSelectedCityName = () => {
-    const city = AVAILABLE_CITIES.find(c => c.code === targetCity);
+    const city = SORTED_CITIES.find(c => c.code === targetCity);
     return city?.name || "SUPER ADMIN";
   };
 
@@ -334,7 +353,7 @@ export default function EspaceJoueurMessageriePage() {
               loading={false}
             />
 
-            {/* ✅ Sélecteur de ville destinataire avec barre de recherche */}
+            {/* ✅ Sélecteur de ville destinataire avec barre de recherche et regroupement par pays */}
             <div className="p-4 border-t border-zinc-900 mt-4">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-3 h-3 text-red-600" />
@@ -346,7 +365,7 @@ export default function EspaceJoueurMessageriePage() {
               <button
                 onClick={() => {
                   setShowCitySelector(!showCitySelector);
-                  setSearchQuery(""); // Reset search when opening
+                  setSearchQuery("");
                 }}
                 className="w-full flex items-center justify-between bg-black border border-zinc-800 rounded-lg px-3 py-2 hover:border-red-600/50 transition-all"
               >
@@ -386,31 +405,43 @@ export default function EspaceJoueurMessageriePage() {
                     </div>
                   </div>
                   
-                  {/* ✅ Liste des villes filtrées */}
+                  {/* ✅ Liste des villes regroupées par pays */}
                   <div className="max-h-48 overflow-y-auto">
-                    {getSortedAndFilteredCities.length === 0 ? (
+                    {Object.keys(getFilteredAndGroupedCities).length === 0 ? (
                       <div className="px-3 py-4 text-center">
                         <p className="text-[8px] text-zinc-600 uppercase tracking-wider">
                           Aucune ville trouvée
                         </p>
                       </div>
                     ) : (
-                      getSortedAndFilteredCities.map((city) => (
-                        <button
-                          key={city.code}
-                          onClick={() => {
-                            setTargetCity(city.code);
-                            setShowCitySelector(false);
-                            setSearchQuery("");
-                          }}
-                          className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
-                            targetCity === city.code
-                              ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
-                              : "text-zinc-400 hover:bg-white/5"
-                          }`}
-                        >
-                          {city.name}
-                        </button>
+                      // Afficher chaque groupe (MASTER, FRANCE, ESPAGNE)
+                      Object.entries(getFilteredAndGroupedCities).map(([group, cities]) => (
+                        <div key={group} className="border-b border-zinc-800 last:border-b-0">
+                          {/* En-tête du groupe */}
+                          <div className="px-3 py-1.5 bg-zinc-900/50">
+                            <span className="text-[7px] font-black uppercase tracking-wider text-zinc-500">
+                              {group === "MASTER" ? "⚡ ADMINISTRATION" : group}
+                            </span>
+                          </div>
+                          {/* Villes du groupe */}
+                          {cities.map((city) => (
+                            <button
+                              key={city.code}
+                              onClick={() => {
+                                setTargetCity(city.code);
+                                setShowCitySelector(false);
+                                setSearchQuery("");
+                              }}
+                              className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
+                                targetCity === city.code
+                                  ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
+                                  : "text-zinc-400 hover:bg-white/5"
+                              }`}
+                            >
+                              {city.name}
+                            </button>
+                          ))}
+                        </div>
                       ))
                     )}
                   </div>
