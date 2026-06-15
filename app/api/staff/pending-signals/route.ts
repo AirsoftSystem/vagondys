@@ -61,8 +61,8 @@ export async function GET(request: Request) {
         .select("*")
         .order("created_at", { ascending: false });
     } else {
-      // ✅ AGENTS STANDARDS : filtrés par ville uniquement (pas de filtre par rôle)
-      console.log(`🔍 Agent standard ${agentEmail}: filtré par ville ${cityUpper} (sans filtre rôle)`);
+      // ✅ AGENTS STANDARDS : filtrés par ville
+      console.log(`🔍 Agent standard ${agentEmail}: filtré par ville ${cityUpper}`);
       
       query = adminClient
         .from("pending_signals")
@@ -79,20 +79,29 @@ export async function GET(request: Request) {
       query = query.eq("is_read", true);
     }
 
-    // ✅ CORRECTION CRITIQUE :
-    // - Vue "pending" : montrer les messages NON confirmés (en attente de validation)
-    // - Vue "archived" : montrer les messages confirmés (déjà traités)
-    if (view === "pending") {
-      query = query.eq("confirmed", false);
-      console.log(`🔍 Filtrage: confirmed=false pour la vue pending`);
-    } else {
-      query = query.eq("confirmed", true);
-      console.log(`🔍 Filtrage: confirmed=true pour la vue archived`);
-    }
+    query = query.eq("confirmed", true);
 
-    // ❌ FILTRAGE PAR RÔLE SUPPRIMÉ
-    // Les agents standards voient désormais TOUS les messages de leur ville,
-    // quel que soit le sujet (PLAYER, COMPETITION, MESSAGE_JOUEUR, etc.)
+    // ✅ FILTRAGE PAR RÔLE (pour les agents non-admins uniquement)
+    if (!isAdmin) {
+      // Déterminer le rôle de l'agent à partir de son email
+      let agentRole: string | null = null;
+      
+      if (lowerEmail.includes("communication")) agentRole = "COMMUNICATION";
+      else if (lowerEmail.includes("sponsors")) agentRole = "SPONSORS";
+      else if (lowerEmail.includes("ligue")) agentRole = "LIGUE";
+      else if (lowerEmail.includes("competition")) agentRole = "COMPETITION";
+      else if (lowerEmail.includes("tournois")) agentRole = "TOURNOIS";
+      else if (lowerEmail.includes("player")) agentRole = "PLAYER";
+      else if (lowerEmail.includes("licence")) agentRole = "LICENCE";
+      else if (lowerEmail.includes("reservations")) agentRole = "RESERVATIONS";
+      
+      if (agentRole) {
+        query = query.eq("payload->>subject", agentRole);
+        console.log(`🔍 Filtrage par rôle: ${agentRole} pour agent ${agentEmail}`);
+      } else {
+        console.log(`🔍 Aucun rôle spécifique pour ${agentEmail}, filtrage uniquement par ville: ${cityUpper}`);
+      }
+    }
 
     const { data, error } = await query;
 
@@ -101,7 +110,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail} (vue: ${view})`);
+    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail}`);
     return NextResponse.json({ messages: data || [], city, country });
 
   } catch (error) {
