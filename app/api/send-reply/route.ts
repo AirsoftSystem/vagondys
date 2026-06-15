@@ -272,7 +272,7 @@ export async function POST(req: Request) {
                   <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
                     Référence Dossier : ${cleanDossierRef}
                   </p>
-                  <div style="max-width:600px; margin:0 auto; margin-bottom:30px; padding:25px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+                  <div style="max-width:600px; margin:0 auto; margin-bottom:30px; padding:25px; border:1px solid #18181b; background:#09090b; border-radius:12px;">
                     <p style="font-size:16px; text-transform:uppercase; color:#dc2626; font-weight:bold; margin-bottom:20px;">Dernière Transmission : ${serviceNameRaw}</p>
                     <div style="font-size:14px; color:white; line-height:1.6; white-space: pre-wrap; background:#111; padding:15px; border-radius:8px; border:1px solid #18181b;">
                       ${message.replace(/\n/g, '<br>')}
@@ -283,8 +283,8 @@ export async function POST(req: Request) {
                         <a href="${docLink}" style="color:#dc2626; text-decoration:none; font-size:12px; font-weight:bold;">ACCÉDER AU DOCUMENT</a>
                       </div>
                     ` : ''}
-                    <!-- ✅ BOUTON DÉPLACÉ ICI : juste après la réponse, avant l'historique -->
-                    <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b;">
+                    <!-- ✅ BOUTON CENTRÉ -->
+                    <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b; text-align:center;">
                       <a href="${prefillUrl}" 
                          style="display:inline-block; background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; margin:10px 0;">
                         RÉPONDRE À CET ÉCHANGE
