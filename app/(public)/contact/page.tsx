@@ -19,10 +19,26 @@ function ContactFormContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status');
   
+  // ✅ Récupération des paramètres pour pré-remplissage (Staff → Joueur)
+  const prefill = searchParams.get('prefill');
+  const prefilledName = searchParams.get('name') || '';
+  const prefilledEmail = searchParams.get('email') || '';
+  const prefilledPhone = searchParams.get('phone') || '';
+  const prefilledDossier = searchParams.get('dossier') || '';
+  const prefilledCity = searchParams.get('city') || '';
+  
+  // ✅ CORRECTION : Initialisation directe des useState avec les valeurs pré-remplies
+  // Plus besoin de useEffect pour le pré-remplissage
+  
   // États pour la gestion dynamique du dossier
-  const [email, setEmail] = useState("");
-  const [dossierRef, setDossierRef] = useState("0");
+  const [email, setEmail] = useState(prefilledEmail || "");
+  const [dossierRef, setDossierRef] = useState(prefilledDossier || "0");
   const [isChecking, setIsChecking] = useState(false);
+  
+  // États pour le formulaire avec valeurs pré-remplies (initialisation directe)
+  const [formName, setFormName] = useState(prefilledName || "");
+  const [formPhone, setFormPhone] = useState(prefilledPhone || "");
+  const [formCity, setFormCity] = useState(prefilledCity || "NANTES");
   
   // États pour pré-remplir pays et ville si athlète existant
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
@@ -30,10 +46,13 @@ function ContactFormContent() {
 
   // Références aux selects pour récupérer les valeurs actuelles
   const [currentCountry, setCurrentCountry] = useState<string>("FR");
-  const [currentCity, setCurrentCity] = useState<string>("NANTES");
+  const [currentCity, setCurrentCity] = useState<string>(prefilledCity || "NANTES");
 
   // ✅ NOUVEAU : Géolocalisation par IP pour déterminer la ville la plus proche
   useEffect(() => {
+    // Ne pas géolocaliser si on est en mode pré-remplissage staff
+    if (prefill === '1') return;
+    
     const detectLocationByIP = async () => {
       try {
         // Appel à une API de géolocalisation gratuite
@@ -89,8 +108,9 @@ function ContactFormContent() {
               }
             }
             
-            if (closestCity) {
+            if (closestCity && !prefilledCity) {
               setCurrentCity(closestCity.name);
+              setFormCity(closestCity.name);
               console.log(`📍 Géolocalisation: Ville détectée = ${closestCity.name} (distance: ${minDistance.toFixed(0)} km)`);
             }
           }
@@ -101,11 +121,14 @@ function ContactFormContent() {
     };
     
     detectLocationByIP();
-  }, []);
+  }, [prefilledCity, prefill]);
 
   // Effet pour rechercher la référence via la nouvelle API check-athlete
   useEffect(() => {
     const checkExistingAthlete = async () => {
+      // Ne pas chercher si on est en mode pré-remplissage staff
+      if (prefill === '1') return;
+      
       if (email.includes('@') && email.includes('.')) {
         setIsChecking(true);
         try {
@@ -125,6 +148,7 @@ function ContactFormContent() {
               if (data.athlete.city) {
                 setDetectedCity(data.athlete.city);
                 setCurrentCity(data.athlete.city);
+                setFormCity(data.athlete.city);
               }
               console.log(`✅ Athlète trouvé: ${data.athlete.city}/${data.athlete.country}`);
               return;
@@ -163,14 +187,16 @@ function ContactFormContent() {
 
     const timer = setTimeout(checkExistingAthlete, 1000);
     return () => clearTimeout(timer);
-  }, [email, dossierRef, detectedCountry, detectedCity, currentCountry, currentCity]);
+  }, [email, dossierRef, detectedCountry, detectedCity, currentCountry, currentCity, prefill]);
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrentCountry(e.target.value);
   };
 
   const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCurrentCity(e.target.value);
+    const newCity = e.target.value;
+    setCurrentCity(newCity);
+    setFormCity(newCity);
   };
 
   return (
@@ -231,6 +257,8 @@ function ContactFormContent() {
                 name="name"
                 type="text"
                 required
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
                 placeholder="Martin Jean"
                 className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm"
               />
@@ -286,6 +314,8 @@ function ContactFormContent() {
                 name="phone"
                 type="tel"
                 required
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
                 placeholder="+33 X XX XX XX XX"
                 className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm"
               />
@@ -325,7 +355,7 @@ function ContactFormContent() {
                   id="city"
                   name="city"
                   required
-                  value={currentCity}
+                  value={formCity}
                   onChange={handleCityChange}
                   className="w-full bg-black border border-zinc-800 p-4 text-white focus:border-red-600 outline-none transition-colors font-mono text-sm appearance-none cursor-pointer uppercase"
                 >
