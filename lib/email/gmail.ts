@@ -180,10 +180,13 @@ export async function sendWelcomeAthleteEmail(
     const subject = `[CONFIRMATION] Compte Activé ${cityName} — Bienvenue chez VAGONDYS`;
     
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
-    let finalLoginUrl = `${frontendUrl}/connexion`;
+    // ✅ CORRECTION : Ajout de l'email en paramètre pour pré-remplir le formulaire de connexion
+    const finalLoginUrl = `${frontendUrl}/connexion?email=${encodeURIComponent(to)}`;
     
-    if (finalLoginUrl.includes("localhost")) {
-      finalLoginUrl = "https://vagondys.com/connexion";
+    // Nettoyage anti-localhost (si jamais)
+    let cleanLoginUrl = finalLoginUrl;
+    if (cleanLoginUrl.includes("localhost")) {
+      cleanLoginUrl = `https://vagondys.com/connexion?email=${encodeURIComponent(to)}`;
     }
 
     const html = `
@@ -207,7 +210,7 @@ export async function sendWelcomeAthleteEmail(
         </p>
 
         <p style="text-align:center; margin:32px 0;">
-          <a href="${finalLoginUrl}" style="background:#22c55e; color:white; padding:20px 40px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block;">
+          <a href="${cleanLoginUrl}" style="background:#22c55e; color:white; padding:20px 40px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block;">
             ACCÉDER À MON ESPACE
           </a>
         </p>
@@ -220,7 +223,7 @@ export async function sendWelcomeAthleteEmail(
       </div>
     `;
 
-    console.log(`[EMAIL] Envoi de l'email de bienvenue à ${to}`);
+    console.log(`[EMAIL] Envoi de l'email de bienvenue à ${to} avec URL: ${cleanLoginUrl}`);
     const result = await transporter.sendMail({
       from: `"VAGONDYS ${cityName}" <${fromEmail}>`,
       to,

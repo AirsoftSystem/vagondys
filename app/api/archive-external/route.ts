@@ -7,6 +7,7 @@ const DEFAULT_REPO_NAME = "VAGONDYS_ARCHIVES_DATA";
 /**
  * GET : Récupération ou Recherche
  * Version adaptée pour l'Option B (un seul repo GitHub)
+ * ✅ CORRECTION : Conservation du fullThread pour les messages système
  */
 export async function GET(req: Request) {
   try {
@@ -47,7 +48,8 @@ export async function GET(req: Request) {
     // --- RECHERCHE PAR VILLE ---
     if (filterCity) {
       const files = await listAllArchiveFiles(customToken, targetRepo);
-      const results = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results: any[] = [];
 
       for (const file of files) {
         try {
@@ -70,14 +72,21 @@ export async function GET(req: Request) {
                        getPathString(contentJson, ["dossier", "payload", "city"]);
 
           if (city?.toLowerCase() === filterCity.toLowerCase()) {
-            results.push(mapArchiveToFrontendShape(contentJson));
+            const frontendShape = mapArchiveToFrontendShape(contentJson);
+            // ✅ Conservation du fullThread via un nouvel objet
+            const resultWithFullThread = {
+              ...frontendShape,
+              fullThread: contentJson.fullThread || null
+            };
+            results.push(resultWithFullThread);
           }
         } catch { continue; }
       }
 
+      // ✅ Tri sans 'any' : on utilise le fait que chaque élément a une propriété 'dossier'
       results.sort((a, b) => {
-        const nameA = a.dossier.payload.pseudo || a.dossier.payload.name || "";
-        const nameB = b.dossier.payload.pseudo || b.dossier.payload.name || "";
+        const nameA = a.dossier?.payload?.pseudo || a.dossier?.payload?.name || "";
+        const nameB = b.dossier?.payload?.pseudo || b.dossier?.payload?.name || "";
         return nameA.localeCompare(nameB);
       });
 
@@ -174,7 +183,19 @@ export async function GET(req: Request) {
       contentJson = await fileRes.json();
     }
     
-    return NextResponse.json(mapArchiveToFrontendShape(contentJson));
+    const frontendShape = mapArchiveToFrontendShape(contentJson);
+    
+    // ✅ CORRECTION : Créer un nouvel objet avec fullThread (sans annotation de type conflictuelle)
+    const responseWithFullThread = {
+      ...frontendShape,
+      fullThread: contentJson.fullThread || null
+    };
+    
+    if (contentJson.fullThread) {
+      console.log(`📦 GET archive-external: fullThread préservé (${contentJson.fullThread.length} messages, dont messages système)`);
+    }
+    
+    return NextResponse.json(responseWithFullThread);
 
   } catch (err: unknown) {
     console.error("Erreur API archive GET:", err);
@@ -205,8 +226,17 @@ export async function POST(req: Request) {
       body = await req.json();
     }
     
-    const { country_code } = body;
+    const { country_code, fullThread } = body;
     console.log(`📦 POST archive-external: city_code=${body.city_code}, country_code=${country_code}`);
+    
+    // ✅ Log si un fullThread est présent (contenant les messages système)
+    if (fullThread && fullThread.length > 0) {
+      console.log(`📦 POST archive-external: fullThread reçu avec ${fullThread.length} messages`);
+      const systemMessages = fullThread.filter((msg: { role: string }) => msg.role === "system");
+      if (systemMessages.length > 0) {
+        console.log(`📦 POST archive-external: ${systemMessages.length} message(s) système détecté(s) dans fullThread`);
+      }
+    }
 
     const validation = validateArchiveBody(body);
     if (!validation.isValid) {
@@ -222,6 +252,12 @@ export async function POST(req: Request) {
     };
 
     const result = await processArchivePost(enrichedBody);
+    
+    // ✅ Vérification que le fullThread a été sauvegardé
+    if (fullThread && fullThread.length > 0) {
+      console.log(`📦 POST archive-external: fullThread sauvegardé avec succès`);
+    }
+    
     return NextResponse.json(result);
 
   } catch (err: unknown) {

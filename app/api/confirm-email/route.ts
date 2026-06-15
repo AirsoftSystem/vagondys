@@ -261,6 +261,8 @@ export async function GET(request: NextRequest) {
 
       if (athleteData) {
         // --- ARCHIVAGE GITHUB (Vers le repo UNIQUE) ---
+        // ✅ CORRECTION : Ajout de role: "system" et sender: "SYSTEM" pour que ce message
+        // apparaisse correctement comme "SYSTÈME" dans le fil de discussion (et non comme "CLIENT")
         const archivePayload = {
           message: {
             dossier_ref: newDossierRef,
@@ -279,7 +281,17 @@ export async function GET(request: NextRequest) {
           history: [], 
           purgeActive: false,
           city_code: stationCityCode,
-          country_code: stationCountryCode
+          country_code: stationCountryCode,
+          // ✅ Ajout d'un message système dans fullThread pour le fil de discussion
+          fullThread: [
+            {
+              role: "system",
+              sender: "SYSTEM",
+              content: `FÉLICITATIONS : COMPTE ACTIF POUR LA STATION ${stationCityCode.toUpperCase()}. BIENVENUE.`,
+              created_at: new Date().toISOString(),
+              type: "activation"
+            }
+          ]
         };
 
         try {

@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { 
   User, 
   Lock, 
@@ -29,6 +30,9 @@ function LoginForm() {
   // Message de confirmation après activation par email
   const isConfirmed = searchParams.get('status') === 'confirmed';
   
+  // ✅ Récupération de l'email depuis l'URL (pré-remplissage)
+  const prefilledEmail = searchParams.get('email') || '';
+  
   /** * SÉCURITÉ : Utilisation du client Vagondys standard.
    * Par défaut, createVagondysClient utilise les clés MASTER si aucun paramètre n'est passé,
    * ce qui est exactement ce qu'il nous faut pour l'authentification centrale.
@@ -38,6 +42,16 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // ✅ Référence pour le champ mot de passe (focus automatique)
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ Si un email est pré-rempli, focus automatique sur le champ mot de passe
+  useEffect(() => {
+    if (prefilledEmail && passwordInputRef.current) {
+      passwordInputRef.current.focus();
+    }
+  }, [prefilledEmail]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,6 +124,7 @@ function LoginForm() {
             type="email" 
             placeholder="EMAIL" 
             required
+            defaultValue={prefilledEmail}
             className="w-full h-full bg-black border border-zinc-800 rounded-lg py-3.5 pl-10 pr-4 text-sm outline-none focus:border-red-600 text-white font-mono transition-colors" 
           />
         </div>
@@ -127,6 +142,7 @@ function LoginForm() {
           <input 
             id="password"
             name="password"
+            ref={passwordInputRef}
             type={showPassword ? "text" : "password"} 
             placeholder="••••••••" 
             required
