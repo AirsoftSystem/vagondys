@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { getStaffCity } from "@/actions/staff-actions";
 import { 
@@ -111,21 +111,13 @@ export default function StaffMessagesPage() {
   const [isSearchingExternal, setIsSearchingExternal] = useState(false);
   const [githubArchive, setGithubArchive] = useState<GitHubArchiveData | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
-  
-  // ✅ Ref pour le polling
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const refreshMessages = useCallback(async () => {
     try {
       const response = await fetch(`/api/staff/pending-signals?view=${view}`);
       const result = await response.json();
       if (response.ok) {
-        const newMessages = result.messages || [];
-        setMessages(newMessages);
-        
-        // ✅ Déclencher un événement personnalisé pour le compteur global
-        const unreadCount = newMessages.filter((m: SignalMessage) => !m.is_read).length;
-        window.dispatchEvent(new CustomEvent('staff-message-count-updated', { detail: { count: unreadCount } }));
+        setMessages(result.messages || []);
       }
     } catch (err) {
       console.error("Erreur rafraîchissement messages:", err);
@@ -192,12 +184,7 @@ export default function StaffMessagesPage() {
         }
         
         if (isMounted) {
-          const newMessages = result.messages || [];
-          setMessages(newMessages);
-          
-          // ✅ Émettre le compteur initial
-          const unreadCount = newMessages.filter((m: SignalMessage) => !m.is_read).length;
-          window.dispatchEvent(new CustomEvent('staff-message-count-updated', { detail: { count: unreadCount } }));
+          setMessages(result.messages || []);
         }
       } catch (err) {
         console.error("❌ Erreur chargement:", err);
@@ -214,53 +201,6 @@ export default function StaffMessagesPage() {
     
     return () => { isMounted = false; };
   }, [view]);
-
-  // ✅ POLLING AUTOMATIQUE : Rafraîchit les messages toutes les 10 secondes
-  useEffect(() => {
-    // Nettoyer l'intervalle précédent
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    
-    // Démarrer le polling seulement si la page est visible
-    const startPolling = () => {
-      if (pollingIntervalRef.current) return;
-      pollingIntervalRef.current = setInterval(() => {
-        // Ne rafraîchir que si la page est visible
-        if (document.visibilityState === 'visible') {
-          refreshMessages();
-        }
-      }, 10000); // 10 secondes
-    };
-    
-    // Arrêter le polling
-    const stopPolling = () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-    
-    startPolling();
-    
-    // Gérer la visibilité de la page
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        startPolling();
-        refreshMessages(); // Rafraîchir immédiatement au retour
-      } else {
-        stopPolling();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refreshMessages]);
 
   const groupedMessages = useMemo(() => {
     const groups: Record<string, SignalMessage> = {};
