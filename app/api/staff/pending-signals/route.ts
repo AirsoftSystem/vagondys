@@ -61,8 +61,8 @@ export async function GET(request: Request) {
         .select("*")
         .order("created_at", { ascending: false });
     } else {
-      // ✅ AGENTS STANDARDS : filtrés par ville
-      console.log(`🔍 Agent standard ${agentEmail}: filtré par ville ${cityUpper}`);
+      // ✅ AGENTS STANDARDS : filtrés par ville uniquement (pas de filtre par rôle)
+      console.log(`🔍 Agent standard ${agentEmail}: filtré par ville ${cityUpper} (sans filtre rôle)`);
       
       query = adminClient
         .from("pending_signals")
@@ -90,27 +90,9 @@ export async function GET(request: Request) {
       console.log(`🔍 Filtrage: confirmed=true pour la vue archived`);
     }
 
-    // ✅ FILTRAGE PAR RÔLE (pour les agents non-admins uniquement)
-    if (!isAdmin) {
-      // Déterminer le rôle de l'agent à partir de son email
-      let agentRole: string | null = null;
-      
-      if (lowerEmail.includes("communication")) agentRole = "COMMUNICATION";
-      else if (lowerEmail.includes("sponsors")) agentRole = "SPONSORS";
-      else if (lowerEmail.includes("ligue")) agentRole = "LIGUE";
-      else if (lowerEmail.includes("competition")) agentRole = "COMPETITION";
-      else if (lowerEmail.includes("tournois")) agentRole = "TOURNOIS";
-      else if (lowerEmail.includes("player")) agentRole = "PLAYER";
-      else if (lowerEmail.includes("licence")) agentRole = "LICENCE";
-      else if (lowerEmail.includes("reservations")) agentRole = "RESERVATIONS";
-      
-      if (agentRole) {
-        query = query.eq("payload->>subject", agentRole);
-        console.log(`🔍 Filtrage par rôle: ${agentRole} pour agent ${agentEmail}`);
-      } else {
-        console.log(`🔍 Aucun rôle spécifique pour ${agentEmail}, filtrage uniquement par ville: ${cityUpper}`);
-      }
-    }
+    // ❌ FILTRAGE PAR RÔLE SUPPRIMÉ
+    // Les agents standards voient désormais TOUS les messages de leur ville,
+    // quel que soit le sujet (PLAYER, COMPETITION, MESSAGE_JOUEUR, etc.)
 
     const { data, error } = await query;
 
