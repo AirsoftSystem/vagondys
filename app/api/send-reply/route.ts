@@ -67,6 +67,7 @@ export async function POST(req: Request) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const gmailNoReply = process.env.GMAIL_NOREPLY || 'staff@vagondys.com';
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://vagondys.com';
     
     // ✅ Vérification des variables critiques
     if (!resendApiKey) {
@@ -234,6 +235,13 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const uniqueSalt = now.getTime().toString(36);
+    
+    // ✅ Construction de l'URL de pré-remplissage pour le bouton "RÉPONDRE"
+    const playerName = signalInfo?.payload?.name || '';
+    const playerEmail = cleanClientEmail;
+    const playerPhone = signalInfo?.payload?.phone || '';
+    const playerCity = signalInfo?.payload?.city || stationName || activeCity || 'NANTES';
+    const prefillUrl = `${frontendUrl}/contact?prefill=1&name=${encodeURIComponent(playerName)}&email=${encodeURIComponent(playerEmail)}&phone=${encodeURIComponent(playerPhone)}&dossier=${encodeURIComponent(cleanDossierRef)}&city=${encodeURIComponent(playerCity)}`;
 
     // 3. ENVOI DE L'EMAIL VIA RESEND
     let mailError = null;
@@ -286,6 +294,15 @@ export async function POST(req: Request) {
                     <p style="font-size:11px; color:#52525b; line-height:1.6;">
                       Ceci est une réponse officielle de la cellule VAGONDYS.<br>
                       Référence : <strong>${cleanDossierRef}</strong>.
+                    </p>
+                  </div>
+                  <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b;">
+                    <a href="${prefillUrl}" 
+                       style="display:inline-block; background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; margin:10px 0;">
+                      RÉPONDRE À CET ÉCHANGE
+                    </a>
+                    <p style="font-size:8px; color:#3f3f46; margin-top:15px;">
+                      Ce lien pré-remplit automatiquement le formulaire de contact avec vos informations.
                     </p>
                   </div>
                   <div style="display:none !important; font-size:0px;">ID-${uniqueSalt}</div>

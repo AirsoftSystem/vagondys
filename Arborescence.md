@@ -147,6 +147,9 @@ VAGONDYS/
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃  ┣━ force-admin/                              ✅ EXISTANT
 ┃  ┃  ┃  ┗━ route.ts                               ✅ EXISTANT
+┃  ┃  ┣━ get-athelete-data/                        ✅ EXISTANT
+┃  ┃  ┃  ┗━ dossier/                               ✅ EXISTANT
+┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
 ┃  ┃  ┃  ┣━ approve/                               ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT

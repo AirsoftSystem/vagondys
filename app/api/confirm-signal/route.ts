@@ -513,7 +513,11 @@ export async function GET(request: NextRequest) {
       console.error("Erreur email staff:", emailErr);
     }
 
-    // Email au client
+    // ✅ Construction de l'URL de pré-remplissage pour le bouton "RÉPONDRE"
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
+    const prefillUrl = `${frontendUrl}/contact?prefill=1&name=${encodeURIComponent(p.name)}&email=${encodeURIComponent(clientEmail)}&phone=${encodeURIComponent(p.phone || '')}&dossier=${encodeURIComponent(finalDossierRef)}&city=${encodeURIComponent(p.city || city)}`;
+
+    // Email au client (avec bouton de réponse pré-rempli)
     const htmlContent = `
       <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
         <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic;">
@@ -524,11 +528,20 @@ export async function GET(request: NextRequest) {
         </p>
         <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
           <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Message transmis :</p>
-          <p style="font-size:12px; font-style:italic; color:#a1a1aa;">"${currentMessageForEmail}"</p>
+          <p style="font-size:12px; font-style:italic; color:#a1a1aa;">"${currentMessageForEmail.replace(/</g, '&lt;').replace(/>/g, '&gt;')}"</p>
         </div>
         <p style="color:#22c55e; font-size:11px; text-transform:uppercase; font-weight:bold; letter-spacing:1px;">
           ✓ Transmission confirmée
         </p>
+        <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b;">
+          <a href="${prefillUrl}" 
+             style="display:inline-block; background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; margin:10px 0;">
+            RÉPONDRE À CET ÉCHANGE
+          </a>
+          <p style="font-size:8px; color:#3f3f46; margin-top:15px;">
+            Ce lien pré-remplit automatiquement le formulaire de contact avec vos informations.
+          </p>
+        </div>
       </div>
     `;
 
@@ -536,7 +549,7 @@ export async function GET(request: NextRequest) {
       await sendGeneralEmail(
         clientEmail,
         `CONFIRMATION DE TRANSMISSION [${finalDossierRef}]`,
-        `Transmission confirmée - Dossier ${finalDossierRef}`,
+        `Transmission confirmée - Dossier ${finalDossierRef}\n\nRépondre ici: ${prefillUrl}`,
         htmlContent,
         "contact@vagondys.com"
       );
