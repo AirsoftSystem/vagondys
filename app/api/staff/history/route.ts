@@ -2,6 +2,15 @@
 import { NextResponse } from "next/server";
 import { getStaffCity } from "@/actions/staff-actions";
 
+// ✅ Définition d'un type pour les messages du fullThread (évite 'any')
+interface FullThreadMessage {
+  role?: string;
+  sender?: string;
+  content?: string;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -61,9 +70,6 @@ export async function GET(request: Request) {
     console.log(`✅ history: client ADMIN créé pour ${cityUpper}/${countryUpper}`);
 
     // 1. Récupérer les réponses du staff
-    // ✅ CORRECTION : Suppression des filtres city/country pour les replies
-    // Une réponse Staff appartient à un dossier spécifique (dossier_ref)
-    // Le filtre city est redondant et bloque les admins (MASTER)
     const { data: replies, error: repliesError } = await adminClient
       .from("communication_replies")
       .select("*")
@@ -77,8 +83,6 @@ export async function GET(request: Request) {
     }
 
     // 2. Récupérer le signal client (un seul par dossier)
-    // ✅ CORRECTION : Suppression des filtres city/country pour pending_signals
-    // Le dossier_ref est unique et suffit pour identifier le signal
     const { data: clientSignal, error: clientError } = await adminClient
       .from("pending_signals")
       .select("*")
@@ -113,27 +117,20 @@ export async function GET(request: Request) {
       const payload = clientSignal.payload;
       const messagesHistory = payload.messages_history || [];
       
-      // ✅ Trouver la date du premier message (la plus ancienne dans messages_history)
       let oldestMessageDate: string | null = null;
       if (messagesHistory.length > 0) {
-        // Trier les messages par date pour trouver le plus ancien
         const sortedMessages = [...messagesHistory].sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         oldestMessageDate = sortedMessages[0]?.created_at || null;
       }
       
-      // ✅ Ajouter le message initial avec la date du premier message, PAS signal.created_at
       if (payload.message) {
-        // Vérifier si le message initial est déjà dans l'historique
         const isAlreadyInHistory = messagesHistory.some(
           (m: { content: string }) => m.content === payload.message
         );
         
-        // Si l'historique est vide OU que le message n'est pas dans l'historique
-        // Utiliser la date du signal SEULEMENT si c'est le premier message
         if (messagesHistory.length === 0) {
-          // Premier message : utiliser la date du signal
           clientHistoryMessages.push({
             id: `${clientSignal.id}_initial`,
             created_at: clientSignal.created_at,
@@ -144,8 +141,6 @@ export async function GET(request: Request) {
             is_initial: true
           });
         } else if (!isAlreadyInHistory && oldestMessageDate) {
-          // Message supplémentaire : utiliser la date la plus ancienne de l'historique
-          // (évite d'avoir une date de création du signal qui crée un doublon)
           clientHistoryMessages.push({
             id: `${clientSignal.id}_initial`,
             created_at: oldestMessageDate,
@@ -158,9 +153,7 @@ export async function GET(request: Request) {
         }
       }
       
-      // ✅ Ajouter tous les messages de l'historique
       messagesHistory.forEach((msg: { content: string; created_at: string }, index: number) => {
-        // Vérifier si c'est un doublon du message initial
         const isDuplicateOfInitial = payload.message === msg.content && 
                                      clientHistoryMessages.some(m => m.content === msg.content);
         
@@ -178,7 +171,60 @@ export async function GET(request: Request) {
       });
     }
 
-    // 5. Rechercher les dossiers liés (avec filtre city)
+    // ✅ 5. RÉCUPÉRATION DE L'ARCHIVE GITHUB (messages systèmes)
+    const systemMessages: Array<{
+      id: string;
+      created_at: string;
+      agent_email: string;
+      content: string;
+      dossier_ref: string;
+      document_url: null;
+      is_initial: boolean;
+    }> = [];
+
+    try {
+      const { fetchGitHubArchive } = await import("@/lib/supabase/client");
+      const archiveData = await fetchGitHubArchive(dossierRef, cityUpper, countryUpper);
+      
+      // ✅ Vérification de l'existence de fullThread dans archiveData
+      if (archiveData && 'fullThread' in archiveData && Array.isArray((archiveData as { fullThread?: FullThreadMessage[] }).fullThread)) {
+        const fullThread = (archiveData as { fullThread: FullThreadMessage[] }).fullThread;
+        console.log(`📦 history: archive GitHub trouvée pour ${dossierRef} - ${fullThread.length} messages dans fullThread`);
+        
+        for (const msg of fullThread) {
+          const role = msg.role;
+          const sender = msg.sender;
+          const content = msg.content;
+          const createdAt = msg.created_at;
+          
+          if (!content || !createdAt) continue;
+          
+          // Identifier les messages système (role === "system" ou sender === "SYSTEM")
+          const isSystemMessage = role === "system" || sender === "SYSTEM";
+          
+          if (isSystemMessage) {
+            console.log(`📦 history: message système détecté - content: ${content.substring(0, 50)}...`);
+            systemMessages.push({
+              id: `system_${createdAt}_${content.substring(0, 20)}`,
+              created_at: createdAt,
+              agent_email: "SYSTEM",
+              content: content,
+              dossier_ref: dossierRef,
+              document_url: null,
+              is_initial: false
+            });
+          }
+        }
+      } else if (archiveData) {
+        console.log(`📦 history: archive trouvée mais sans fullThread pour ${dossierRef}`);
+      } else {
+        console.log(`📦 history: aucune archive GitHub trouvée pour ${dossierRef}`);
+      }
+    } catch (archiveErr) {
+      console.warn(`⚠️ history: erreur lors de la récupération de l'archive GitHub pour ${dossierRef}:`, archiveErr);
+    }
+
+    // 6. Rechercher les dossiers liés (avec filtre city)
     let linkedDossiers: string[] = [];
     if (clientEmail) {
       console.log(`🔗 history: recherche dossiers liés pour ${clientEmail}`);
@@ -215,7 +261,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 6. Formater les réponses staff
+    // 7. Formater les réponses staff
     const staffHistory = (replies || []).map(r => ({
       id: r.id,
       created_at: r.created_at,
@@ -226,11 +272,11 @@ export async function GET(request: Request) {
       is_initial: false
     }));
 
-    // 7. Fusionner et trier par date (du plus récent au plus ancien)
-    const allMessages = [...clientHistoryMessages, ...staffHistory];
+    // 8. Fusionner et trier par date (du plus récent au plus ancien)
+    const allMessages = [...clientHistoryMessages, ...staffHistory, ...systemMessages];
     allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef} (dont ${staffHistory.length} staff, ${clientHistoryMessages.length} client)`);
+    console.log(`✅ history: ${allMessages.length} messages au total pour ${dossierRef} (dont ${staffHistory.length} staff, ${clientHistoryMessages.length} client, ${systemMessages.length} système)`);
 
     return NextResponse.json({ 
       history: allMessages,

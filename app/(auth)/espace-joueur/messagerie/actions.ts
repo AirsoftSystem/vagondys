@@ -29,6 +29,15 @@ export interface PlayerConversation {
 // Type flexible pour les messages bruts de l'archive
 type RawMessage = Record<string, unknown>;
 
+// ✅ Type pour les messages du fullThread (messages systèmes)
+interface FullThreadMessage {
+  role?: string;
+  sender?: string;
+  content?: string;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
 // Type pour un message provenant de pending_signals
 interface PendingSignalMessage {
   id: string;
@@ -135,9 +144,7 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
         fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       }
     } catch {
-      // ✅ CORRECTION : Suppression du paramètre inutilisé
       console.warn("⚠️ Table athletes inaccessible, utilisation du nom par défaut");
-      // Fallback: extraire le nom du joueur depuis l'email
       const emailParts = userEmail.split('@')[0];
       fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -221,8 +228,37 @@ function convertArchiveMessageToPlayerMessage(
 }
 
 /**
+ * ✅ NOUVELLE FONCTION : Convertit un message système du fullThread en PlayerMessage
+ * @param msg - Le message du fullThread
+ * @returns PlayerMessage ou null
+ */
+function convertFullThreadMessageToPlayerMessage(
+  msg: FullThreadMessage
+): PlayerMessage | null {
+  const content = msg.content;
+  const createdAt = msg.created_at;
+  const role = msg.role;
+  const sender = msg.sender;
+  
+  if (!content || !createdAt) return null;
+  
+  // Identifier les messages système
+  const isSystemMessage = role === "system" || sender === "SYSTEM";
+  
+  if (!isSystemMessage) return null;
+  
+  return {
+    id: `system_${createdAt}_${content.substring(0, 20)}`,
+    content: content,
+    created_at: createdAt,
+    sender: "system",
+    sender_name: "Système VAGONDYS",
+    document_url: null,
+  };
+}
+
+/**
  * Convertit un message de pending_signals en format frontend
- * ✅ CORRECTION : Gère correctement tous les messages, même non confirmés
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -289,10 +325,10 @@ export async function getPlayerConversation(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 2. Récupérer tous les messages depuis les 3 sources
+    // 2. Récupérer tous les messages depuis les sources
     const allMessages: PlayerMessage[] = [];
 
-    // Source 1: Archive GitHub
+    // Source 1: Archive GitHub (fil_de_discussion + echanges_staff)
     const archive = await fetchGitHubArchive(
       playerInfo.dossier_ref,
       playerInfo.city,
@@ -300,24 +336,33 @@ export async function getPlayerConversation(
     );
 
     if (archive) {
-      const rawMessages: RawMessage[] = [];
+      // ✅ NOUVEAU : Extraire les messages système depuis fullThread
+      if ('fullThread' in archive && Array.isArray((archive as { fullThread?: FullThreadMessage[] }).fullThread)) {
+        const fullThread = (archive as { fullThread: FullThreadMessage[] }).fullThread;
+        for (const msg of fullThread) {
+          const converted = convertFullThreadMessageToPlayerMessage(msg);
+          if (converted) allMessages.push(converted);
+        }
+      }
+      
+      // Messages du fil de discussion
       if (archive.fil_de_discussion) {
         for (const msg of archive.fil_de_discussion) {
-          rawMessages.push(msg as RawMessage);
+          const converted = convertArchiveMessageToPlayerMessage(msg as RawMessage, userEmail);
+          if (converted) allMessages.push(converted);
         }
       }
+      
+      // Réponses staff
       if (archive.echanges_staff) {
         for (const reply of archive.echanges_staff) {
-          rawMessages.push(reply as RawMessage);
+          const converted = convertArchiveMessageToPlayerMessage(reply as RawMessage, userEmail);
+          if (converted) allMessages.push(converted);
         }
-      }
-      for (const msg of rawMessages) {
-        const converted = convertArchiveMessageToPlayerMessage(msg, userEmail);
-        if (converted) allMessages.push(converted);
       }
     }
 
-    // Source 2: pending_signals (TOUS les messages client, même non confirmés)
+    // Source 2: pending_signals
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -326,14 +371,11 @@ export async function getPlayerConversation(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) allMessages.push(mainMsg);
         
-        // Ajouter l'historique des messages (messages_history)
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               allMessages.push({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
@@ -349,7 +391,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 3: communication_replies (réponses staff non archivées)
+    // Source 3: communication_replies
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -398,7 +440,8 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Récupère TOUS les pending_signals (même non confirmés)
+ * ✅ CORRECTION : Ajout de l'extraction des messages système depuis fullThread
+ * ✅ CORRECTION : Tri chronologique (du plus ancien au plus récent)
  */
 export async function getPlayerMessages(
   userId: string,
@@ -429,7 +472,7 @@ export async function getPlayerMessages(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 2. Collecter tous les messages depuis les 3 sources
+    // 2. Collecter tous les messages depuis les sources
     const allMessages: PlayerMessage[] = [];
     const messageKeys = new Set<string>(); // Pour dédoublonner
 
@@ -441,27 +484,36 @@ export async function getPlayerMessages(
       }
     };
 
-    // Source 1: Archive GitHub
+    // Source 1: Archive GitHub (fullThread + fil_de_discussion + echanges_staff)
     const archive = await fetchGitHubArchive(targetDossierRef, playerCity, playerCountry);
     if (archive) {
-      const rawMessages: RawMessage[] = [];
+      // ✅ NOUVEAU : Extraire les messages système depuis fullThread
+      if ('fullThread' in archive && Array.isArray((archive as { fullThread?: FullThreadMessage[] }).fullThread)) {
+        const fullThread = (archive as { fullThread: FullThreadMessage[] }).fullThread;
+        for (const msg of fullThread) {
+          const converted = convertFullThreadMessageToPlayerMessage(msg);
+          if (converted) addUniqueMessage(converted);
+        }
+      }
+      
+      // Messages du fil de discussion
       if (archive.fil_de_discussion) {
         for (const msg of archive.fil_de_discussion) {
-          rawMessages.push(msg as RawMessage);
+          const converted = convertArchiveMessageToPlayerMessage(msg as RawMessage, userEmail);
+          if (converted) addUniqueMessage(converted);
         }
       }
+      
+      // Réponses staff
       if (archive.echanges_staff) {
         for (const reply of archive.echanges_staff) {
-          rawMessages.push(reply as RawMessage);
+          const converted = convertArchiveMessageToPlayerMessage(reply as RawMessage, userEmail);
+          if (converted) addUniqueMessage(converted);
         }
-      }
-      for (const msg of rawMessages) {
-        const converted = convertArchiveMessageToPlayerMessage(msg, userEmail);
-        if (converted) addUniqueMessage(converted);
       }
     }
 
-    // Source 2: pending_signals (TOUS les messages, même non confirmés)
+    // Source 2: pending_signals
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -470,14 +522,11 @@ export async function getPlayerMessages(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) addUniqueMessage(mainMsg);
         
-        // Historique des messages
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
-            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               addUniqueMessage({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
@@ -493,7 +542,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 3: communication_replies (réponses staff non archivées)
+    // Source 3: communication_replies
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -507,11 +556,11 @@ export async function getPlayerMessages(
       }
     }
 
-    // 3. Trier par date croissante (du plus ancien au plus récent)
+    // 3. Trier par date CROISSANTE (du plus ancien au plus récent) pour un fil de discussion normal
     allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms`);
+    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms (tri croissant)`);
 
     return allMessages;
   } catch (err) {
@@ -523,7 +572,6 @@ export async function getPlayerMessages(
 
 /**
  * Envoie un message depuis le joueur vers le staff de la ville choisie
- * ✅ CORRECTION : Ajout du paramètre targetCity pour choisir le destinataire
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -531,7 +579,7 @@ export async function sendPlayerMessage(params: {
   userId: string;
   userEmail: string;
   userName: string;
-  targetCity?: string;  // ✅ NOUVEAU : ville destinataire (défaut: MASTER)
+  targetCity?: string;
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
@@ -561,7 +609,7 @@ export async function sendPlayerMessage(params: {
       body: JSON.stringify({
         dossierRef,
         content,
-        targetCity: targetCity || "MASTER",  // ✅ Transmission de la ville cible
+        targetCity: targetCity || "MASTER",
         fileUrl: fileUrl || null,
         fileKey: fileKey || null,
       }),
