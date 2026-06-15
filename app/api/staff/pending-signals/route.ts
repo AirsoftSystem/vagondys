@@ -79,7 +79,16 @@ export async function GET(request: Request) {
       query = query.eq("is_read", true);
     }
 
-    query = query.eq("confirmed", true);
+    // ✅ CORRECTION CRITIQUE :
+    // - Vue "pending" : montrer les messages NON confirmés (en attente de validation)
+    // - Vue "archived" : montrer les messages confirmés (déjà traités)
+    if (view === "pending") {
+      query = query.eq("confirmed", false);
+      console.log(`🔍 Filtrage: confirmed=false pour la vue pending`);
+    } else {
+      query = query.eq("confirmed", true);
+      console.log(`🔍 Filtrage: confirmed=true pour la vue archived`);
+    }
 
     // ✅ FILTRAGE PAR RÔLE (pour les agents non-admins uniquement)
     if (!isAdmin) {
@@ -110,7 +119,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail}`);
+    console.log(`✅ ${data?.length || 0} messages trouvés pour ${agentEmail} (vue: ${view})`);
     return NextResponse.json({ messages: data || [], city, country });
 
   } catch (error) {

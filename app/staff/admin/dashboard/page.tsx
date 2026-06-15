@@ -46,7 +46,6 @@ export default function AdminDashboardPage() {
   });
   const [cityStats, setCityStats] = useState<CityStats[]>([]);
 
-  // Fonction de chargement des stats (temps réel)
   const loadStats = async () => {
     setLoading(true);
     setError(null);
@@ -69,7 +68,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Vérifier l'authentification admin (via sessionStorage) et charger les stats
   useEffect(() => {
     const init = async () => {
       const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
@@ -82,6 +80,21 @@ export default function AdminDashboardPage() {
     init();
   }, [router]);
 
+  useEffect(() => {
+    const handleMessageCountUpdate = (event: CustomEvent<{ count: number }>) => {
+      setGlobalStats(prev => ({
+        ...prev,
+        totalMessages: event.detail.count
+      }));
+    };
+
+    window.addEventListener('staff-message-count-updated', handleMessageCountUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('staff-message-count-updated', handleMessageCountUpdate as EventListener);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -93,7 +106,6 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       
-      {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tighter">
@@ -112,7 +124,6 @@ export default function AdminDashboardPage() {
         </button>
       </div>
 
-      {/* Erreur */}
       {error && (
         <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
           <AlertTriangle className="w-5 h-5" />
@@ -120,7 +131,6 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Cartes statistiques globales */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
@@ -190,7 +200,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Tableau des villes */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
           <h2 className="text-sm font-black uppercase tracking-tighter">
@@ -205,7 +214,7 @@ export default function AdminDashboardPage() {
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Athlètes</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Actifs</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Messages</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Taux</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Taux d&apos;activité</th>
               </tr>
             </thead>
             <tbody>
@@ -231,15 +240,7 @@ export default function AdminDashboardPage() {
                       <span className="text-sm font-black text-yellow-500">{city.messages}</span>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500 rounded-full w-(--rate-width)"
-                            data-percentage={`${rate}%`}
-                          />
-                        </div>
-                        <span className="text-[8px] text-zinc-500">{rate}%</span>
-                      </div>
+                      <span className="text-sm font-black text-white">{rate}%</span>
                     </td>
                   </tr>
                 );
