@@ -3,8 +3,7 @@ import { NextResponse } from 'next/server';
 
 /**
  * API NOTIFY-READ : Version Option B (un seul projet Supabase)
- * Marque un signal comme lu ET confirmé, puis envoie l'avis de lecture.
- * ✅ CORRECTION : Ajout de confirmed: true pour basculer le message dans les archives
+ * Marque un signal comme lu et envoie l'avis de lecture.
  */
 export async function POST(req: Request) {
   try {
@@ -102,16 +101,11 @@ export async function POST(req: Request) {
     }
 
     // 2. MISE À JOUR (un seul client - Option B)
-    // ✅ CORRECTION : Mettre à jour is_read = true ET confirmed = true
-    // Cela permet au message de basculer dans la vue "Archives"
-    console.log(`📝 notify-read: mise à jour is_read=true et confirmed=true pour ${finalDossierRef}`);
+    console.log(`📝 notify-read: mise à jour is_read=true pour ${finalDossierRef}`);
     
     const { error: updateError } = await supabaseClient
       .from('pending_signals')
-      .update({ 
-        is_read: true,
-        confirmed: true   // ✅ AJOUT : Confirmer le signal pour qu'il aille dans les archives
-      })
+      .update({ is_read: true })
       .eq('dossier_ref', finalDossierRef);
 
     if (updateError) {

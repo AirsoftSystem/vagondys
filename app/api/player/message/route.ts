@@ -40,6 +40,8 @@ const STAFF_EMAILS: Record<string, string> = {
   "MASTER": "admin@vagondys.com",
 };
 
+// ✅ SUPPRESSION de ADMIN_EMAILS (inutilisé)
+
 // ==========================================================
 // TYPES
 // ==========================================================
@@ -47,7 +49,7 @@ const STAFF_EMAILS: Record<string, string> = {
 interface PlayerMessageRequest {
   dossierRef: string;
   content: string;
-  targetCity?: string;
+  targetCity?: string;  // ✅ NOUVEAU : ville destinataire
   fileUrl?: string;
   fileKey?: string;
 }
@@ -83,6 +85,7 @@ async function authenticateAndGetPlayerInfo(
     return null;
   }
 
+  // Client pour vérifier l'auth
   const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
   const { data: { user }, error } = await supabaseClient.auth.getUser(token);
 
@@ -97,6 +100,7 @@ async function authenticateAndGetPlayerInfo(
 
   console.log(`🔐 [player/message] Utilisateur authentifié: ${userEmail}`);
 
+  // Récupérer les infos du joueur depuis athletes_registry
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error("❌ [player/message] Service key manquante");
     return null;
@@ -106,12 +110,14 @@ async function authenticateAndGetPlayerInfo(
     auth: { autoRefreshToken: false, persistSession: false }
   });
 
+  // Rechercher par user_id
   let { data: registry } = await supabaseAdmin
     .from("athletes_registry")
     .select("dossier_ref, city, country")
     .eq("user_id", userId)
     .maybeSingle();
 
+  // Fallback par email
   if (!registry) {
     const { data: registryByEmail } = await supabaseAdmin
       .from("athletes_registry")
@@ -204,6 +210,7 @@ async function notifyStaff(
 
 /**
  * Sauvegarde le message dans communication_replies
+ * (utilise la ville du joueur pour traçabilité, pas la ville cible)
  */
 async function saveMessageToDatabase(
   dossierRef: string,
@@ -236,7 +243,7 @@ async function saveMessageToDatabase(
         content: content,
         document_url: fileUrl || null,
         file_key: fileKey || null,
-        city: playerCity,
+        city: playerCity,  // ✅ Ville du joueur (traçabilité)
         country: playerCountry,
         created_at: new Date().toISOString(),
       });
@@ -269,6 +276,7 @@ async function updatePendingSignalsHistory(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
+    // Récupérer le signal existant
     const { data: signal } = await supabaseAdmin
       .from("pending_signals")
       .select("payload, dossier_ref")
@@ -279,11 +287,13 @@ async function updatePendingSignalsHistory(
       const payload = signal.payload as Record<string, unknown>;
       const messagesHistory = (payload.messages_history as Array<{ content: string; created_at: string }>) || [];
 
+      // Ajouter le nouveau message à l'historique
       messagesHistory.push({
         content: content,
         created_at: new Date().toISOString(),
       });
 
+      // Mettre à jour le payload
       const updatedPayload = {
         ...payload,
         messages_history: messagesHistory,
@@ -318,6 +328,7 @@ export async function POST(request: NextRequest) {
   console.log(`📤 [player/message] Début requête`);
 
   try {
+    // 1. Authentification et récupération infos joueur
     const playerInfo = await authenticateAndGetPlayerInfo(request);
     if (!playerInfo) {
       return NextResponse.json(
@@ -326,6 +337,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 2. Récupérer le body
     const body = await request.json();
     const { dossierRef, content, targetCity, fileUrl, fileKey }: PlayerMessageRequest = body;
 
@@ -336,9 +348,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 3. Déterminer la ville cible (destinataire)
+    // Si targetCity est fourni et valide, l'utiliser, sinon utiliser la ville du joueur
     let effectiveTargetCity = playerInfo.playerCity;
     if (targetCity) {
       const upperTarget = targetCity.toUpperCase().trim();
+      // Vérifier que la ville cible existe dans le mapping
       if (STAFF_EMAILS[upperTarget] || upperTarget === "MASTER") {
         effectiveTargetCity = upperTarget;
         console.log(`📍 [player/message] Ville cible sélectionnée: ${effectiveTargetCity}`);
@@ -352,6 +367,7 @@ export async function POST(request: NextRequest) {
     console.log(`📍 [player/message] Destinataire: ${effectiveTargetCity}`);
     console.log(`📍 [player/message] Expéditeur (ville): ${playerInfo.playerCity}`);
 
+    // 4. Sauvegarder dans communication_replies (avec ville du joueur)
     const saved = await saveMessageToDatabase(
       dossierRef,
       playerInfo.userEmail,
@@ -370,8 +386,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 5. Mettre à jour l'historique dans pending_signals
     await updatePendingSignalsHistory(dossierRef, playerInfo.userEmail, content);
 
+    // 6. Envoyer l'email au staff de la ville cible
     const emailSent = await notifyStaff(
       effectiveTargetCity,
       playerInfo.userName,
@@ -384,20 +402,10 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
     console.log(`✅ [player/message] Terminé en ${duration}ms, email envoyé: ${emailSent}`);
 
-    // ✅ CORRECTION CRITIQUE : Vérifier que l'email a bien été envoyé
-    if (!emailSent) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "Le message a été sauvegardé mais l'email n'a pas pu être envoyé. Le staff sera notifié ultérieurement." 
-        },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
       message: `Message envoyé avec succès à ${effectiveTargetCity}`,
+      staffNotified: emailSent,
       targetCity: effectiveTargetCity,
     });
   } catch (error) {

@@ -40,7 +40,6 @@ interface PendingSignalMessage {
     message?: string;
     subject?: string;
     messages_history?: Array<{ content: string; created_at: string }>;
-    attachments?: Array<{ url: string; key: string; name: string }>;
   };
   confirmed?: boolean;
 }
@@ -76,73 +75,12 @@ const STAFF_EMAILS: Record<string, string> = {
 };
 
 // ==========================================================
-// FONCTIONS UTILITAIRES
-// ==========================================================
-
-/**
- * Convertit une date en format ISO standard
- */
-function normalizeDateToISO(dateStr: string): string {
-  if (!dateStr) return new Date().toISOString();
-  
-  try {
-    let normalized = dateStr.trim();
-    
-    // Format français: "13/06/2026 09:17:55" → "2026-06-13T09:17:55.000Z"
-    const frenchMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/);
-    if (frenchMatch) {
-      const [, day, month, year, time] = frenchMatch;
-      normalized = `${year}-${month}-${day}T${time}.000Z`;
-      return normalized;
-    }
-    
-    // Format PostgreSQL: "2026-06-13 09:17:55" → "2026-06-13T09:17:55.000Z"
-    const pgMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/);
-    if (pgMatch) {
-      const [, date, time] = pgMatch;
-      normalized = `${date}T${time}.000Z`;
-      return normalized;
-    }
-    
-    // Format ISO avec T mais sans millisecondes
-    const isoNoMsMatch = normalized.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})$/);
-    if (isoNoMsMatch) {
-      normalized = `${isoNoMsMatch[1]}.000Z`;
-      return normalized;
-    }
-    
-    // Format ISO déjà correct
-    const isoMatch = normalized.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
-    if (isoMatch) {
-      return normalized;
-    }
-    
-    // Dernier recours
-    const timestamp = Date.parse(normalized);
-    if (!isNaN(timestamp)) {
-      return new Date(timestamp).toISOString();
-    }
-    
-    return new Date().toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-/**
- * Normalise une date pour un tri fiable (retourne timestamp numérique)
- */
-function normalizeDate(dateStr: string): number {
-  const isoString = normalizeDateToISO(dateStr);
-  return new Date(isoString).getTime();
-}
-
-// ==========================================================
 // FONCTIONS PRINCIPALES
 // ==========================================================
 
 /**
  * Récupère les informations du joueur depuis athletes_registry
+ * ✅ CORRECTION : Fallback sur userEmail si athletes n'existe pas
  */
 async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossier_ref: string; city: string; country: string; full_name: string } | null> {
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -155,12 +93,14 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
   });
 
   try {
+    // Rechercher par user_id d'abord
     let { data: registry } = await supabase
       .from("athletes_registry")
       .select("dossier_ref, city, country, user_id")
       .eq("user_id", userId)
       .maybeSingle();
 
+    // Fallback par email
     if (!registry && userEmail) {
       const { data: registryByEmail } = await supabase
         .from("athletes_registry")
@@ -178,6 +118,7 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
       return null;
     }
 
+    // Récupérer le nom depuis athletes (fallback sur userEmail si pas trouvé)
     let fullName = "Joueur";
     try {
       const { data: athlete } = await supabase
@@ -189,11 +130,14 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
       if (athlete?.full_name) {
         fullName = athlete.full_name;
       } else {
+        // Fallback: extraire le nom du joueur depuis l'email
         const emailParts = userEmail.split('@')[0];
         fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       }
     } catch {
+      // ✅ CORRECTION : Suppression du paramètre inutilisé
       console.warn("⚠️ Table athletes inaccessible, utilisation du nom par défaut");
+      // Fallback: extraire le nom du joueur depuis l'email
       const emailParts = userEmail.split('@')[0];
       fullName = emailParts.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -216,6 +160,15 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
 function getStaffEmailForCity(city: string): string {
   const upperCity = city.toUpperCase().trim();
   return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
+}
+
+/**
+ * Récupère le token d'authentification pour appeler l'API
+ */
+async function getAuthToken(): Promise<string | null> {
+  const supabase = createClient(supabaseUrl!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
 }
 
 /**
@@ -260,7 +213,7 @@ function convertArchiveMessageToPlayerMessage(
   return {
     id: (msgId as string) || `msg_${createdAt}`,
     content: content,
-    created_at: normalizeDateToISO(createdAt),
+    created_at: createdAt,
     sender: messageSender,
     sender_name: senderName,
     document_url: documentUrl || null,
@@ -269,6 +222,7 @@ function convertArchiveMessageToPlayerMessage(
 
 /**
  * Convertit un message de pending_signals en format frontend
+ * ✅ CORRECTION : Gère correctement tous les messages, même non confirmés
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -278,21 +232,15 @@ function convertPendingSignalToPlayerMessage(
   if (!payload) return null;
 
   const content = payload.message || "Message sans contenu";
-  
-  let createdAt = signal.created_at;
-  if (payload.messages_history && payload.messages_history.length > 0) {
-    const lastMessage = payload.messages_history[payload.messages_history.length - 1];
-    if (lastMessage.created_at) {
-      createdAt = lastMessage.created_at;
-    }
-  }
+  const createdAt = signal.created_at;
 
+  // Déterminer l'expéditeur
   const isPlayer = payload.email === playerEmail;
   
   return {
     id: signal.id,
     content: content,
-    created_at: normalizeDateToISO(createdAt),
+    created_at: createdAt,
     sender: isPlayer ? "player" : "staff",
     sender_name: isPlayer ? "Moi" : (payload.name || "Staff VAGONDYS"),
     document_url: null,
@@ -310,7 +258,7 @@ function convertReplyToPlayerMessage(
   return {
     id: reply.id,
     content: reply.content,
-    created_at: normalizeDateToISO(reply.created_at),
+    created_at: reply.created_at,
     sender: "staff",
     sender_name: reply.agent_email?.split("@")[0] || "Staff VAGONDYS",
     document_url: reply.document_url || null,
@@ -318,7 +266,7 @@ function convertReplyToPlayerMessage(
 }
 
 /**
- * Récupère la conversation du joueur
+ * Récupère la conversation du joueur (une seule, basée sur son dossier_ref)
  */
 export async function getPlayerConversation(
   userId: string,
@@ -328,6 +276,7 @@ export async function getPlayerConversation(
   console.log(`👤 [getPlayerConversation] Début pour userId: ${userId}, email: ${userEmail}`);
 
   try {
+    // 1. Récupérer les infos du joueur
     const playerInfo = await getPlayerInfo(userId, userEmail);
     if (!playerInfo) {
       console.error("❌ [getPlayerConversation] Impossible de trouver les infos du joueur");
@@ -340,6 +289,7 @@ export async function getPlayerConversation(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
+    // 2. Récupérer tous les messages depuis les 3 sources
     const allMessages: PlayerMessage[] = [];
 
     // Source 1: Archive GitHub
@@ -367,7 +317,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 2: pending_signals
+    // Source 2: pending_signals (TOUS les messages client, même non confirmés)
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -376,16 +326,19 @@ export async function getPlayerConversation(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
+        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) allMessages.push(mainMsg);
         
+        // Ajouter l'historique des messages (messages_history)
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
+            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               allMessages.push({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: normalizeDateToISO(histMsg.created_at),
+                created_at: histMsg.created_at,
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -396,7 +349,7 @@ export async function getPlayerConversation(
       }
     }
 
-    // Source 3: communication_replies
+    // Source 3: communication_replies (réponses staff non archivées)
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -410,6 +363,7 @@ export async function getPlayerConversation(
       }
     }
 
+    // 3. Trier par date et trouver le dernier message
     if (allMessages.length === 0) {
       return {
         dossier_ref: playerInfo.dossier_ref,
@@ -421,7 +375,7 @@ export async function getPlayerConversation(
       };
     }
 
-    allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
+    allMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const latest = allMessages[0];
 
     const duration = Date.now() - startTime;
@@ -444,6 +398,7 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
+ * ✅ CORRECTION : Récupère TOUS les pending_signals (même non confirmés)
  */
 export async function getPlayerMessages(
   userId: string,
@@ -454,6 +409,7 @@ export async function getPlayerMessages(
   console.log(`💬 [getPlayerMessages] Début pour userId: ${userId}, dossierRef: ${dossierRef || "auto"}`);
 
   try {
+    // 1. Récupérer les infos du joueur si dossierRef non fourni
     let targetDossierRef = dossierRef;
     let playerCity = "NANTES";
     let playerCountry = "FR";
@@ -473,8 +429,9 @@ export async function getPlayerMessages(
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
+    // 2. Collecter tous les messages depuis les 3 sources
     const allMessages: PlayerMessage[] = [];
-    const messageKeys = new Set<string>();
+    const messageKeys = new Set<string>(); // Pour dédoublonner
 
     const addUniqueMessage = (msg: PlayerMessage) => {
       const key = `${msg.content}_${msg.created_at}`;
@@ -504,7 +461,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 2: pending_signals
+    // Source 2: pending_signals (TOUS les messages, même non confirmés)
     const { data: signals } = await supabase
       .from("pending_signals")
       .select("*")
@@ -513,16 +470,19 @@ export async function getPlayerMessages(
 
     if (signals && signals.length > 0) {
       for (const signal of signals as PendingSignalMessage[]) {
+        // Message principal
         const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
         if (mainMsg) addUniqueMessage(mainMsg);
         
+        // Historique des messages
         if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
           for (const histMsg of signal.payload.messages_history) {
+            // Éviter les doublons avec le message principal
             if (histMsg.content !== signal.payload.message) {
               addUniqueMessage({
                 id: `${signal.id}_hist_${histMsg.created_at}`,
                 content: histMsg.content,
-                created_at: normalizeDateToISO(histMsg.created_at),
+                created_at: histMsg.created_at,
                 sender: "player",
                 sender_name: "Moi",
                 document_url: null,
@@ -533,7 +493,7 @@ export async function getPlayerMessages(
       }
     }
 
-    // Source 3: communication_replies
+    // Source 3: communication_replies (réponses staff non archivées)
     const { data: replies } = await supabase
       .from("communication_replies")
       .select("*")
@@ -547,10 +507,11 @@ export async function getPlayerMessages(
       }
     }
 
-    allMessages.sort((a, b) => normalizeDate(b.created_at) - normalizeDate(a.created_at));
+    // 3. Trier par date croissante (du plus ancien au plus récent)
+    allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms (tri décroissant)`);
+    console.log(`✅ [getPlayerMessages] ${allMessages.length} messages retournés en ${duration}ms`);
 
     return allMessages;
   } catch (err) {
@@ -561,8 +522,8 @@ export async function getPlayerMessages(
 }
 
 /**
- * ✅ CORRECTION : Envoie un message directement dans pending_signals
- * ✅ AJOUT : Paramètre targetSubject pour le routage intelligent
+ * Envoie un message depuis le joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Ajout du paramètre targetCity pour choisir le destinataire
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -570,184 +531,57 @@ export async function sendPlayerMessage(params: {
   userId: string;
   userEmail: string;
   userName: string;
-  targetCity?: string;
-  targetSubject?: string;  // ✅ NOUVEAU : sujet du message
+  targetCity?: string;  // ✅ NOUVEAU : ville destinataire (défaut: MASTER)
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { dossierRef, content, targetCity, targetSubject, userEmail, userName, fileUrl, fileKey } = params;
+  const startTime = Date.now();
+  const { dossierRef, content, targetCity, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, targetSubject: ${targetSubject || "PLAYER"}, content length: ${content?.length || 0}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, content length: ${content?.length || 0}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
   }
 
   try {
-    // 1. Vérifier que le joueur existe
-    const playerInfo = await getPlayerInfo(params.userId, params.userEmail);
-    if (!playerInfo) {
-      return { success: false, error: "Compte joueur non trouvé" };
+    const token = await getAuthToken();
+    if (!token) {
+      console.error("❌ [sendPlayerMessage] Impossible d'obtenir le token d'authentification");
+      return { success: false, error: "Session expirée, veuillez vous reconnecter" };
     }
 
-    // 2. Déterminer la ville cible et le sujet
-    const effectiveTargetCity = targetCity?.toUpperCase().trim() || "MASTER";
-    const effectiveTargetCountry = effectiveTargetCity === "MASTER" ? "FR" : playerInfo.country;
-    const effectiveSubject = targetSubject?.toUpperCase().trim() || "PLAYER";
-
-    console.log(`📤 [sendPlayerMessage] Insertion directe dans pending_signals - dossier: ${dossierRef}, targetCity: ${effectiveTargetCity}, subject: ${effectiveSubject}`);
-
-    // 3. Connexion Supabase
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return { success: false, error: "Configuration serveur invalide" };
-    }
-
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
+    const response = await fetch(`${baseUrl}/api/player/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        dossierRef,
+        content,
+        targetCity: targetCity || "MASTER",  // ✅ Transmission de la ville cible
+        fileUrl: fileUrl || null,
+        fileKey: fileKey || null,
+      }),
     });
 
-    const now = new Date().toISOString();
+    const result = await response.json();
 
-    // 4. Vérifier si un signal existe déjà pour ce dossier
-    const { data: existingSignal } = await supabaseAdmin
-      .from("pending_signals")
-      .select("id, payload, dossier_ref")
-      .eq("dossier_ref", dossierRef)
-      .maybeSingle();
-
-    if (existingSignal && existingSignal.payload) {
-      // Mise à jour du signal existant
-      const existingPayload = existingSignal.payload as {
-        name?: string;
-        email?: string;
-        message?: string;
-        subject?: string;
-        city?: string;
-        country?: string;
-        messages_history?: Array<{ content: string; created_at: string }>;
-        attachments?: Array<{ url: string; key: string; name: string }>;
-      };
-
-      const messagesHistory = [...(existingPayload.messages_history || [])];
-      const attachments = [...(existingPayload.attachments || [])];
-
-      messagesHistory.push({
-        content: content,
-        created_at: now,
-      });
-
-      // Ajouter le fichier joint si présent
-      if (fileUrl && fileKey) {
-        attachments.push({
-          url: fileUrl,
-          key: fileKey,
-          name: `piece_jointe_${Date.now()}`,
-        });
-      }
-
-      const updatedPayload = {
-        ...existingPayload,
-        message: content,
-        subject: effectiveSubject,  // ✅ Mise à jour du sujet
-        messages_history: messagesHistory,
-        attachments: attachments.length > 0 ? attachments : undefined,
-      };
-
-      const { error: updateError } = await supabaseAdmin
-        .from("pending_signals")
-        .update({
-          payload: updatedPayload,
-          is_read: false,
-          confirmed: false,
-        })
-        .eq("dossier_ref", dossierRef);
-
-      if (updateError) {
-        console.error("❌ [sendPlayerMessage] Erreur mise à jour:", updateError);
-        return { success: false, error: "Erreur lors de la mise à jour" };
-      }
-
-      console.log(`✅ [sendPlayerMessage] Message ajouté au signal existant ${dossierRef} avec subject=${effectiveSubject}`);
-    } else {
-      // Création d'un nouveau signal
-      const attachments = (fileUrl && fileKey) ? [{
-        url: fileUrl,
-        key: fileKey,
-        name: `piece_jointe_${Date.now()}`,
-      }] : [];
-
-      const insertPayload = {
-        name: userName,
-        email: userEmail,
-        message: content,
-        subject: effectiveSubject,  // ✅ Sujet choisi par l'utilisateur
-        city: playerInfo.city,
-        country: playerInfo.country,
-        messages_history: [
-          {
-            content: content,
-            created_at: now,
-          },
-        ],
-        attachments: attachments.length > 0 ? attachments : undefined,
-      };
-
-      const { error: insertError } = await supabaseAdmin
-        .from("pending_signals")
-        .insert({
-          dossier_ref: dossierRef,
-          payload: insertPayload,
-          confirmed: false,
-          is_read: false,
-          is_new_athlete: false,
-          city: effectiveTargetCity,
-          country: effectiveTargetCountry,
-          created_at: now,
-        });
-
-      if (insertError) {
-        console.error("❌ [sendPlayerMessage] Erreur insertion:", insertError);
-        return { success: false, error: "Erreur lors de la création" };
-      }
-
-      console.log(`✅ [sendPlayerMessage] Nouveau signal créé pour ${dossierRef} avec subject=${effectiveSubject}`);
+    if (!response.ok || !result.success) {
+      console.error(`❌ [sendPlayerMessage] Erreur API: ${response.status} - ${result.error}`);
+      return { success: false, error: result.error || `Erreur API: ${response.status}` };
     }
 
-    // 5. Notification email au staff (optionnelle)
-    const staffEmail = getStaffEmailForCity(effectiveTargetCity);
-    if (staffEmail && staffEmail !== "admin@vagondys.com") {
-      try {
-        const { sendGeneralEmail } = await import("@/lib/email/gmail");
-        await sendGeneralEmail(
-          staffEmail,
-          `[VAGONDYS] Nouveau message de ${userName} (${dossierRef}) - ${effectiveSubject}`,
-          `Nouveau message de ${userName} (${dossierRef})\n\n${content}`,
-          `<div style="background:black; color:white; padding:20px;">
-             <h2 style="color:#dc2626;">Nouveau message joueur</h2>
-             <p><strong>Dossier:</strong> ${dossierRef}</p>
-             <p><strong>Expéditeur:</strong> ${userName} (${userEmail})</p>
-             <p><strong>Sujet:</strong> ${effectiveSubject}</p>
-             <p><strong>Message:</strong></p>
-             <div style="background:#09090b; padding:15px; border-radius:8px;">${content}</div>
-             ${fileUrl ? `<p><strong>Pièce jointe:</strong> <a href="${fileUrl}">Voir le document</a></p>` : ""}
-             <p style="margin-top:20px; font-size:11px;">Connectez-vous à l'interface staff pour répondre.</p>
-           </div>`,
-          "no-reply@vagondys.com"
-        );
-        console.log(`📧 [sendPlayerMessage] Email envoyé à ${staffEmail}`);
-      } catch (emailErr) {
-        console.warn("⚠️ [sendPlayerMessage] Erreur envoi email (non bloquant):", emailErr);
-      }
-    }
+    const duration = Date.now() - startTime;
+    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès`);
 
     return { success: true };
   } catch (err) {
+    const duration = Date.now() - startTime;
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error("❌ [sendPlayerMessage] Erreur:", errorMsg);
+    console.error(`❌ [sendPlayerMessage] Erreur après ${duration}ms:`, errorMsg);
     return { success: false, error: "Erreur lors de l'envoi du message" };
   }
 }

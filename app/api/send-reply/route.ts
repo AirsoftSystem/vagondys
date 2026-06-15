@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     const { Resend } = await import('resend');
     const { createClient } = await import('@supabase/supabase-js');
     
-    // ✅ Récupération des variables d'environnement (Version Option B - un seul projeto)
+    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
     const resendApiKey = process.env.RESEND_API_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -290,7 +290,7 @@ export async function POST(req: Request) {
                   </div>
                   <div style="display:none !important; font-size:0px;">ID-${uniqueSalt}</div>
                 </td>
-              </tr>
+              </table>
             </table>
           </body>
           </html>
@@ -323,14 +323,9 @@ export async function POST(req: Request) {
     // 4. MISE À JOUR DE LA BASE UNIQUE (Insertion de la réponse et marquage comme lu)
     console.log(`📝 send-reply: insertion dans communication_replies pour ${cleanDossierRef}`);
     
-    // ✅ CORRECTION : Mettre à jour is_read = true ET confirmed = true
-    // Cela permet au message de basculer dans la vue "Archives"
     const [replyInsert, staffUpdate] = await Promise.all([
       supabaseClient.from('communication_replies').insert([replyData]),
-      supabaseClient.from('pending_signals').update({ 
-        is_read: true,
-        confirmed: true   // ✅ AJOUT : Confirmer le signal après réponse staff
-      }).eq('dossier_ref', cleanDossierRef)
+      supabaseClient.from('pending_signals').update({ is_read: true }).eq('dossier_ref', cleanDossierRef)
     ]);
 
     if (replyInsert.error) {
@@ -340,9 +335,9 @@ export async function POST(req: Request) {
     }
 
     if (staffUpdate.error) {
-      console.error("❌ send-reply: erreur mise à jour is_read/confirmed:", staffUpdate.error);
+      console.error("❌ send-reply: erreur mise à jour is_read:", staffUpdate.error);
     } else {
-      console.log(`✅ send-reply: mise à jour is_read=true et confirmed=true OK`);
+      console.log(`✅ send-reply: mise à jour is_read OK`);
     }
 
     // ✅ ARCHIVAGE GITHUB APRÈS CHAQUE RÉPONSE STAFF (sans modifier le payload)
