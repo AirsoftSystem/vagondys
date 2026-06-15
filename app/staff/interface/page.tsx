@@ -249,37 +249,52 @@ export default function StaffMessagesPage() {
       
       const archivedData = await fetchGitHubArchive(ref, userCity || undefined, userCountry || undefined);
       
-      const allRawMessages: ExtendedHistoryMessage[] = [];
+      // ✅ CORRECTION : Éviter les doublons entre Supabase et GitHub
+      // Créer un Set des IDs des messages déjà présents dans l'historique Supabase
+      const existingMessageKeys = new Set<string>();
+      formattedHistory.forEach(msg => {
+        existingMessageKeys.add(`${msg.content}_${msg.created_at}`);
+      });
       
-      formattedHistory.forEach(msg => allRawMessages.push(msg));
+      const allRawMessages: ExtendedHistoryMessage[] = [...formattedHistory];
       
       if (archivedData && archivedData.fil_de_discussion && archivedData.fil_de_discussion.length > 0) {
         archivedData.fil_de_discussion.forEach(msg => {
           if (msg.role === "public" && msg.content && msg.created_at) {
-            allRawMessages.push({
-              id: `github_client_${msg.created_at}`,
-              created_at: msg.created_at,
-              agent_email: "CLIENT",
-              content: msg.content,
-              dossier_ref: ref,
-              document_url: null,
-              is_initial: msg.is_initial === true
-            });
+            const msgKey = `${msg.content}_${msg.created_at}`;
+            // ✅ Ne pas ajouter le message s'il existe déjà dans Supabase
+            if (!existingMessageKeys.has(msgKey)) {
+              allRawMessages.push({
+                id: `github_client_${msg.created_at}`,
+                created_at: msg.created_at,
+                agent_email: "CLIENT",
+                content: msg.content,
+                dossier_ref: ref,
+                document_url: null,
+                is_initial: msg.is_initial === true
+              });
+              existingMessageKeys.add(msgKey);
+            }
           }
         });
       }
       
       if (archivedData && archivedData.echanges_staff && archivedData.echanges_staff.length > 0) {
         archivedData.echanges_staff.forEach(h => {
-          allRawMessages.push({
-            id: h.id,
-            created_at: h.created_at,
-            agent_email: h.agent_email,
-            content: h.content,
-            dossier_ref: h.dossier_ref,
-            document_url: h.document_url || null,
-            is_initial: false
-          });
+          const msgKey = `${h.content}_${h.created_at}`;
+          // ✅ Ne pas ajouter le message s'il existe déjà dans Supabase
+          if (!existingMessageKeys.has(msgKey)) {
+            allRawMessages.push({
+              id: h.id,
+              created_at: h.created_at,
+              agent_email: h.agent_email,
+              content: h.content,
+              dossier_ref: h.dossier_ref,
+              document_url: h.document_url || null,
+              is_initial: false
+            });
+            existingMessageKeys.add(msgKey);
+          }
         });
         setGithubArchive(archivedData);
       }

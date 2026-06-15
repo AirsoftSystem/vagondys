@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe, Search, X } from "lucide-react";
+import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe, Search, X, Tag } from "lucide-react";
 import Link from "next/link";
 import { createVagondysClient } from "@/lib/supabase/client";
 import {
@@ -55,6 +55,19 @@ const SORTED_CITIES = [...AVAILABLE_CITIES].sort((a, b) => {
   return a.name.localeCompare(b.name);
 });
 
+// ✅ Liste des objets (sujets) disponibles pour le signal
+const AVAILABLE_SUBJECTS = [
+  { code: "COMMUNICATION", name: "COMMUNICATION", isCentralized: true },
+  { code: "SPONSORS", name: "SPONSORS", isCentralized: true },
+  { code: "LIGUE", name: "LIGUE", isCentralized: true },
+  { code: "INSCRIPTION", name: "INSCRIPTION", isCentralized: true },
+  { code: "LICENCE", name: "LICENCE", isCentralized: true },
+  { code: "PLAYER", name: "PLAYER", isCentralized: false },
+  { code: "COMPETITION", name: "COMPETITION", isCentralized: false },
+  { code: "TOURNOIS", name: "TOURNOIS", isCentralized: false },
+  { code: "RESERVATIONS", name: "RESERVATIONS", isCentralized: false },
+];
+
 /**
  * Page Messagerie pour l'espace joueur
  * ✅ AJOUT : Barre de recherche pour filtrer les villes destinataires
@@ -64,6 +77,7 @@ const SORTED_CITIES = [...AVAILABLE_CITIES].sort((a, b) => {
  * ✅ CORRECTION : Tri explicite des messages (décroissant)
  * ✅ CORRECTION : Regroupement des villes par pays (MASTER → FRANCE → ESPAGNE)
  * ✅ CORRECTION : normalizeDate() robuste supportant tous les formats de date
+ * ✅ AJOUT : Sélecteur "Objet du signal" pour le routage intelligent
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -82,6 +96,10 @@ export default function EspaceJoueurMessageriePage() {
   
   // ✅ État pour la barre de recherche
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // ✅ État pour l'objet du signal (sujet)
+  const [targetSubject, setTargetSubject] = useState<string>("PLAYER");
+  const [showSubjectSelector, setShowSubjectSelector] = useState(false);
 
   /**
    * ✅ CORRECTION : Normalise une date pour un tri fiable
@@ -232,6 +250,7 @@ export default function EspaceJoueurMessageriePage() {
       userEmail: user.email,
       userName: user.name,
       targetCity: targetCity,
+      targetSubject: targetSubject, // ✅ Ajout du sujet
       fileUrl: fileUrl,
       fileKey: fileKey,
     });
@@ -263,7 +282,7 @@ export default function EspaceJoueurMessageriePage() {
       last_message: content.substring(0, 100),
       last_message_date: new Date().toISOString(),
     } : null);
-  }, [conversation, user, targetCity]);
+  }, [conversation, user, targetCity, targetSubject]);
 
   // 3. Rafraîchir les messages
   const refreshMessages = useCallback(async () => {
@@ -297,6 +316,12 @@ export default function EspaceJoueurMessageriePage() {
   const getSelectedCityName = () => {
     const city = SORTED_CITIES.find(c => c.code === targetCity);
     return city?.name || "SUPER ADMIN";
+  };
+  
+  // ✅ Obtenir le nom du sujet sélectionné
+  const getSelectedSubjectName = () => {
+    const subject = AVAILABLE_SUBJECTS.find(s => s.code === targetSubject);
+    return subject?.name || "PLAYER";
   };
 
   if (loading) {
@@ -368,7 +393,7 @@ export default function EspaceJoueurMessageriePage() {
 
       {conversation && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne gauche : Liste des conversations + sélecteur de ville */}
+          {/* Colonne gauche : Liste des conversations + sélecteur de ville + sélecteur sujet */}
           <div className="lg:col-span-1 bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-zinc-900">
               <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
@@ -384,7 +409,7 @@ export default function EspaceJoueurMessageriePage() {
             />
 
             {/* ✅ Sélecteur de ville destinataire avec barre de recherche et regroupement par pays */}
-            <div className="p-4 border-t border-zinc-900 mt-4">
+            <div className="p-4 border-t border-zinc-900">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-3 h-3 text-red-600" />
                 <span className="text-[8px] font-black uppercase text-zinc-500">
@@ -444,16 +469,13 @@ export default function EspaceJoueurMessageriePage() {
                         </p>
                       </div>
                     ) : (
-                      // Afficher chaque groupe (MASTER, FRANCE, ESPAGNE)
                       Object.entries(getFilteredAndGroupedCities).map(([group, cities]) => (
                         <div key={group} className="border-b border-zinc-800 last:border-b-0">
-                          {/* En-tête du groupe */}
                           <div className="px-3 py-1.5 bg-zinc-900/50">
                             <span className="text-[7px] font-black uppercase tracking-wider text-zinc-500">
                               {group === "MASTER" ? "⚡ ADMINISTRATION" : group}
                             </span>
                           </div>
-                          {/* Villes du groupe */}
                           {cities.map((city) => (
                             <button
                               key={city.code}
@@ -477,8 +499,54 @@ export default function EspaceJoueurMessageriePage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* ✅ NOUVEAU : Sélecteur d'objet du signal */}
+            <div className="p-4 border-t border-zinc-900">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="w-3 h-3 text-red-600" />
+                <span className="text-[8px] font-black uppercase text-zinc-500">
+                  OBJET DU SIGNAL
+                </span>
+              </div>
+              
+              <button
+                onClick={() => setShowSubjectSelector(!showSubjectSelector)}
+                className="w-full flex items-center justify-between bg-black border border-zinc-800 rounded-lg px-3 py-2 hover:border-red-600/50 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-3 h-3 text-zinc-500" />
+                  <span className="text-[9px] font-mono text-white uppercase">
+                    {getSelectedSubjectName()}
+                  </span>
+                </div>
+                <span className="text-[8px] text-zinc-600">▼</span>
+              </button>
+
+              {showSubjectSelector && (
+                <div className="mt-2 bg-black border border-zinc-800 rounded-lg overflow-hidden">
+                  <div className="max-h-48 overflow-y-auto">
+                    {AVAILABLE_SUBJECTS.map((subject) => (
+                      <button
+                        key={subject.code}
+                        onClick={() => {
+                          setTargetSubject(subject.code);
+                          setShowSubjectSelector(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
+                          targetSubject === subject.code
+                            ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
+                            : "text-zinc-400 hover:bg-white/5"
+                        }`}
+                      >
+                        {subject.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <p className="text-[6px] text-zinc-700 uppercase tracking-wider mt-2 text-center">
-                Recherchez et sélectionnez la ville du destinataire
+                Définit le routage du message (centralisé ou filtré par ville)
               </p>
             </div>
           </div>
@@ -498,7 +566,7 @@ export default function EspaceJoueurMessageriePage() {
               dossierRef={conversation.dossier_ref}
               onSend={handleSendMessage}
               disabled={loadingMessages}
-              placeholder={`Saisissez votre message pour ${getSelectedCityName()} (Ctrl+Entrée pour envoyer)...`}
+              placeholder={`Saisissez votre message pour ${getSelectedCityName()} (Objet: ${getSelectedSubjectName()}) (Ctrl+Entrée pour envoyer)...`}
             />
           </div>
         </div>

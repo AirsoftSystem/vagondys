@@ -3,7 +3,6 @@
 
 import { fetchGitHubArchive } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
-// ❌ Supprimer cette ligne : import { randomUUID } from "crypto";
 
 // ==========================================================
 // TYPES
@@ -563,8 +562,7 @@ export async function getPlayerMessages(
 
 /**
  * ✅ CORRECTION : Envoie un message directement dans pending_signals
- * (comme le fait le formulaire de contact qui fonctionne)
- * ✅ CORRECTION : Stockage des fichiers joints dans attachments (pas dans messages_history)
+ * ✅ AJOUT : Paramètre targetSubject pour le routage intelligent
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -573,12 +571,13 @@ export async function sendPlayerMessage(params: {
   userEmail: string;
   userName: string;
   targetCity?: string;
+  targetSubject?: string;  // ✅ NOUVEAU : sujet du message
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { dossierRef, content, targetCity, userEmail, userName, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, targetSubject, userEmail, userName, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, content length: ${content?.length || 0}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, targetSubject: ${targetSubject || "PLAYER"}, content length: ${content?.length || 0}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
@@ -591,11 +590,12 @@ export async function sendPlayerMessage(params: {
       return { success: false, error: "Compte joueur non trouvé" };
     }
 
-    // 2. Déterminer la ville cible
+    // 2. Déterminer la ville cible et le sujet
     const effectiveTargetCity = targetCity?.toUpperCase().trim() || "MASTER";
     const effectiveTargetCountry = effectiveTargetCity === "MASTER" ? "FR" : playerInfo.country;
+    const effectiveSubject = targetSubject?.toUpperCase().trim() || "PLAYER";
 
-    console.log(`📤 [sendPlayerMessage] Insertion directe dans pending_signals - dossier: ${dossierRef}, targetCity: ${effectiveTargetCity}`);
+    console.log(`📤 [sendPlayerMessage] Insertion directe dans pending_signals - dossier: ${dossierRef}, targetCity: ${effectiveTargetCity}, subject: ${effectiveSubject}`);
 
     // 3. Connexion Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -652,6 +652,7 @@ export async function sendPlayerMessage(params: {
       const updatedPayload = {
         ...existingPayload,
         message: content,
+        subject: effectiveSubject,  // ✅ Mise à jour du sujet
         messages_history: messagesHistory,
         attachments: attachments.length > 0 ? attachments : undefined,
       };
@@ -670,7 +671,7 @@ export async function sendPlayerMessage(params: {
         return { success: false, error: "Erreur lors de la mise à jour" };
       }
 
-      console.log(`✅ [sendPlayerMessage] Message ajouté au signal existant ${dossierRef}`);
+      console.log(`✅ [sendPlayerMessage] Message ajouté au signal existant ${dossierRef} avec subject=${effectiveSubject}`);
     } else {
       // Création d'un nouveau signal
       const attachments = (fileUrl && fileKey) ? [{
@@ -683,7 +684,7 @@ export async function sendPlayerMessage(params: {
         name: userName,
         email: userEmail,
         message: content,
-        subject: "MESSAGE_JOUEUR",
+        subject: effectiveSubject,  // ✅ Sujet choisi par l'utilisateur
         city: playerInfo.city,
         country: playerInfo.country,
         messages_history: [
@@ -713,7 +714,7 @@ export async function sendPlayerMessage(params: {
         return { success: false, error: "Erreur lors de la création" };
       }
 
-      console.log(`✅ [sendPlayerMessage] Nouveau signal créé pour ${dossierRef}`);
+      console.log(`✅ [sendPlayerMessage] Nouveau signal créé pour ${dossierRef} avec subject=${effectiveSubject}`);
     }
 
     // 5. Notification email au staff (optionnelle)
@@ -723,12 +724,13 @@ export async function sendPlayerMessage(params: {
         const { sendGeneralEmail } = await import("@/lib/email/gmail");
         await sendGeneralEmail(
           staffEmail,
-          `[VAGONDYS] Nouveau message de ${userName} (${dossierRef})`,
+          `[VAGONDYS] Nouveau message de ${userName} (${dossierRef}) - ${effectiveSubject}`,
           `Nouveau message de ${userName} (${dossierRef})\n\n${content}`,
           `<div style="background:black; color:white; padding:20px;">
              <h2 style="color:#dc2626;">Nouveau message joueur</h2>
              <p><strong>Dossier:</strong> ${dossierRef}</p>
              <p><strong>Expéditeur:</strong> ${userName} (${userEmail})</p>
+             <p><strong>Sujet:</strong> ${effectiveSubject}</p>
              <p><strong>Message:</strong></p>
              <div style="background:#09090b; padding:15px; border-radius:8px;">${content}</div>
              ${fileUrl ? `<p><strong>Pièce jointe:</strong> <a href="${fileUrl}">Voir le document</a></p>` : ""}
