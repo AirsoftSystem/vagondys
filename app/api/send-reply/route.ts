@@ -283,6 +283,16 @@ export async function POST(req: Request) {
                         <a href="${docLink}" style="color:#dc2626; text-decoration:none; font-size:12px; font-weight:bold;">ACCÉDER AU DOCUMENT</a>
                       </div>
                     ` : ''}
+                    <!-- ✅ BOUTON DÉPLACÉ ICI : juste après la réponse, avant l'historique -->
+                    <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b;">
+                      <a href="${prefillUrl}" 
+                         style="display:inline-block; background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; margin:10px 0;">
+                        RÉPONDRE À CET ÉCHANGE
+                      </a>
+                      <p style="font-size:8px; color:#3f3f46; margin-top:15px;">
+                        Ce lien pré-remplit automatiquement le formulaire de contact avec vos informations.
+                      </p>
+                    </div>
                     ${historyHtml ? `
                       <div style="margin-top:40px; border-top:1px dashed #27272a; padding-top:20px;">
                         <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">Suivi complet du dossier :</p>
@@ -296,18 +306,9 @@ export async function POST(req: Request) {
                       Référence : <strong>${cleanDossierRef}</strong>.
                     </p>
                   </div>
-                  <div style="margin-top:30px; padding-top:20px; border-top:1px solid #18181b;">
-                    <a href="${prefillUrl}" 
-                       style="display:inline-block; background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; margin:10px 0;">
-                      RÉPONDRE À CET ÉCHANGE
-                    </a>
-                    <p style="font-size:8px; color:#3f3f46; margin-top:15px;">
-                      Ce lien pré-remplit automatiquement le formulaire de contact avec vos informations.
-                    </p>
-                  </div>
                   <div style="display:none !important; font-size:0px;">ID-${uniqueSalt}</div>
                 </td>
-              </table>
+              </tr>
             </table>
           </body>
           </html>
