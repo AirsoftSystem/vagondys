@@ -4,11 +4,12 @@
  * API PLAYER MESSAGE - ENVOI DE MESSAGE JOUEUR VERS STAFF
  * ==========================================================
  * POST /api/player/message
- * Body: { dossierRef, content, targetCity?, subject?, fileUrl?, fileKey? }
+ * Body: { dossierRef, content, targetCity?, targetEmail?, subject?, fileUrl?, fileKey? }
  * 
  * Cette API est dédiée aux joueurs authentifiés.
  * Elle route le message vers le staff de la ville choisie (targetCity).
  * Si targetCity n'est pas fourni, utilise la ville du joueur par défaut.
+ * Si targetEmail est fourni (Super Admin), le message est envoyé directement à cet email.
  * 
  * ✅ Différence avec /api/send-reply :
  * - send-reply est conçu pour le STAFF répondant aux joueurs
@@ -19,6 +20,7 @@
  * ✅ CORRECTION : L'archive GitHub est mise à jour en parallèle (non bloquant)
  * ✅ CORRECTION : fileKey n'est pas utilisé (seul fileUrl est nécessaire pour le joueur)
  * ✅ NOUVEAU : Ajout du paramètre subject (objet du signal)
+ * ✅ NOUVEAU : Ajout du paramètre targetEmail pour le Super Admin
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -46,6 +48,9 @@ const STAFF_EMAILS: Record<string, string> = {
   "MASTER": "admin@vagondys.com",
 };
 
+// ✅ SUPER ADMIN EMAIL
+const SUPER_ADMIN_EMAIL = "vagondys@gmail.com";
+
 // ==========================================================
 // TYPES
 // ==========================================================
@@ -54,9 +59,10 @@ interface PlayerMessageRequest {
   dossierRef: string;
   content: string;
   targetCity?: string;
-  subject?: string;    // ✅ NOUVEAU : Objet du signal
+  targetEmail?: string;  // ✅ NOUVEAU : Email cible pour Super Admin
+  subject?: string;
   fileUrl?: string;
-  // fileKey est conservé dans l'interface mais marqué comme inutilisé
+  // fileKey est conservé mais marqué comme inutilisé
 }
 
 interface PlayerInfo {
@@ -164,6 +170,61 @@ async function authenticateAndGetPlayerInfo(
 function getStaffEmailForCity(city: string): string {
   const upperCity = city.toUpperCase().trim();
   return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
+}
+
+/**
+ * ✅ NOUVELLE FONCTION : Envoie un email au Super Admin
+ */
+async function notifySuperAdmin(
+  playerName: string,
+  playerEmail: string,
+  dossierRef: string,
+  content: string,
+  subject?: string,
+  fileUrl?: string
+): Promise<boolean> {
+  const superAdminEmail = SUPER_ADMIN_EMAIL;
+  const subjectDisplay = subject || "COMMUNICATION";
+  
+  console.log(`📧 [player/message] Envoi email au SUPER ADMIN: ${superAdminEmail} - Objet: ${subjectDisplay}`);
+
+  try {
+    const html = `
+      <div style="font-family:sans-serif; padding:20px; border:1px solid #eee; background:#fff; color:#000;">
+        <h2 style="color:#cc0000; border-bottom:2px solid #cc0000; padding-bottom:10px;">
+          🚨 NOUVEAU MESSAGE SUPER ADMIN
+        </h2>
+        <p><strong>EXPÉDITEUR :</strong> ${playerName}</p>
+        <p><strong>EMAIL :</strong> ${playerEmail}</p>
+        <p><strong>RÉFÉRENCE DOSSIER :</strong> ${dossierRef}</p>
+        <p><strong>OBJET :</strong> ${subjectDisplay}</p>
+        <hr>
+        <p><strong>MESSAGE :</strong></p>
+        <div style="background:#f9f9f9; padding:15px; border-radius:5px; white-space: pre-wrap; border-left:4px solid #cc0000;">
+          ${content.replace(/\n/g, "<br>")}
+        </div>
+        ${fileUrl ? `<p><strong>PIÈCE JOINTE :</strong> <a href="${fileUrl}">Voir le document</a></p>` : ""}
+        <hr>
+        <p style="font-size:11px; color:#666;">
+          Ce message a été envoyé depuis l'espace joueur VAGONDYS.
+        </p>
+      </div>
+    `;
+
+    await sendGeneralEmail(
+      superAdminEmail,
+      `🚨 [SUPER ADMIN] Nouveau message de ${playerName} (${dossierRef}) - ${subjectDisplay}`,
+      `Nouveau message SUPER ADMIN de ${playerName} (${dossierRef})\n\nObjet: ${subjectDisplay}\n\n${content}`,
+      html,
+      "contact@vagondys.com"
+    );
+
+    console.log(`📧 [player/message] Email envoyé avec succès au SUPER ADMIN ${superAdminEmail}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ [player/message] Erreur envoi email SUPER ADMIN:`, err);
+    return false;
+  }
 }
 
 /**
@@ -435,6 +496,7 @@ async function saveMessageToGitHubArchive(
  * ✅ CORRECTION : Plus d'écriture dans communication_replies
  * ✅ CORRECTION : fileKey est ignoré (seul fileUrl est utilisé)
  * ✅ NOUVEAU : Ajout du paramètre subject (objet du signal)
+ * ✅ NOUVEAU : Ajout du paramètre targetEmail pour le Super Admin
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -450,9 +512,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    // ✅ CORRECTION : fileKey n'est pas utilisé, on ne le récupère pas
-    // ✅ NOUVEAU : Ajout de subject
-    const { dossierRef, content, targetCity, subject, fileUrl }: PlayerMessageRequest = body;
+    // ✅ NOUVEAU : Ajout de targetEmail
+    const { dossierRef, content, targetCity, targetEmail, subject, fileUrl }: PlayerMessageRequest = body;
 
     if (!dossierRef || !content) {
       return NextResponse.json(
@@ -463,8 +524,15 @@ export async function POST(request: NextRequest) {
 
     const finalSubject = subject || "COMMUNICATION";
 
+    // ✅ Déterminer la destination
     let effectiveTargetCity = playerInfo.playerCity;
-    if (targetCity) {
+    let isSuperAdminTarget = false;
+
+    // Si targetEmail est fourni (Super Admin), on l'utilise
+    if (targetEmail) {
+      isSuperAdminTarget = true;
+      console.log(`📍 [player/message] Super Admin cible: ${targetEmail}`);
+    } else if (targetCity) {
       const upperTarget = targetCity.toUpperCase().trim();
       if (STAFF_EMAILS[upperTarget] || upperTarget === "MASTER") {
         effectiveTargetCity = upperTarget;
@@ -474,7 +542,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef} - subject: ${finalSubject}`);
+    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef} - subject: ${finalSubject} - isSuperAdmin: ${isSuperAdminTarget}`);
 
     // ✅ 1. Sauvegarder UNIQUEMENT dans pending_signals (messages_history)
     const saved = await updatePendingSignalsHistory(
@@ -510,27 +578,40 @@ export async function POST(request: NextRequest) {
       console.warn(`⚠️ [player/message] Échec archivage GitHub (non bloquant)`);
     }
 
-    // ✅ 3. Envoyer l'email au staff
-    const emailSent = await notifyStaff(
-      effectiveTargetCity,
-      playerInfo.userName,
-      playerInfo.userEmail,
-      dossierRef,
-      content,
-      finalSubject,
-      fileUrl
-    );
+    // ✅ 3. Envoyer l'email au destinataire (Super Admin ou Staff)
+    let emailSent = false;
+    if (isSuperAdminTarget && targetEmail) {
+      emailSent = await notifySuperAdmin(
+        playerInfo.userName,
+        playerInfo.userEmail,
+        dossierRef,
+        content,
+        finalSubject,
+        fileUrl
+      );
+    } else {
+      emailSent = await notifyStaff(
+        effectiveTargetCity,
+        playerInfo.userName,
+        playerInfo.userEmail,
+        dossierRef,
+        content,
+        finalSubject,
+        fileUrl
+      );
+    }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [player/message] Terminé en ${duration}ms, email: ${emailSent}, archivage: ${archived}, subject: ${finalSubject}`);
+    console.log(`✅ [player/message] Terminé en ${duration}ms, email: ${emailSent}, archivage: ${archived}, subject: ${finalSubject}, isSuperAdmin: ${isSuperAdminTarget}`);
 
     return NextResponse.json({
       success: true,
-      message: `Message envoyé avec succès à ${effectiveTargetCity} (Objet: ${finalSubject})`,
+      message: `Message envoyé avec succès${isSuperAdminTarget ? ' au SUPER ADMIN' : ` à ${effectiveTargetCity}`} (Objet: ${finalSubject})`,
       staffNotified: emailSent,
       archived: archived,
-      targetCity: effectiveTargetCity,
+      targetCity: isSuperAdminTarget ? "SUPER_ADMIN" : effectiveTargetCity,
       subject: finalSubject,
+      isSuperAdmin: isSuperAdminTarget,
     });
   } catch (error) {
     const duration = Date.now() - startTime;

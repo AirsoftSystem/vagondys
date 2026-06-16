@@ -342,7 +342,6 @@ export async function getPlayerConversation(
  * ✅ CORRECTION : Source UNIQUE = Supabase (pending_signals + communication_replies)
  * ✅ Fonctionne comme l'interface staff
  * ✅ Tri décroissant (du plus récent au plus ancien)
- * ✅ Suppression des variables inutilisées playerCity et playerCountry
  */
 export async function getPlayerMessages(
   userId: string,
@@ -451,6 +450,7 @@ export async function getPlayerMessages(
 
 /**
  * Envoie un message depuis le joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Ajout du paramètre targetEmail pour le Super Admin
  * ✅ CORRECTION : Ajout du paramètre subject (objet du signal)
  * ✅ Appelle l'API /api/player/message qui écrit dans pending_signals + communication_replies
  */
@@ -461,14 +461,18 @@ export async function sendPlayerMessage(params: {
   userEmail: string;
   userName: string;
   targetCity?: string;
-  subject?: string;      // ✅ NOUVEAU : Objet du signal
+  targetEmail?: string;  // ✅ NOUVEAU : Email cible pour Super Admin
+  subject?: string;      // ✅ Objet du signal
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  const { dossierRef, content, targetCity, subject, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, targetEmail, subject, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"}, content length: ${content?.length || 0}`);
+  // ✅ Si targetEmail est fourni (Super Admin), on l'utilise comme destinataire
+  const finalTargetEmail = targetEmail || undefined;
+
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, targetEmail: ${finalTargetEmail || "AUTO"}, subject: ${subject || "COMMUNICATION"}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
@@ -482,20 +486,38 @@ export async function sendPlayerMessage(params: {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
+    
+    // ✅ Construire le body avec targetEmail si présent
+    const requestBody: {
+      dossierRef: string;
+      content: string;
+      targetCity: string;
+      subject: string;
+      fileUrl: string | null;
+      fileKey: string | null;
+      targetEmail?: string;
+    } = {
+      dossierRef,
+      content,
+      targetCity: targetCity || "MASTER",
+      subject: subject || "COMMUNICATION",
+      fileUrl: fileUrl || null,
+      fileKey: fileKey || null,
+    };
+
+    // ✅ Ajouter targetEmail seulement s'il est défini (Super Admin)
+    if (finalTargetEmail) {
+      requestBody.targetEmail = finalTargetEmail;
+      console.log(`📤 [sendPlayerMessage] Envoi vers Super Admin: ${finalTargetEmail}`);
+    }
+
     const response = await fetch(`${baseUrl}/api/player/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        dossierRef,
-        content,
-        targetCity: targetCity || "MASTER",
-        subject: subject || "COMMUNICATION", // ✅ Transmission de l'objet
-        fileUrl: fileUrl || null,
-        fileKey: fileKey || null,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const result = await response.json();

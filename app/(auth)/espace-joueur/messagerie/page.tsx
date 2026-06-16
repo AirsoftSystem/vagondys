@@ -64,9 +64,12 @@ const SUBJECTS = [
   { value: "RESERVATIONS", label: "RESERVATIONS" }
 ];
 
+// ✅ SUPER ADMIN - Email du Super Admin
+const SUPER_ADMIN_EMAIL = "vagondys@gmail.com";
+
 /**
  * Page Messagerie pour l'espace joueur
- * ✅ REFONTE COMPLÈTE : Arborescence Pays→Ville, Barre recherche, Super Admin, Objet du signal
+ * ✅ CORRECTION : Le bouton Super Admin envoie UNIQUEMENT à vagondys@gmail.com
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -79,7 +82,7 @@ export default function EspaceJoueurMessageriePage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // ✅ NOUVEAUX ÉTATS POUR LA REFONTE
+  // ✅ ÉTATS POUR LA REFONTE
   const [selectedCountry, setSelectedCountry] = useState<string>("FRANCE");
   const [selectedCity, setSelectedCity] = useState<string>("MASTER");
   const [selectedSubject, setSelectedSubject] = useState<string>("COMMUNICATION");
@@ -148,14 +151,17 @@ export default function EspaceJoueurMessageriePage() {
     checkAuthAndLoad();
   }, [supabase, router]);
 
-  // 2. Envoyer un nouveau message vers la ville sélectionnée AVEC objet
+  // 2. Envoyer un nouveau message
   const handleSendMessage = useCallback(async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!conversation || !user) {
       throw new Error("Conversation non disponible");
     }
 
-    // ✅ CORRECTION : 'let' → 'const' (jamais réassigné)
+    // ✅ Déterminer la destination : Super Admin ou Ville sélectionnée
     const targetCity = isSuperAdmin ? "MASTER" : selectedCity;
+    const targetEmail = isSuperAdmin ? SUPER_ADMIN_EMAIL : undefined;
+
+    console.log(`📤 Envoi message - SuperAdmin: ${isSuperAdmin}, targetCity: ${targetCity}, targetEmail: ${targetEmail || "non spécifié"}`);
 
     const result = await sendPlayerMessage({
       dossierRef: conversation.dossier_ref,
@@ -164,6 +170,7 @@ export default function EspaceJoueurMessageriePage() {
       userEmail: user.email,
       userName: user.name,
       targetCity: targetCity,
+      targetEmail: targetEmail, // ✅ Ajout de l'email cible pour Super Admin
       subject: selectedSubject,
       fileUrl: fileUrl,
       fileKey: fileKey,
@@ -221,19 +228,21 @@ export default function EspaceJoueurMessageriePage() {
 
   // ✅ Sélectionner Super Admin
   const handleSuperAdminToggle = () => {
+    console.log("🔄 Bascule vers SUPER ADMIN");
     setIsSuperAdmin(true);
     setSelectedCity("MASTER");
   };
 
-  // ✅ Sélectionner une ville
+  // ✅ Sélectionner une ville (désactive Super Admin)
   const handleCitySelect = (city: string) => {
+    console.log(`🔄 Sélection ville: ${city}`);
     setIsSuperAdmin(false);
     setSelectedCity(city);
   };
 
   // ✅ Obtenir le nom de la destination
   const getDestinationDisplay = () => {
-    if (isSuperAdmin) return "SUPER ADMIN";
+    if (isSuperAdmin) return "SUPER ADMIN (vagondys@gmail.com)";
     return `${selectedCountry} - ${selectedCity}`;
   };
 
@@ -330,7 +339,7 @@ export default function EspaceJoueurMessageriePage() {
                 </span>
               </div>
 
-              {/* Bouton Super Admin (par défaut) */}
+              {/* ✅ Bouton Super Admin (par défaut) - ENVOIE VERS vagondys@gmail.com */}
               <button
                 onClick={handleSuperAdminToggle}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-black uppercase transition-all mb-2 ${
@@ -341,9 +350,12 @@ export default function EspaceJoueurMessageriePage() {
               >
                 <UserCog className="w-3 h-3" />
                 SUPER ADMIN
+                {isSuperAdmin && (
+                  <span className="ml-auto text-[6px] text-zinc-500">(vagondys@gmail.com)</span>
+                )}
               </button>
 
-              {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
+              {/* Sélection du pays */}
               <div className="relative mb-2">
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
                 <select
@@ -362,7 +374,7 @@ export default function EspaceJoueurMessageriePage() {
                 </select>
               </div>
 
-              {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
+              {/* Sélection de la ville */}
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
                 <select
@@ -400,7 +412,6 @@ export default function EspaceJoueurMessageriePage() {
                     Objet du signal
                   </span>
                 </div>
-                {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
                 <select
                   title="Sélectionner l'objet du signal"
                   value={selectedSubject}
@@ -415,11 +426,11 @@ export default function EspaceJoueurMessageriePage() {
                 </select>
               </div>
 
-              {/* Indicateur de sélection */}
+              {/* ✅ Indicateur de sélection avec email Super Admin */}
               <div className="mt-3 pt-3 border-t border-zinc-800">
                 <p className="text-[6px] text-zinc-700 uppercase tracking-wider text-center">
                   {isSuperAdmin 
-                    ? "📨 Envoi vers SUPER ADMIN" 
+                    ? "📨 Envoi vers SUPER ADMIN (vagondys@gmail.com)" 
                     : `📨 Envoi vers ${selectedCountry} - ${selectedCity}`}
                 </p>
               </div>
