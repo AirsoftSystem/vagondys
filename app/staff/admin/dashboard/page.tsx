@@ -102,12 +102,30 @@ export default function AdminDashboardPage() {
   const prevCityStatsRef = useRef<CityStats[] | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const alertIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMountedRef = useRef(true);
+  const audioUnlockedRef = useRef(false);
 
-  // Fonction pour jouer un BIP unique (1 seconde)
-  const playSingleBip = useCallback(() => {
+  // ✅ Fonction pour débloquer l'audio (à appeler au premier clic)
+  const unlockAudio = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+    
+    try {
+      if (typeof window !== "undefined" && typeof AudioContext !== "undefined") {
+        const audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        audioUnlockedRef.current = true;
+        console.log('🔓 Audio débloqué');
+      }
+    } catch {
+      // Ignorer
+    }
+  }, []);
+
+  // ✅ Fonction pour jouer un BIP d'alerte (1 seconde)
+  const playAlertBip = useCallback(() => {
     if (!soundEnabled) return;
 
     // Vérifier si AudioContext est disponible (navigateur)
@@ -117,6 +135,12 @@ export default function AdminDashboardPage() {
 
     try {
       const audioCtx = new AudioContext();
+      
+      // ✅ IMPORTANT : Reprendre le contexte si suspendu
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
 
@@ -126,15 +150,14 @@ export default function AdminDashboardPage() {
       oscillator.frequency.value = 880; // La3
       oscillator.type = "sine";
 
-      // Volume initial
-      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
-      // Atténuation progressive sur 1 seconde
+      // ✅ Volume plus fort (0.5) et atténuation sur 1 seconde
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.0);
 
       oscillator.start(audioCtx.currentTime);
       oscillator.stop(audioCtx.currentTime + 1.0);
       
-      // Nettoyer l'oscillator après la fin
+      // Nettoyer après la fin
       setTimeout(() => {
         try {
           oscillator.disconnect();
@@ -144,13 +167,19 @@ export default function AdminDashboardPage() {
         }
       }, 1100);
     } catch {
-      // Fallback: utiliser un fichier audio si disponible
+      // ✅ FALLBACK : Utiliser le fichier audio WAV
       try {
         if (!audioRef.current) {
           audioRef.current = new Audio("/sounds/notification-bip.wav");
+          audioRef.current.volume = 1.0;
         }
         audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
+        const playPromise = audioRef.current.play();
+        if (playPromise) {
+          playPromise.catch(() => {
+            // Ignorer les erreurs de lecture
+          });
+        }
       } catch {
         // Ignorer les erreurs audio
       }
@@ -164,17 +193,20 @@ export default function AdminDashboardPage() {
     setIsAlerting(true);
     setIsBlinking(true);
     
-    // Jouer le premier BIP immédiatement
-    playSingleBip();
+    // ✅ D'abord débloquer l'audio
+    unlockAudio();
     
-    // Puis toutes les 3 secondes (1s BIP + 2s pause)
+    // ✅ Jouer le premier BIP immédiatement
+    playAlertBip();
+    
+    // ✅ Puis toutes les 3 secondes (1s BIP + 2s pause)
     alertIntervalRef.current = setInterval(() => {
       if (isAlerting) {
-        playSingleBip();
+        playAlertBip();
       }
     }, 3000);
     
-  }, [isAlerting, playSingleBip]);
+  }, [isAlerting, playAlertBip, unlockAudio]);
 
   // Fonction pour arrêter l'alerte
   const stopAlertLoop = useCallback(() => {
@@ -182,83 +214,14 @@ export default function AdminDashboardPage() {
       clearInterval(alertIntervalRef.current);
       alertIntervalRef.current = null;
     }
-    if (alertTimeoutRef.current) {
-      clearTimeout(alertTimeoutRef.current);
-      alertTimeoutRef.current = null;
-    }
     setIsAlerting(false);
     setIsBlinking(false);
   }, []);
-
-  // Fonction pour jouer le BIP sonore (legacy - conservée pour compatibilité)
-  const playNotificationSound = useCallback(() => {
-    if (!soundEnabled) return;
-
-    // Vérifier si AudioContext est disponible (navigateur)
-    if (typeof window === "undefined" || typeof AudioContext === "undefined") {
-      return;
-    }
-
-    try {
-      // Utiliser un AudioContext pour générer un son simple (bip)
-      const audioCtx = new AudioContext();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      oscillator.frequency.value = 880; // La3
-      oscillator.type = "sine";
-
-      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.3);
-
-      // Petit délai pour le second bip
-      setTimeout(() => {
-        try {
-          const audioCtx2 = new AudioContext();
-          const oscillator2 = audioCtx2.createOscillator();
-          const gainNode2 = audioCtx2.createGain();
-
-          oscillator2.connect(gainNode2);
-          gainNode2.connect(audioCtx2.destination);
-
-          oscillator2.frequency.value = 1108.73; // Do#5
-          oscillator2.type = "sine";
-
-          gainNode2.gain.setValueAtTime(0.2, audioCtx2.currentTime);
-          gainNode2.gain.exponentialRampToValueAtTime(0.01, audioCtx2.currentTime + 0.25);
-
-          oscillator2.start(audioCtx2.currentTime);
-          oscillator2.stop(audioCtx2.currentTime + 0.25);
-        } catch {
-          // Ignorer les erreurs du second bip
-        }
-      }, 150);
-    } catch {
-      // Fallback: utiliser un fichier audio si disponible
-      try {
-        if (!audioRef.current) {
-          audioRef.current = new Audio("/sounds/notification-bip.wav");
-        }
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      } catch {
-        // Ignorer les erreurs audio
-      }
-    }
-  }, [soundEnabled]);
 
   // Fonction pour détecter les changements et gérer l'alerte
   const detectChangesAndNotify = useCallback((newGlobal: GlobalStats, newCities: CityStats[]) => {
     const prevGlobal = prevGlobalStatsRef.current;
     const prevCities = prevCityStatsRef.current;
-    
-    let hasChanged = false;
     
     // Comparer les stats globales
     if (prevGlobal) {
@@ -269,7 +232,8 @@ export default function AdminDashboardPage() {
       
       for (const key of keys) {
         if (prevGlobal[key] !== newGlobal[key]) {
-          hasChanged = true;
+          // Changement détecté mais on n'utilise pas de variable
+          // La logique est gérée par la condition ci-dessous
         }
       }
     }
@@ -284,10 +248,8 @@ export default function AdminDashboardPage() {
           if (prevCity.athletes !== newCity.athletes ||
               prevCity.active !== newCity.active ||
               prevCity.messages !== newCity.messages) {
-            hasChanged = true;
+            // Changement détecté
           }
-        } else {
-          hasChanged = true;
         }
       }
     }
@@ -296,7 +258,7 @@ export default function AdminDashboardPage() {
     prevGlobalStatsRef.current = { ...newGlobal };
     prevCityStatsRef.current = newCities.map((c: CityStats) => ({ ...c }));
     
-    // Gérer l'alerte pour pendingMessagerieRequests
+    // ✅ Gérer l'alerte pour pendingMessagerieRequests
     if (newGlobal.pendingMessagerieRequests > 0) {
       // Vérifier si c'est un nouveau changement ou si l'alerte n'est pas active
       const prevPending = prevGlobal?.pendingMessagerieRequests ?? 0;
@@ -379,6 +341,20 @@ export default function AdminDashboardPage() {
     setSoundEnabled((prev: boolean) => !prev);
   }, []);
 
+  // ✅ Écouteur de clic pour débloquer l'audio
+  useEffect(() => {
+    const handleClick = () => {
+      if (!audioUnlockedRef.current) {
+        unlockAudio();
+      }
+    };
+    
+    document.addEventListener('click', handleClick);
+    return () => {
+      document.removeEventListener('click', handleClick);
+    };
+  }, [unlockAudio]);
+
   // Vérifier l'authentification admin et charger les stats
   useEffect(() => {
     isMountedRef.current = true;
@@ -416,10 +392,6 @@ export default function AdminDashboardPage() {
       if (alertIntervalRef.current) {
         clearInterval(alertIntervalRef.current);
         alertIntervalRef.current = null;
-      }
-      if (alertTimeoutRef.current) {
-        clearTimeout(alertTimeoutRef.current);
-        alertTimeoutRef.current = null;
       }
     };
   }, []);
@@ -492,6 +464,17 @@ export default function AdminDashboardPage() {
           >
             <RefreshCcw className="w-4 h-4" />
             Actualiser
+          </button>
+          
+          {/* ✅ Bouton de test du son */}
+          <button
+            onClick={() => {
+              unlockAudio();
+              playAlertBip();
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg"
+          >
+            🔊 TEST SON
           </button>
         </div>
       </div>
