@@ -239,7 +239,8 @@ function mergeMessagesHistory(
 }
 
 /**
- * Fusionne deux fils de discussion sans doublons
+ * ✅ CORRECTION : Fusionne deux fils de discussion sans doublons
+ * ET garantit l'ordre chronologique (du plus ancien au plus récent)
  */
 function mergeFullThread(
   existing: ThreadMessage[],
@@ -271,13 +272,15 @@ function mergeFullThread(
     }
   });
   
-  // Convertir en tableau et trier par date (croissant)
+  // ✅ CORRECTION : Convertir en tableau et trier par date (CROISSANT)
   const merged = Array.from(map.values());
   merged.sort((a, b) => {
     const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
     return dateA - dateB;
   });
+  
+  console.log(`📦 mergeFullThread: fusion complétée - ${merged.length} messages triés chronologiquement`);
   
   return merged;
 }
@@ -316,8 +319,7 @@ function mergeStaffReplies(
 }
 
 /**
- * Élimine les doublons dans un tableau de messages
- * Utilise une Map basée sur le contenu + date + agent_email
+ * ✅ CORRECTION : Élimine les doublons ET trie par date chronologique
  */
 function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
   const uniqueMap = new Map<string, ThreadMessage>();
@@ -334,7 +336,16 @@ function deduplicateMessages(messages: ThreadMessage[]): ThreadMessage[] {
     }
   }
   
-  return Array.from(uniqueMap.values());
+  const result = Array.from(uniqueMap.values());
+  
+  // ✅ CORRECTION : Trier par date CROISSANTE (du plus ancien au plus récent)
+  result.sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateA - dateB;
+  });
+  
+  return result;
 }
 
 /**
@@ -397,21 +408,12 @@ async function purgeLocalData(ref: string, archiveCity: string): Promise<{ pendi
 
 /**
  * ARCHIVE ENGINE - Version adaptée pour l'Option B
- * Utilise désormais le registry central pour obtenir la ville/pays
- * ✅ AJOUT : Dédoublonnage des messages et compression GZIP
- * ✅ CORRECTION : Utilisation de la ville du payload pour le chemin d'archivage
- * ✅ CORRECTION : Suppression des entrées en double dans communication_replies lors de l'archivage
- * ✅ NOUVELLE CORRECTION : Fusion avec l'archive existante au lieu d'ignorer ou écraser
- * ✅ NOUVELLE CORRECTION : mergeMessagesHistory garde un seul message par contenu (le plus récent)
- * ✅ AJOUT : Support de file_url et file_key dans l'archive
- * ✅ AJOUT : Support des tables de messagerie privée (pending_messagerie_requests, messagerie_accounts, etc.)
- * ✅ NOUVELLE CORRECTION : purgeLocalData après archivage réussi si purgeActive === true
- * ✅ NOUVELLE CORRECTION : Export des fonctions findDossierRefByEmail et findDossierRefInArchive pour recherche par email
+ * ✅ CORRECTION : Ordre chronologique strict du fil_de_discussion
+ * ✅ CORRECTION : Suppression des variables inutilisées city_code et country_code
  */
 export async function processArchivePost(body: ArchiveRequestBody) {
-  // city_code et country_code sont extraits mais non utilisés pour l'archivage
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { message, history, purgeActive, city_code, country_code, fullThread: providedFullThread } = body;
+  // ✅ CORRECTION : On ne déstructure PAS city_code et country_code car inutilisés
+  const { message, history, purgeActive, fullThread: providedFullThread } = body;
 
   if (!message || !message.dossier_ref) {
     throw new Error("Données de dossier manquantes");
@@ -421,12 +423,9 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   const ref = message.dossier_ref;
   const newEmail = String(payload?.email || "inconnu").toLowerCase().trim();
   
-  // ✅ CORRECTION : La ville pour le chemin d'archivage vient du payload (la vraie ville de l'athlète)
-  // city_code est utilisé pour le routage (MASTER pour les admins), mais PAS pour l'archivage
   let archiveCity = (payload?.city || "").toUpperCase().trim();
   let archiveCountry = (payload?.country || "").toUpperCase().trim();
   
-  // Si la ville n'est pas dans le payload, on tente de la récupérer depuis le registry
   if (!archiveCity && newEmail !== "inconnu") {
     const registryCity = await getAthleteCity(newEmail);
     const registryCountry = await getAthleteCountry(newEmail);
@@ -437,18 +436,15 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     }
   }
   
-  // Fallback par défaut
   if (!archiveCity) {
     archiveCity = "NANTES";
   }
   
-  // Normalisation du code pays
   const rawCountryName = (payload?.country || "FRANCE").toUpperCase().trim();
   if (!archiveCountry) {
     archiveCountry = (rawCountryName === "ESPAGNE" || rawCountryName === "ES") ? "ES" : "FR";
   }
   
-  // Configuration GitHub (Repo unique pour toutes les archives)
   const targetRepo = process.env.GITHUB_ARCHIVE_REPO;
   const customToken = process.env.GITHUB_ARCHIVE_TOKEN;
   
@@ -458,18 +454,15 @@ export async function processArchivePost(body: ArchiveRequestBody) {
   
   console.log(`📦 Archivage vers: ${targetRepo} (ville archivage: ${archiveCity}/${archiveCountry})`);
 
-  // Préparation du chemin et du nom de fichier (basé sur la VRAIE ville de l'athlète)
   const normCountry = normalizeForPath(archiveCountry === "ES" ? "ESPAGNE" : "FRANCE");
   const normCity = normalizeForPath(archiveCity);
   const emailSlug = newEmail.replace(/[@.]/g, "_");
   
-  // ✅ Utilisation de l'extension .json.gz pour la compression
   const fileName = `${emailSlug}_${ref}.json.gz`;
   const path = `archives/${normCountry}/${normCity}/${fileName}`;
 
   console.log(`📦 Archivage: chemin complet = ${path}`);
 
-  // 🔄 NOUVELLE CORRECTION : Récupérer l'archive existante si elle existe
   let existingArchive: FullArchiveData | null = null;
   if (!purgeActive) {
     existingArchive = await fetchExistingArchive(ref, customToken, targetRepo, archiveCity, archiveCountry);
@@ -478,25 +471,20 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     }
   }
 
-  // Récupération de l'historique des réponses staff
   let finalHistory: HistoryRow[] = Array.isArray(history) ? history : [];
   if (finalHistory.length === 0) {
     finalHistory = await getHistoryFromDB(ref, archiveCity);
   }
   
-  // ✅ FUSION avec l'archive existante si présente
   if (existingArchive) {
-    // Fusionner messages_history (avec dédoublonnage par contenu)
     const existingMessagesHistory = existingArchive.dossier_complet?.payload?.messages_history || [];
     const incomingMessagesHistory = payload?.messages_history || [];
     const mergedMessagesHistory = mergeMessagesHistory(existingMessagesHistory, incomingMessagesHistory);
     
-    // Mettre à jour le payload avec l'historique fusionné
     if (payload) {
       payload.messages_history = mergedMessagesHistory;
     }
     
-    // Fusionner echanges_staff
     const existingReplies = existingArchive.echanges_staff || [];
     const mergedReplies = mergeStaffReplies(existingReplies, finalHistory);
     finalHistory = mergedReplies;
@@ -504,18 +492,17 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     console.log(`📦 Archivage: fusion effectuée - messages: ${existingMessagesHistory.length} + ${incomingMessagesHistory.length} → ${mergedMessagesHistory.length}, réponses: ${existingReplies.length} → ${mergedReplies.length}`);
   }
 
-  // Construction du fil de discussion avec dédoublonnage
+  // ✅ Construction du fil de discussion avec ordre chronologique STRICT
   let fullThread: ThreadMessage[];
   
   if (providedFullThread && providedFullThread.length > 0) {
-    // ✅ Utiliser le fullThread fourni mais le dédoublonner
+    // ✅ Utiliser le fullThread fourni mais le dédoublonner ET le trier
     fullThread = deduplicateMessages(providedFullThread);
-    console.log(`📦 Archivage: utilisation du fullThread fourni (${providedFullThread.length} messages, ${fullThread.length} après dédoublonnage)`);
+    console.log(`📦 Archivage: utilisation du fullThread fourni (${providedFullThread.length} messages, ${fullThread.length} après dédoublonnage et tri)`);
   } else {
-    // 🔄 Fallback : reconstruction à partir des données disponibles
+    // Reconstruction à partir des données disponibles
     const messagesHistory = payload?.messages_history || [];
     
-    // Créer un tableau temporaire pour la reconstruction
     const tempThread: ThreadMessage[] = [
       {
         role: "CLIENT_CONTACT_INFO",
@@ -529,7 +516,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
           subject: payload?.subject
         }
       },
-      // Message initial
       {
         role: "public",
         sender: newEmail,
@@ -539,7 +525,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       }
     ];
     
-    // Ajouter l'historique des messages client (sans doublons)
     const clientMessages: ThreadMessage[] = messagesHistory.map((msg, index) => ({
       role: "public",
       sender: newEmail,
@@ -548,7 +533,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       is_initial: index === 0 && messagesHistory.length > 0
     }));
     
-    // Ajouter les réponses staff avec support file_url/file_key (via interface étendue)
     const staffMessages: ThreadMessage[] = finalHistory.map((h: ExtendedHistoryRow) => ({
       id: h.id,
       created_at: h.created_at,
@@ -560,24 +544,16 @@ export async function processArchivePost(body: ArchiveRequestBody) {
       dossier_ref: h.dossier_ref ?? ref
     }));
     
-    // Fusionner et dédoublonner
     const combined = [...tempThread, ...clientMessages, ...staffMessages];
     fullThread = deduplicateMessages(combined);
     
-    // Trier par date
-    fullThread.sort((a, b) => {
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return dateA - dateB;
-    });
-    
-    console.log(`📦 Archivage: reconstruction du fullThread (${combined.length} messages, ${fullThread.length} après dédoublonnage)`);
+    console.log(`📦 Archivage: reconstruction du fullThread (${combined.length} messages, ${fullThread.length} après dédoublonnage et tri)`);
   }
   
-  // ✅ FUSION du fullThread avec l'archive existante si présente
+  // ✅ FUSION du fullThread avec l'archive existante (en gardant l'ordre chronologique)
   if (existingArchive && existingArchive.fil_de_discussion) {
     fullThread = mergeFullThread(existingArchive.fil_de_discussion, fullThread);
-    console.log(`📦 Archivage: fullThread fusionné (${existingArchive.fil_de_discussion.length} + ${fullThread.length} après fusion)`);
+    console.log(`📦 Archivage: fullThread fusionné et trié chronologiquement (${fullThread.length} messages totaux)`);
   }
 
   // Structure de l'archive JSON
@@ -610,7 +586,7 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     security_version: "1.5"
   };
 
-  // Gestion GitHub (Recherche et Mise à jour)
+  // Gestion GitHub
   const existingFile = await findFileInRepo(ref, customToken, targetRepo);
   let currentSha: string | undefined;
 
@@ -629,7 +605,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     }
   }
 
-  // ✅ COMPRESSION GZIP du fichier avant upload
   const jsonString = JSON.stringify(archiveData, null, 2);
   const compressed = gzipSync(jsonString);
   const originalSize = jsonString.length;
@@ -641,7 +616,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     ? `🔒 ARCHIVAGE FINAL & PURGE : Dossier ${ref}` 
     : `🔄 SYNCHRONISATION : Dossier ${ref}`;
 
-  // ✅ Upload du fichier compressé (en base64)
   const ghResponse = await upsertFile(
     customToken,
     targetRepo,
@@ -656,7 +630,6 @@ export async function processArchivePost(body: ArchiveRequestBody) {
     throw new Error(`Échec GitHub (${ghResponse.status}): ${errText}`);
   }
 
-  // ✅ NOUVELLE CORRECTION : Purge locale APRÈS archivage réussi si demandé
   let purgeResult = { pending_signals: false, communication_replies: false };
   
   if (purgeActive === true) {

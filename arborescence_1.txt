@@ -2020,25 +2020,26 @@ VAGONDYS/
 /*
 Fil de discussion du "Staff > Nantes" décroissant :
 ---
+Chronologie des échanges
 Agent: nantes@vagondys.com
 STAFF
-15/06/2026 18:38:11
-2ème Réponse (Réservations) > Contact
+16/06/2026 09:45:20
+4
 ---
 Message Client
 CLIENT
-15/06/2026 18:36:23
-2ème Message (Réservations) > Staff (Nantes)
+16/06/2026 09:42:25
+3
 ---
 Agent: nantes@vagondys.com
 STAFF
-15/06/2026 18:34:29
-1ère Réponse (Player) > Contact
+16/06/2026 09:41:07
+2
 ---
 Message initial
 MESSAGE INITIAL
-15/06/2026 18:33:31
-1er Message (Player) > Staff (Nantes)
+16/06/2026 09:39:43
+1
 ---
 */
 Mais analyse bien ce qu'il y a dans :
@@ -2047,27 +2048,27 @@ Fil de discussion du "messagerie > espace-joueur" donc faux ce qui créai un mau
 ---
 Moi
 •
-15/06/2026 18:33:16
-2ème Message (Réservations) > Staff (Nantes)
----
-Moi
-•
-15/06/2026 18:33:31
-1er Message (Player) > Staff (Nantes)
----
-nantes
-•
-15/06/2026 18:34:29
-1ère Réponse (Player) > Contact
----
-nantes
-•
-15/06/2026 18:38:11
-2ème Réponse (Réservations) > Contact
----
-Moi
-•
-15/06/2026 18:39:43
+16/06/2026 09:46:00
 DEMANDE d'ACTIVATION POUR : Airsoft System Admin (NANTES - FR).
+---
+nantes
+•
+16/06/2026 09:45:20
+4
+---
+nantes
+•
+16/06/2026 09:41:07
+2
+---
+Moi
+•
+16/06/2026 09:39:43
+1
+---
+Moi
+•
+16/06/2026 09:39:32
+3
 ---
 */
