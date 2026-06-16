@@ -36,8 +36,6 @@ export interface SendMessageParams {
   userEmail: string;
   fileUrl?: string;
   fileKey?: string;
-  targetCity?: string;   // ✅ NOUVEAU : Ville cible du destinataire
-  subject?: string;      // ✅ NOUVEAU : Objet du signal
 }
 
 // Interface pour un compte messagerie
@@ -150,6 +148,7 @@ async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): P
   } catch (err) {
     const totalDuration = Date.now() - startTime;
     const errorMsg = err instanceof Error ? err.message : String(err);
+    // ✅ Correction : remplacer "any" par un type explicite { status?: number }
     const errorStatus = (err as { status?: number })?.status;
     
     console.error(`❌ [GitHub] Erreur écriture - status: ${errorStatus}, message: ${errorMsg}, durée: ${totalDuration}ms`);
@@ -322,16 +321,15 @@ export async function getConversationMessages(
  * Envoie un nouveau message dans une conversation
  * ✅ CORRECTION : Utilisation directe de dossierRef (pas conversationId)
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
- * ✅ NOUVEAU : Ajout des paramètres targetCity et subject pour l'archivage
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  const { dossierRef, content, userId, userEmail, fileUrl, fileKey, targetCity, subject } = params;
+  const { dossierRef, content, userId, userEmail, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendMessage] Début - dossier: ${dossierRef}, user: ${userEmail}, targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"}`);
+  console.log(`📤 [sendMessage] Début - dossier: ${dossierRef}, user: ${userEmail}, content length: ${content?.length || 0}, hasFile: ${!!fileUrl}`);
 
   if (!dossierRef || !content || !userId || !userEmail) {
-    console.error(`❌ [sendMessage] Paramètres manquants`);
+    console.error(`❌ [sendMessage] Paramètres manquants - dossierRef: ${!!dossierRef}, content: ${!!content}, userId: ${!!userId}, userEmail: ${!!userEmail}`);
     return { success: false, error: "Paramètres manquants" };
   }
 
@@ -344,9 +342,11 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     let participantName = "";
     
     if (isStaff) {
+      // Le staff a accès à tous les dossiers
       hasAccess = true;
       console.log(`🔓 [sendMessage] Staff - accès automatique au dossier ${dossierRef}`);
       
+      // Récupérer le nom du participant pour l'affichage
       const { data: account, error: accountError } = await supabase
         .from("messagerie_accounts")
         .select("full_name")
@@ -365,6 +365,7 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
         return { success: false, error: "Dossier introuvable" };
       }
     } else {
+      // Vérifier que le dossier appartient bien à l'utilisateur
       console.log(`🔍 [sendMessage] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
       
       const { data: account, error: accountError } = await supabase
@@ -409,9 +410,9 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       created_at: now,
     };
     
-    console.log(`📝 [sendMessage] Message préparé - id: ${messageId}, sender: ${senderName}`);
+    console.log(`📝 [sendMessage] Message préparé - id: ${messageId}, sender: ${senderName}, content length: ${newMessage.content.length}`);
 
-    // 3. Écrire UNIQUEMENT dans GitHub (pour l'instant)
+    // 3. Écrire UNIQUEMENT dans GitHub
     const success = await addMessageToGitHub(dossierRef, newMessage);
 
     if (!success) {
@@ -423,12 +424,13 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     revalidatePath("/messagerie");
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [sendMessage] Terminé en ${duration}ms - Message envoyé avec succès (targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"})`);
+    console.log(`✅ [sendMessage] Terminé en ${duration}ms - Message envoyé avec succès`);
     return { success: true };
   } catch (err) {
     const duration = Date.now() - startTime;
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`❌ [sendMessage] Erreur après ${duration}ms:`, errorMsg);
+    console.error(`❌ [sendMessage] Stack:`, err instanceof Error ? err.stack : "no stack");
     return { success: false, error: "Erreur interne" };
   }
 }

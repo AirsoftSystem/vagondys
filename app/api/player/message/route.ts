@@ -1,25 +1,23 @@
 
 /**
  * ==========================================================
- * API PLAYER MESSAGE - ENVOI DE MESSAGE JOUEUR
+ * API PLAYER MESSAGE - ENVOI DE MESSAGE JOUEUR VERS STAFF
  * ==========================================================
  * POST /api/player/message
- * Body: { dossierRef, content, targetCity?, subject?, fileUrl?, fileKey? }
+ * Body: { dossierRef, content, targetCity?, fileUrl?, fileKey? }
  * 
  * Cette API est dédiée aux joueurs authentifiés.
- * Elle écrit UNIQUEMENT dans GitHub (comme l'interface Super Admin).
+ * Elle route le message vers le staff de la ville choisie (targetCity).
+ * Si targetCity n'est pas fourni, utilise la ville du joueur par défaut.
  * 
- * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub
- * ✅ CORRECTION : Plus d'écriture dans pending_signals (réservé au formulaire de contact)
- * ✅ CORRECTION : Plus d'écriture dans communication_replies (réservé au staff)
- * ✅ CORRECTION : fileKey n'est pas utilisé (seul fileUrl est nécessaire pour le joueur)
- * ✅ NOUVEAU : Ajout du paramètre subject (objet du signal)
+ * ✅ Différence avec /api/send-reply :
+ * - send-reply est conçu pour le STAFF répondant aux joueurs
+ * - player/message est conçu pour les JOUEURS envoyant des messages
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendGeneralEmail } from "@/lib/email/gmail";
-import { GitHubDB } from "@/lib/github-db/client";
 
 // ==========================================================
 // CONFIGURATION
@@ -29,6 +27,21 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Mapping ville → email staff
+const STAFF_EMAILS: Record<string, string> = {
+  "NANTES": "nantes@vagondys.com",
+  "LYON": "lyon@vagondys.com",
+  "PARIS": "paris@vagondys.com",
+  "MARSEILLE": "marseille@vagondys.com",
+  "BORDEAUX": "bordeaux@vagondys.com",
+  "LILLE": "lille@vagondys.com",
+  "TOULOUSE": "toulouse@vagondys.com",
+  "MADRID": "madrid@vagondys.com",
+  "MASTER": "admin@vagondys.com",
+};
+
+// ✅ SUPPRESSION de ADMIN_EMAILS (inutilisé)
+
 // ==========================================================
 // TYPES
 // ==========================================================
@@ -36,8 +49,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 interface PlayerMessageRequest {
   dossierRef: string;
   content: string;
-  targetCity?: string;
-  subject?: string;
+  targetCity?: string;  // ✅ NOUVEAU : ville destinataire
   fileUrl?: string;
   fileKey?: string;
 }
@@ -48,18 +60,6 @@ interface PlayerInfo {
   userName: string;
   playerCity: string;
   playerCountry: string;
-}
-
-interface GitHubMessage {
-  id: string;
-  dossier_ref: string;
-  sender_email: string;
-  sender_name: string;
-  content: string;
-  file_url: string | null;
-  file_key: string | null;
-  is_read: boolean;
-  created_at: string;
 }
 
 // ==========================================================
@@ -85,6 +85,7 @@ async function authenticateAndGetPlayerInfo(
     return null;
   }
 
+  // Client pour vérifier l'auth
   const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
   const { data: { user }, error } = await supabaseClient.auth.getUser(token);
 
@@ -99,6 +100,7 @@ async function authenticateAndGetPlayerInfo(
 
   console.log(`🔐 [player/message] Utilisateur authentifié: ${userEmail}`);
 
+  // Récupérer les infos du joueur depuis athletes_registry
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error("❌ [player/message] Service key manquante");
     return null;
@@ -108,12 +110,14 @@ async function authenticateAndGetPlayerInfo(
     auth: { autoRefreshToken: false, persistSession: false }
   });
 
+  // Rechercher par user_id
   let { data: registry } = await supabaseAdmin
     .from("athletes_registry")
     .select("dossier_ref, city, country")
     .eq("user_id", userId)
     .maybeSingle();
 
+  // Fallback par email
   if (!registry) {
     const { data: registryByEmail } = await supabaseAdmin
       .from("athletes_registry")
@@ -128,152 +132,57 @@ async function authenticateAndGetPlayerInfo(
     return null;
   }
 
-  console.log(`📍 [player/message] Joueur: ${registry.city}/${registry.country}`);
+  const playerCity = registry.city || "NANTES";
+  const playerCountry = registry.country || "FR";
+
+  console.log(`📍 [player/message] Joueur: ${playerCity}/${playerCountry}`);
 
   return {
     userId,
     userEmail,
     userName,
-    playerCity: registry.city || "NANTES",
-    playerCountry: registry.country || "FR",
+    playerCity,
+    playerCountry,
   };
 }
 
 /**
- * ✅ Sauvegarde le message UNIQUEMENT dans GitHub
+ * Récupère l'email du staff pour une ville donnée
  */
-async function saveMessageToGitHub(
-  dossierRef: string,
-  playerEmail: string,
-  playerName: string,
-  content: string,
-  subject?: string,
-  fileUrl?: string,
-  fileKey?: string
-): Promise<boolean> {
-  const path = `conversations/${dossierRef}/messages.json.gz`;
-  console.log(`💾 [player/message] Écriture GitHub: ${path}`);
-
-  try {
-    // Lire les messages existants
-    let existingMessages: GitHubMessage[] = [];
-    try {
-      const existing = await GitHubDB.read<GitHubMessage[]>(path);
-      if (existing && Array.isArray(existing)) {
-        existingMessages = existing;
-        console.log(`📖 [player/message] ${existingMessages.length} messages existants lus`);
-      }
-    } catch {
-      existingMessages = [];
-    }
-
-    // Préparer le nouveau message
-    const now = new Date().toISOString();
-    const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-
-    const newMessage: GitHubMessage = {
-      id: messageId,
-      dossier_ref: dossierRef,
-      sender_email: playerEmail,
-      sender_name: playerName,
-      content: content.trim(),
-      file_url: fileUrl || null,
-      file_key: fileKey || null,
-      is_read: false,
-      created_at: now,
-    };
-
-    // Ajouter le message
-    existingMessages.push(newMessage);
-    console.log(`📊 [player/message] Total messages après ajout: ${existingMessages.length}`);
-
-    // Écrire dans GitHub (compressé)
-    await GitHubDB.write(path, existingMessages, { compress: true });
-    console.log(`✅ [player/message] Message écrit dans GitHub: ${path}`);
-
-    return true;
-  } catch (err) {
-    console.error(`❌ [player/message] Erreur écriture GitHub:`, err);
-    return false;
-  }
+function getStaffEmailForCity(city: string): string {
+  const upperCity = city.toUpperCase().trim();
+  return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
 }
 
-// ==========================================================
-// API ROUTES
-// ==========================================================
-
 /**
- * POST /api/player/message
- * Envoie un message du joueur
- * ✅ CORRECTION : Écrit UNIQUEMENT dans GitHub
- * ✅ CORRECTION : Plus d'écriture dans pending_signals
- * ✅ CORRECTION : Plus d'écriture dans communication_replies
+ * Envoie un email au staff de la ville cible
  */
-export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-  console.log(`📤 [player/message] Début requête`);
+async function notifyStaff(
+  targetCity: string,
+  playerName: string,
+  playerEmail: string,
+  dossierRef: string,
+  content: string,
+  fileUrl?: string
+): Promise<boolean> {
+  const staffEmail = getStaffEmailForCity(targetCity);
+  const cityDisplayName = targetCity === "MASTER" ? "ADMINISTRATION CENTRALE" : targetCity;
+  
+  console.log(`📧 [player/message] Envoi email à ${staffEmail} (${cityDisplayName})`);
 
   try {
-    const playerInfo = await authenticateAndGetPlayerInfo(request);
-    if (!playerInfo) {
-      return NextResponse.json(
-        { success: false, error: "Non authentifié ou compte non trouvé" },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { dossierRef, content, targetCity, subject, fileUrl, fileKey }: PlayerMessageRequest = body;
-
-    if (!dossierRef || !content) {
-      return NextResponse.json(
-        { success: false, error: "Paramètres manquants: dossierRef et content requis" },
-        { status: 400 }
-      );
-    }
-
-    const finalSubject = subject || "COMMUNICATION";
-    const targetCityDisplay = targetCity || playerInfo.playerCity || "MASTER";
-
-    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef} - subject: ${finalSubject} - targetCity: ${targetCityDisplay}`);
-
-    // ✅ 1. Sauvegarder UNIQUEMENT dans GitHub
-    const saved = await saveMessageToGitHub(
-      dossierRef,
-      playerInfo.userEmail,
-      playerInfo.userName,
-      content,
-      finalSubject,
-      fileUrl,
-      fileKey
-    );
-
-    if (!saved) {
-      return NextResponse.json(
-        { success: false, error: "Erreur lors de la sauvegarde du message dans GitHub" },
-        { status: 500 }
-      );
-    }
-
-    // ✅ 2. Envoyer une notification email au staff (non bloquant)
-    // Récupérer l'email du staff pour la ville cible
-    const staffEmail = `${targetCityDisplay.toLowerCase()}@vagondys.com`;
-    const adminEmail = "admin@vagondys.com";
-    
-    const emailHtml = `
+    const html = `
       <div style="font-family:sans-serif; padding:20px; border:1px solid #eee; background:#fff; color:#000;">
         <h2 style="color:#cc0000; border-bottom:2px solid #cc0000; padding-bottom:10px;">
-          📩 NOUVEAU MESSAGE JOUEUR
+          📩 NOUVEAU MESSAGE JOUEUR - ${cityDisplayName}
         </h2>
-        <p><strong>EXPÉDITEUR :</strong> ${playerInfo.userName}</p>
-        <p><strong>EMAIL :</strong> ${playerInfo.userEmail}</p>
+        <p><strong>EXPÉDITEUR :</strong> ${playerName}</p>
+        <p><strong>EMAIL :</strong> ${playerEmail}</p>
         <p><strong>RÉFÉRENCE DOSSIER :</strong> ${dossierRef}</p>
-        <p><strong>OBJET :</strong> ${finalSubject}</p>
-        <p><strong>VILLE CIBLE :</strong> ${targetCityDisplay}</p>
         <hr>
         <p><strong>MESSAGE :</strong></p>
         <div style="background:#f9f9f9; padding:15px; border-radius:5px; white-space: pre-wrap; border-left:4px solid #cc0000;">
-          ${content.trim()}
+          ${content.replace(/\n/g, "<br>")}
         </div>
         ${fileUrl ? `<p><strong>PIÈCE JOINTE :</strong> <a href="${fileUrl}">Voir le document</a></p>` : ""}
         <hr>
@@ -283,27 +192,221 @@ export async function POST(request: NextRequest) {
       </div>
     `;
 
-    try {
-      await sendGeneralEmail(
-        [staffEmail, adminEmail].join(","),
-        `📩 Nouveau message de ${playerInfo.userName} (${dossierRef}) - ${finalSubject}`,
-        `Nouveau message de ${playerInfo.userName} (${dossierRef})\n\nObjet: ${finalSubject}\n\n${content.trim()}`,
-        emailHtml,
-        "no-reply@vagondys.com"
-      );
-      console.log(`📧 [player/message] Email notification envoyé à ${staffEmail}, ${adminEmail}`);
-    } catch (emailErr) {
-      console.error(`⚠️ [player/message] Erreur envoi email:`, emailErr);
+    await sendGeneralEmail(
+      staffEmail,
+      `[VAGONDYS] Nouveau message de ${playerName} (${dossierRef}) - ${cityDisplayName}`,
+      `Nouveau message de ${playerName} (${dossierRef})\n\n${content}`,
+      html,
+      "contact@vagondys.com"
+    );
+
+    console.log(`📧 [player/message] Email envoyé avec succès à ${staffEmail}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ [player/message] Erreur envoi email:`, err);
+    return false;
+  }
+}
+
+/**
+ * Sauvegarde le message dans communication_replies
+ * (utilise la ville du joueur pour traçabilité, pas la ville cible)
+ */
+async function saveMessageToDatabase(
+  dossierRef: string,
+  playerEmail: string,
+  playerName: string,
+  content: string,
+  playerCity: string,
+  playerCountry: string,
+  fileUrl?: string,
+  fileKey?: string
+): Promise<boolean> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("❌ [player/message] Impossible de sauvegarder, configuration manquante");
+    return false;
+  }
+
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    const replyId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+
+    const { error } = await supabaseAdmin
+      .from("communication_replies")
+      .insert({
+        id: replyId,
+        dossier_ref: dossierRef,
+        agent_email: playerEmail,
+        content: content,
+        document_url: fileUrl || null,
+        file_key: fileKey || null,
+        city: playerCity,  // ✅ Ville du joueur (traçabilité)
+        country: playerCountry,
+        created_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      console.error("❌ [player/message] Erreur insertion:", error);
+      return false;
     }
 
+    console.log(`💾 [player/message] Message sauvegardé dans communication_replies (${replyId})`);
+    return true;
+  } catch (err) {
+    console.error("❌ [player/message] Exception sauvegarde:", err);
+    return false;
+  }
+}
+
+/**
+ * Met à jour pending_signals avec l'historique des messages
+ */
+async function updatePendingSignalsHistory(
+  dossierRef: string,
+  playerEmail: string,
+  content: string
+): Promise<void> {
+  if (!supabaseUrl || !supabaseServiceKey) return;
+
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // Récupérer le signal existant
+    const { data: signal } = await supabaseAdmin
+      .from("pending_signals")
+      .select("payload, dossier_ref")
+      .eq("dossier_ref", dossierRef)
+      .maybeSingle();
+
+    if (signal && signal.payload) {
+      const payload = signal.payload as Record<string, unknown>;
+      const messagesHistory = (payload.messages_history as Array<{ content: string; created_at: string }>) || [];
+
+      // Ajouter le nouveau message à l'historique
+      messagesHistory.push({
+        content: content,
+        created_at: new Date().toISOString(),
+      });
+
+      // Mettre à jour le payload
+      const updatedPayload = {
+        ...payload,
+        messages_history: messagesHistory,
+        message: content,
+      };
+
+      await supabaseAdmin
+        .from("pending_signals")
+        .update({
+          payload: updatedPayload,
+          is_read: false,
+        })
+        .eq("dossier_ref", dossierRef);
+
+      console.log(`📝 [player/message] Historique pending_signals mis à jour (${messagesHistory.length} messages)`);
+    }
+  } catch (err) {
+    console.error("❌ [player/message] Erreur mise à jour historique:", err);
+  }
+}
+
+// ==========================================================
+// API ROUTES
+// ==========================================================
+
+/**
+ * POST /api/player/message
+ * Envoie un message du joueur vers le staff de la ville choisie
+ */
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  console.log(`📤 [player/message] Début requête`);
+
+  try {
+    // 1. Authentification et récupération infos joueur
+    const playerInfo = await authenticateAndGetPlayerInfo(request);
+    if (!playerInfo) {
+      return NextResponse.json(
+        { success: false, error: "Non authentifié ou compte non trouvé" },
+        { status: 401 }
+      );
+    }
+
+    // 2. Récupérer le body
+    const body = await request.json();
+    const { dossierRef, content, targetCity, fileUrl, fileKey }: PlayerMessageRequest = body;
+
+    if (!dossierRef || !content) {
+      return NextResponse.json(
+        { success: false, error: "Paramètres manquants: dossierRef et content requis" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Déterminer la ville cible (destinataire)
+    // Si targetCity est fourni et valide, l'utiliser, sinon utiliser la ville du joueur
+    let effectiveTargetCity = playerInfo.playerCity;
+    if (targetCity) {
+      const upperTarget = targetCity.toUpperCase().trim();
+      // Vérifier que la ville cible existe dans le mapping
+      if (STAFF_EMAILS[upperTarget] || upperTarget === "MASTER") {
+        effectiveTargetCity = upperTarget;
+        console.log(`📍 [player/message] Ville cible sélectionnée: ${effectiveTargetCity}`);
+      } else {
+        console.warn(`⚠️ [player/message] Ville cible inconnue: ${targetCity}, utilisation de la ville du joueur`);
+      }
+    }
+
+    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef}`);
+    console.log(`📝 [player/message] Contenu: ${content.substring(0, 100)}...`);
+    console.log(`📍 [player/message] Destinataire: ${effectiveTargetCity}`);
+    console.log(`📍 [player/message] Expéditeur (ville): ${playerInfo.playerCity}`);
+
+    // 4. Sauvegarder dans communication_replies (avec ville du joueur)
+    const saved = await saveMessageToDatabase(
+      dossierRef,
+      playerInfo.userEmail,
+      playerInfo.userName,
+      content,
+      playerInfo.playerCity,
+      playerInfo.playerCountry,
+      fileUrl,
+      fileKey
+    );
+
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: "Erreur lors de la sauvegarde du message" },
+        { status: 500 }
+      );
+    }
+
+    // 5. Mettre à jour l'historique dans pending_signals
+    await updatePendingSignalsHistory(dossierRef, playerInfo.userEmail, content);
+
+    // 6. Envoyer l'email au staff de la ville cible
+    const emailSent = await notifyStaff(
+      effectiveTargetCity,
+      playerInfo.userName,
+      playerInfo.userEmail,
+      dossierRef,
+      content,
+      fileUrl
+    );
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [player/message] Terminé en ${duration}ms - Message envoyé avec succès`);
+    console.log(`✅ [player/message] Terminé en ${duration}ms, email envoyé: ${emailSent}`);
 
     return NextResponse.json({
       success: true,
-      message: `Message envoyé avec succès à ${targetCityDisplay} (Objet: ${finalSubject})`,
-      targetCity: targetCityDisplay,
-      subject: finalSubject,
+      message: `Message envoyé avec succès à ${effectiveTargetCity}`,
+      staffNotified: emailSent,
+      targetCity: effectiveTargetCity,
     });
   } catch (error) {
     const duration = Date.now() - startTime;
