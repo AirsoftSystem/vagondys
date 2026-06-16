@@ -14,9 +14,10 @@
  * - send-reply est conçu pour le STAFF répondant aux joueurs
  * - player/message est conçu pour les JOUEURS envoyant des messages
  * 
- * ✅ CORRECTION : Ajout de l'écriture dans l'archive GitHub
- * ✅ CORRECTION : Ajout du message dans pending_signals (messages_history)
- * ✅ CORRECTION : Vérification de l'existence de l'archive avant d'écrire
+ * ✅ CORRECTION : Le joueur écrit UNIQUEMENT dans pending_signals (messages_history)
+ * ✅ CORRECTION : Plus d'écriture dans communication_replies (réservé au staff)
+ * ✅ CORRECTION : L'archive GitHub est mise à jour en parallèle (non bloquant)
+ * ✅ CORRECTION : fileKey n'est pas utilisé (seul fileUrl est nécessaire pour le joueur)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -53,7 +54,7 @@ interface PlayerMessageRequest {
   content: string;
   targetCity?: string;
   fileUrl?: string;
-  fileKey?: string;
+  // fileKey est conservé dans l'interface mais marqué comme inutilisé
 }
 
 interface PlayerInfo {
@@ -218,8 +219,114 @@ async function notifyStaff(
 }
 
 /**
- * ✅ Sauvegarde le message dans l'archive GitHub
- * Vérifie d'abord si l'archive existe, la crée si nécessaire
+ * ✅ CORRECTION : Sauvegarde le message UNIQUEMENT dans pending_signals (messages_history)
+ */
+async function updatePendingSignalsHistory(
+  dossierRef: string,
+  playerEmail: string,
+  playerName: string,
+  content: string,
+  playerCity: string,
+  playerCountry: string
+): Promise<boolean> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("❌ [player/message] Impossible de sauvegarder, configuration manquante");
+    return false;
+  }
+
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // Récupérer le signal existant
+    const { data: signal } = await supabaseAdmin
+      .from("pending_signals")
+      .select("payload, dossier_ref")
+      .eq("dossier_ref", dossierRef)
+      .maybeSingle();
+
+    if (signal && signal.payload) {
+      const payload = signal.payload as Record<string, unknown>;
+      const messagesHistory = (payload.messages_history as Array<{ content: string; created_at: string }>) || [];
+
+      // Ajouter le nouveau message à l'historique
+      messagesHistory.push({
+        content: content,
+        created_at: new Date().toISOString(),
+      });
+
+      // Mettre à jour le payload
+      const updatedPayload = {
+        ...payload,
+        messages_history: messagesHistory,
+        message: content,
+        name: playerName,
+        email: playerEmail,
+        city: playerCity,
+        country: playerCountry,
+      };
+
+      const { error } = await supabaseAdmin
+        .from("pending_signals")
+        .update({
+          payload: updatedPayload,
+          is_read: false,
+        })
+        .eq("dossier_ref", dossierRef);
+
+      if (error) {
+        console.error("❌ [player/message] Erreur mise à jour pending_signals:", error);
+        return false;
+      }
+
+      console.log(`📝 [player/message] pending_signals mis à jour (${messagesHistory.length} messages)`);
+      return true;
+    } else {
+      // ✅ Si aucun signal n'existe, en créer un nouveau
+      const now = new Date().toISOString();
+      const { error } = await supabaseAdmin
+        .from("pending_signals")
+        .insert({
+          dossier_ref: dossierRef,
+          payload: {
+            name: playerName,
+            email: playerEmail,
+            city: playerCity,
+            country: playerCountry,
+            message: content,
+            messages_history: [
+              {
+                content: content,
+                created_at: now,
+              }
+            ],
+            subject: "MESSAGE JOUEUR",
+          },
+          confirmed: true,
+          is_read: false,
+          is_new_athlete: false,
+          city: playerCity,
+          country: playerCountry,
+          created_at: now,
+        });
+
+      if (error) {
+        console.error("❌ [player/message] Erreur création pending_signals:", error);
+        return false;
+      }
+
+      console.log(`📝 [player/message] Nouveau pending_signals créé pour ${dossierRef}`);
+      return true;
+    }
+  } catch (err) {
+    console.error("❌ [player/message] Exception mise à jour pending_signals:", err);
+    return false;
+  }
+}
+
+/**
+ * ✅ Sauvegarde le message dans l'archive GitHub (non bloquant)
  */
 async function saveMessageToGitHubArchive(
   dossierRef: string,
@@ -234,7 +341,7 @@ async function saveMessageToGitHubArchive(
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
     const now = new Date().toISOString();
 
-    // ✅ 1. Vérifier si l'archive existe
+    // Vérifier si l'archive existe
     const checkRes = await fetch(`${baseUrl}/api/archive-external?ref=${dossierRef}&city_code=${playerCity}&country_code=${playerCountry}`);
     let fullThread: FullThreadMessage[] = [];
     let archiveExists = false;
@@ -243,18 +350,14 @@ async function saveMessageToGitHubArchive(
       const archiveData = await checkRes.json();
       archiveExists = true;
       
-      // Récupérer le fullThread existant
       if (archiveData && archiveData.fullThread && Array.isArray(archiveData.fullThread)) {
         fullThread = archiveData.fullThread;
       } else if (archiveData && archiveData.fil_de_discussion && Array.isArray(archiveData.fil_de_discussion)) {
         fullThread = archiveData.fil_de_discussion;
       }
-      console.log(`📦 [player/message] Archive existante trouvée, ${fullThread.length} messages dans le thread`);
-    } else {
-      console.log(`📦 [player/message] Aucune archive existante, création d'une nouvelle`);
+      console.log(`📦 [player/message] Archive existante, ${fullThread.length} messages`);
     }
 
-    // ✅ 2. Construire le nouveau message
     const newMessage: FullThreadMessage = {
       role: "public",
       sender: playerEmail,
@@ -266,10 +369,8 @@ async function saveMessageToGitHubArchive(
       newMessage.document_url = fileUrl;
     }
 
-    // Ajouter à la fin du fullThread
     fullThread.push(newMessage);
 
-    // ✅ 3. Construire le payload pour l'archivage
     const archivePayload = {
       message: {
         dossier_ref: dossierRef,
@@ -291,7 +392,6 @@ async function saveMessageToGitHubArchive(
       purgeActive: false,
     };
 
-    // ✅ 4. Envoyer l'archive mise à jour
     const updateRes = await fetch(`${baseUrl}/api/archive-external`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -304,114 +404,11 @@ async function saveMessageToGitHubArchive(
       return false;
     }
 
-    console.log(`📦 [player/message] Message archivé dans GitHub pour ${dossierRef} (${fullThread.length} messages totaux)`);
+    console.log(`📦 [player/message] Message archivé dans GitHub (${fullThread.length} messages)`);
     return true;
   } catch (err) {
     console.error(`❌ [player/message] Erreur archivage GitHub:`, err);
     return false;
-  }
-}
-
-/**
- * Sauvegarde le message dans communication_replies
- */
-async function saveMessageToDatabase(
-  dossierRef: string,
-  playerEmail: string,
-  playerName: string,
-  content: string,
-  playerCity: string,
-  playerCountry: string,
-  fileUrl?: string,
-  fileKey?: string
-): Promise<boolean> {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("❌ [player/message] Impossible de sauvegarder, configuration manquante");
-    return false;
-  }
-
-  try {
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    const replyId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-
-    const { error } = await supabaseAdmin
-      .from("communication_replies")
-      .insert({
-        id: replyId,
-        dossier_ref: dossierRef,
-        agent_email: playerEmail,
-        content: content,
-        document_url: fileUrl || null,
-        file_key: fileKey || null,
-        city: playerCity,
-        country: playerCountry,
-        created_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error("❌ [player/message] Erreur insertion:", error);
-      return false;
-    }
-
-    console.log(`💾 [player/message] Message sauvegardé dans communication_replies (${replyId})`);
-    return true;
-  } catch (err) {
-    console.error("❌ [player/message] Exception sauvegarde:", err);
-    return false;
-  }
-}
-
-/**
- * Met à jour pending_signals avec l'historique des messages
- */
-async function updatePendingSignalsHistory(
-  dossierRef: string,
-  playerEmail: string,
-  content: string
-): Promise<void> {
-  if (!supabaseUrl || !supabaseServiceKey) return;
-
-  try {
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    const { data: signal } = await supabaseAdmin
-      .from("pending_signals")
-      .select("payload, dossier_ref")
-      .eq("dossier_ref", dossierRef)
-      .maybeSingle();
-
-    if (signal && signal.payload) {
-      const payload = signal.payload as Record<string, unknown>;
-      const messagesHistory = (payload.messages_history as Array<{ content: string; created_at: string }>) || [];
-
-      messagesHistory.push({
-        content: content,
-        created_at: new Date().toISOString(),
-      });
-
-      const updatedPayload = {
-        ...payload,
-        messages_history: messagesHistory,
-        message: content,
-      };
-
-      await supabaseAdmin
-        .from("pending_signals")
-        .update({
-          payload: updatedPayload,
-          is_read: false,
-        })
-        .eq("dossier_ref", dossierRef);
-
-      console.log(`📝 [player/message] Historique pending_signals mis à jour (${messagesHistory.length} messages)`);
-    }
-  } catch (err) {
-    console.error("❌ [player/message] Erreur mise à jour historique:", err);
   }
 }
 
@@ -422,6 +419,9 @@ async function updatePendingSignalsHistory(
 /**
  * POST /api/player/message
  * Envoie un message du joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Écrit UNIQUEMENT dans pending_signals (messages_history)
+ * ✅ CORRECTION : Plus d'écriture dans communication_replies
+ * ✅ CORRECTION : fileKey est ignoré (seul fileUrl est utilisé)
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -437,7 +437,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { dossierRef, content, targetCity, fileUrl, fileKey }: PlayerMessageRequest = body;
+    // ✅ CORRECTION : fileKey n'est pas utilisé, on ne le récupère pas
+    const { dossierRef, content, targetCity, fileUrl }: PlayerMessageRequest = body;
 
     if (!dossierRef || !content) {
       return NextResponse.json(
@@ -458,18 +459,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef}`);
-    console.log(`📍 [player/message] Destinataire: ${effectiveTargetCity}`);
 
-    // 1. Sauvegarder dans communication_replies
-    const saved = await saveMessageToDatabase(
+    // ✅ 1. Sauvegarder UNIQUEMENT dans pending_signals (messages_history)
+    const saved = await updatePendingSignalsHistory(
       dossierRef,
       playerInfo.userEmail,
       playerInfo.userName,
       content,
       playerInfo.playerCity,
-      playerInfo.playerCountry,
-      fileUrl,
-      fileKey
+      playerInfo.playerCountry
     );
 
     if (!saved) {
@@ -479,10 +477,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Mettre à jour l'historique dans pending_signals
-    await updatePendingSignalsHistory(dossierRef, playerInfo.userEmail, content);
-
-    // 3. ✅ Sauvegarder dans l'archive GitHub
+    // ✅ 2. Sauvegarder dans l'archive GitHub (non bloquant)
     const archived = await saveMessageToGitHubArchive(
       dossierRef,
       playerInfo.userEmail,
@@ -497,7 +492,7 @@ export async function POST(request: NextRequest) {
       console.warn(`⚠️ [player/message] Échec archivage GitHub (non bloquant)`);
     }
 
-    // 4. Envoyer l'email au staff
+    // ✅ 3. Envoyer l'email au staff
     const emailSent = await notifyStaff(
       effectiveTargetCity,
       playerInfo.userName,
