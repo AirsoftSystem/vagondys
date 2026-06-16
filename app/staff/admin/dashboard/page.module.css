@@ -44,38 +44,102 @@
 
 /* ==========================================================
    ANIMATION DE CLIGNOTEMENT POUR LA CARTE "DEMANDES"
+   COULEUR ROUGE AVEC HALO LUMINEUX
    ========================================================== */
 
 @keyframes blink {
   0% { 
-    border-color: #f97316; 
-    background-color: rgba(249, 115, 22, 0.05); 
-    box-shadow: 0 0 10px rgba(249, 115, 22, 0.1);
+    border-color: #dc2626; 
+    background-color: rgba(220, 38, 38, 0.05); 
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.1), inset 0 0 15px rgba(220, 38, 38, 0.02);
   }
   25% { 
-    border-color: #f97316; 
-    background-color: rgba(249, 115, 22, 0.15); 
-    box-shadow: 0 0 25px rgba(249, 115, 22, 0.25);
+    border-color: #dc2626; 
+    background-color: rgba(220, 38, 38, 0.15); 
+    box-shadow: 0 0 40px rgba(220, 38, 38, 0.3), inset 0 0 30px rgba(220, 38, 38, 0.05);
   }
   50% { 
-    border-color: #f97316; 
-    background-color: rgba(249, 115, 22, 0.25); 
-    box-shadow: 0 0 40px rgba(249, 115, 22, 0.4);
+    border-color: #dc2626; 
+    background-color: rgba(220, 38, 38, 0.25); 
+    box-shadow: 0 0 70px rgba(220, 38, 38, 0.5), inset 0 0 50px rgba(220, 38, 38, 0.08);
   }
   75% { 
-    border-color: #f97316; 
-    background-color: rgba(249, 115, 22, 0.15); 
-    box-shadow: 0 0 25px rgba(249, 115, 22, 0.25);
+    border-color: #dc2626; 
+    background-color: rgba(220, 38, 38, 0.15); 
+    box-shadow: 0 0 40px rgba(220, 38, 38, 0.3), inset 0 0 30px rgba(220, 38, 38, 0.05);
   }
   100% { 
-    border-color: #f97316; 
-    background-color: rgba(249, 115, 22, 0.05); 
-    box-shadow: 0 0 10px rgba(249, 115, 22, 0.1);
+    border-color: #dc2626; 
+    background-color: rgba(220, 38, 38, 0.05); 
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.1), inset 0 0 15px rgba(220, 38, 38, 0.02);
   }
 }
 
 .blinking {
-  animation: blink 1.5s ease-in-out infinite;
-  border-color: #f97316;
+  animation: blink 1s ease-in-out infinite;
+  border-color: #dc2626;
   cursor: pointer;
+  position: relative;
+  z-index: 10;
+}
+
+/* Effet de halo externe supplémentaire */
+.blinking::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: radial-gradient(circle at center, rgba(220, 38, 38, 0.15), transparent 70%);
+  z-index: -1;
+  animation: haloPulse 1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes haloPulse {
+  0% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+  100% { 
+    opacity: 0.3;
+    transform: scale(1);
+  }
+}
+
+/* Variation pour une alerte plus intense quand il y a plusieurs demandes */
+.blinking.intense {
+  animation: blink 0.7s ease-in-out infinite;
+  border-color: #dc2626;
+  box-shadow: 0 0 80px rgba(220, 38, 38, 0.6), inset 0 0 60px rgba(220, 38, 38, 0.1);
+}
+
+.blinking.intense::before {
+  animation: haloPulse 0.7s ease-in-out infinite;
+  background: radial-gradient(circle at center, rgba(220, 38, 38, 0.25), transparent 70%);
+}
+
+/* Badge ALERTE pour la carte */
+.alertBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background-color: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  animation: pulseText 1s ease-in-out infinite;
+}
+
+@keyframes pulseText {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
