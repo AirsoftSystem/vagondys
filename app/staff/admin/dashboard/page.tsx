@@ -285,11 +285,6 @@ export default function AdminDashboardPage() {
               <Database className="w-5 h-5 text-orange-500" />
             </div>
             <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Demandes</span>
-            {hasPendingRequests && (
-              <span className="ml-auto text-[8px] text-red-500 font-black uppercase">
-                ● NOUVELLE
-              </span>
-            )}
           </div>
           <p className="text-2xl font-black text-white" id="stat-pendingMessagerieRequests">{globalStats.pendingMessagerieRequests}</p>
           <p className="text-[8px] text-zinc-600 mt-1">Messagerie en attente</p>
