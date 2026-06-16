@@ -16,6 +16,7 @@
  * 
  * ✅ CORRECTION : Ajout de l'écriture dans l'archive GitHub
  * ✅ CORRECTION : Ajout du message dans pending_signals (messages_history)
+ * ✅ CORRECTION : Vérification de l'existence de l'archive avant d'écrire
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -217,7 +218,8 @@ async function notifyStaff(
 }
 
 /**
- * ✅ NOUVELLE FONCTION : Sauvegarde le message dans l'archive GitHub
+ * ✅ Sauvegarde le message dans l'archive GitHub
+ * Vérifie d'abord si l'archive existe, la crée si nécessaire
  */
 async function saveMessageToGitHubArchive(
   dossierRef: string,
@@ -232,38 +234,46 @@ async function saveMessageToGitHubArchive(
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
     const now = new Date().toISOString();
 
-    // Récupérer l'archive existante
-    const archiveRes = await fetch(`${baseUrl}/api/archive-external?ref=${dossierRef}&city_code=${playerCity}&country_code=${playerCountry}`);
-    let archiveData = null;
+    // ✅ 1. Vérifier si l'archive existe
+    const checkRes = await fetch(`${baseUrl}/api/archive-external?ref=${dossierRef}&city_code=${playerCity}&country_code=${playerCountry}`);
     let fullThread: FullThreadMessage[] = [];
+    let archiveExists = false;
 
-    if (archiveRes.ok) {
-      archiveData = await archiveRes.json();
+    if (checkRes.ok) {
+      const archiveData = await checkRes.json();
+      archiveExists = true;
+      
+      // Récupérer le fullThread existant
       if (archiveData && archiveData.fullThread && Array.isArray(archiveData.fullThread)) {
         fullThread = archiveData.fullThread;
       } else if (archiveData && archiveData.fil_de_discussion && Array.isArray(archiveData.fil_de_discussion)) {
         fullThread = archiveData.fil_de_discussion;
       }
+      console.log(`📦 [player/message] Archive existante trouvée, ${fullThread.length} messages dans le thread`);
+    } else {
+      console.log(`📦 [player/message] Aucune archive existante, création d'une nouvelle`);
     }
 
-    // Construire le nouveau message
+    // ✅ 2. Construire le nouveau message
     const newMessage: FullThreadMessage = {
       role: "public",
       sender: playerEmail,
       content: content,
       created_at: now,
       is_initial: false,
-      ...(fileUrl && { document_url: fileUrl }),
     };
+    if (fileUrl) {
+      newMessage.document_url = fileUrl;
+    }
 
     // Ajouter à la fin du fullThread
     fullThread.push(newMessage);
 
-    // Construire le payload pour l'archivage
+    // ✅ 3. Construire le payload pour l'archivage
     const archivePayload = {
       message: {
         dossier_ref: dossierRef,
-        created_at: now,
+        created_at: archiveExists ? undefined : now,
         payload: {
           name: playerName,
           email: playerEmail,
@@ -274,12 +284,14 @@ async function saveMessageToGitHubArchive(
         },
       },
       fullThread: fullThread,
+      echanges_staff: [],
+      fil_de_discussion: fullThread,
       city_code: playerCity,
       country_code: playerCountry,
       purgeActive: false,
     };
 
-    // Envoyer l'archive mise à jour
+    // ✅ 4. Envoyer l'archive mise à jour
     const updateRes = await fetch(`${baseUrl}/api/archive-external`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -287,11 +299,12 @@ async function saveMessageToGitHubArchive(
     });
 
     if (!updateRes.ok) {
-      console.error(`❌ [player/message] Erreur archivage GitHub: ${updateRes.status}`);
+      const errorText = await updateRes.text();
+      console.error(`❌ [player/message] Erreur archivage GitHub: ${updateRes.status} - ${errorText}`);
       return false;
     }
 
-    console.log(`📦 [player/message] Message archivé dans GitHub pour ${dossierRef}`);
+    console.log(`📦 [player/message] Message archivé dans GitHub pour ${dossierRef} (${fullThread.length} messages totaux)`);
     return true;
   } catch (err) {
     console.error(`❌ [player/message] Erreur archivage GitHub:`, err);
@@ -409,7 +422,6 @@ async function updatePendingSignalsHistory(
 /**
  * POST /api/player/message
  * Envoie un message du joueur vers le staff de la ville choisie
- * ✅ CORRECTION : Ajout de l'archivage GitHub
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -470,7 +482,7 @@ export async function POST(request: NextRequest) {
     // 2. Mettre à jour l'historique dans pending_signals
     await updatePendingSignalsHistory(dossierRef, playerInfo.userEmail, content);
 
-    // 3. ✅ NOUVEAU : Sauvegarder dans l'archive GitHub
+    // 3. ✅ Sauvegarder dans l'archive GitHub
     const archived = await saveMessageToGitHubArchive(
       dossierRef,
       playerInfo.userEmail,
