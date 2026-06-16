@@ -4,7 +4,7 @@
  * API PLAYER MESSAGE - ENVOI DE MESSAGE JOUEUR VERS STAFF
  * ==========================================================
  * POST /api/player/message
- * Body: { dossierRef, content, targetCity?, fileUrl?, fileKey? }
+ * Body: { dossierRef, content, targetCity?, subject?, fileUrl?, fileKey? }
  * 
  * Cette API est dédiée aux joueurs authentifiés.
  * Elle route le message vers le staff de la ville choisie (targetCity).
@@ -18,6 +18,7 @@
  * ✅ CORRECTION : Plus d'écriture dans communication_replies (réservé au staff)
  * ✅ CORRECTION : L'archive GitHub est mise à jour en parallèle (non bloquant)
  * ✅ CORRECTION : fileKey n'est pas utilisé (seul fileUrl est nécessaire pour le joueur)
+ * ✅ NOUVEAU : Ajout du paramètre subject (objet du signal)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -53,6 +54,7 @@ interface PlayerMessageRequest {
   dossierRef: string;
   content: string;
   targetCity?: string;
+  subject?: string;    // ✅ NOUVEAU : Objet du signal
   fileUrl?: string;
   // fileKey est conservé dans l'interface mais marqué comme inutilisé
 }
@@ -173,12 +175,14 @@ async function notifyStaff(
   playerEmail: string,
   dossierRef: string,
   content: string,
+  subject?: string,
   fileUrl?: string
 ): Promise<boolean> {
   const staffEmail = getStaffEmailForCity(targetCity);
   const cityDisplayName = targetCity === "MASTER" ? "ADMINISTRATION CENTRALE" : targetCity;
+  const subjectDisplay = subject || "COMMUNICATION";
   
-  console.log(`📧 [player/message] Envoi email à ${staffEmail} (${cityDisplayName})`);
+  console.log(`📧 [player/message] Envoi email à ${staffEmail} (${cityDisplayName}) - Objet: ${subjectDisplay}`);
 
   try {
     const html = `
@@ -189,6 +193,7 @@ async function notifyStaff(
         <p><strong>EXPÉDITEUR :</strong> ${playerName}</p>
         <p><strong>EMAIL :</strong> ${playerEmail}</p>
         <p><strong>RÉFÉRENCE DOSSIER :</strong> ${dossierRef}</p>
+        <p><strong>OBJET :</strong> ${subjectDisplay}</p>
         <hr>
         <p><strong>MESSAGE :</strong></p>
         <div style="background:#f9f9f9; padding:15px; border-radius:5px; white-space: pre-wrap; border-left:4px solid #cc0000;">
@@ -204,8 +209,8 @@ async function notifyStaff(
 
     await sendGeneralEmail(
       staffEmail,
-      `[VAGONDYS] Nouveau message de ${playerName} (${dossierRef}) - ${cityDisplayName}`,
-      `Nouveau message de ${playerName} (${dossierRef})\n\n${content}`,
+      `[VAGONDYS] Nouveau message de ${playerName} (${dossierRef}) - ${subjectDisplay} - ${cityDisplayName}`,
+      `Nouveau message de ${playerName} (${dossierRef})\n\nObjet: ${subjectDisplay}\n\n${content}`,
       html,
       "contact@vagondys.com"
     );
@@ -220,6 +225,7 @@ async function notifyStaff(
 
 /**
  * ✅ CORRECTION : Sauvegarde le message UNIQUEMENT dans pending_signals (messages_history)
+ * ✅ NOUVEAU : Ajout du paramètre subject dans le payload
  */
 async function updatePendingSignalsHistory(
   dossierRef: string,
@@ -227,7 +233,8 @@ async function updatePendingSignalsHistory(
   playerName: string,
   content: string,
   playerCity: string,
-  playerCountry: string
+  playerCountry: string,
+  subject?: string
 ): Promise<boolean> {
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error("❌ [player/message] Impossible de sauvegarder, configuration manquante");
@@ -238,6 +245,8 @@ async function updatePendingSignalsHistory(
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
+
+    const finalSubject = subject || "COMMUNICATION";
 
     // Récupérer le signal existant
     const { data: signal } = await supabaseAdmin
@@ -265,6 +274,7 @@ async function updatePendingSignalsHistory(
         email: playerEmail,
         city: playerCity,
         country: playerCountry,
+        subject: finalSubject,
       };
 
       const { error } = await supabaseAdmin
@@ -280,7 +290,7 @@ async function updatePendingSignalsHistory(
         return false;
       }
 
-      console.log(`📝 [player/message] pending_signals mis à jour (${messagesHistory.length} messages)`);
+      console.log(`📝 [player/message] pending_signals mis à jour (${messagesHistory.length} messages) - subject: ${finalSubject}`);
       return true;
     } else {
       // ✅ Si aucun signal n'existe, en créer un nouveau
@@ -301,7 +311,7 @@ async function updatePendingSignalsHistory(
                 created_at: now,
               }
             ],
-            subject: "MESSAGE JOUEUR",
+            subject: finalSubject,
           },
           confirmed: true,
           is_read: false,
@@ -316,7 +326,7 @@ async function updatePendingSignalsHistory(
         return false;
       }
 
-      console.log(`📝 [player/message] Nouveau pending_signals créé pour ${dossierRef}`);
+      console.log(`📝 [player/message] Nouveau pending_signals créé pour ${dossierRef} - subject: ${finalSubject}`);
       return true;
     }
   } catch (err) {
@@ -335,6 +345,7 @@ async function saveMessageToGitHubArchive(
   content: string,
   playerCity: string,
   playerCountry: string,
+  subject?: string,
   fileUrl?: string
 ): Promise<boolean> {
   try {
@@ -381,6 +392,7 @@ async function saveMessageToGitHubArchive(
           city: playerCity,
           country: playerCountry,
           message: content,
+          subject: subject || "COMMUNICATION",
           messages_history: [],
         },
       },
@@ -422,6 +434,7 @@ async function saveMessageToGitHubArchive(
  * ✅ CORRECTION : Écrit UNIQUEMENT dans pending_signals (messages_history)
  * ✅ CORRECTION : Plus d'écriture dans communication_replies
  * ✅ CORRECTION : fileKey est ignoré (seul fileUrl est utilisé)
+ * ✅ NOUVEAU : Ajout du paramètre subject (objet du signal)
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -438,7 +451,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     // ✅ CORRECTION : fileKey n'est pas utilisé, on ne le récupère pas
-    const { dossierRef, content, targetCity, fileUrl }: PlayerMessageRequest = body;
+    // ✅ NOUVEAU : Ajout de subject
+    const { dossierRef, content, targetCity, subject, fileUrl }: PlayerMessageRequest = body;
 
     if (!dossierRef || !content) {
       return NextResponse.json(
@@ -446,6 +460,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const finalSubject = subject || "COMMUNICATION";
 
     let effectiveTargetCity = playerInfo.playerCity;
     if (targetCity) {
@@ -458,7 +474,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef}`);
+    console.log(`📝 [player/message] Traitement message pour dossier ${dossierRef} - subject: ${finalSubject}`);
 
     // ✅ 1. Sauvegarder UNIQUEMENT dans pending_signals (messages_history)
     const saved = await updatePendingSignalsHistory(
@@ -467,7 +483,8 @@ export async function POST(request: NextRequest) {
       playerInfo.userName,
       content,
       playerInfo.playerCity,
-      playerInfo.playerCountry
+      playerInfo.playerCountry,
+      finalSubject
     );
 
     if (!saved) {
@@ -485,6 +502,7 @@ export async function POST(request: NextRequest) {
       content,
       playerInfo.playerCity,
       playerInfo.playerCountry,
+      finalSubject,
       fileUrl
     );
 
@@ -499,18 +517,20 @@ export async function POST(request: NextRequest) {
       playerInfo.userEmail,
       dossierRef,
       content,
+      finalSubject,
       fileUrl
     );
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [player/message] Terminé en ${duration}ms, email: ${emailSent}, archivage: ${archived}`);
+    console.log(`✅ [player/message] Terminé en ${duration}ms, email: ${emailSent}, archivage: ${archived}, subject: ${finalSubject}`);
 
     return NextResponse.json({
       success: true,
-      message: `Message envoyé avec succès à ${effectiveTargetCity}`,
+      message: `Message envoyé avec succès à ${effectiveTargetCity} (Objet: ${finalSubject})`,
       staffNotified: emailSent,
       archived: archived,
       targetCity: effectiveTargetCity,
+      subject: finalSubject,
     });
   } catch (error) {
     const duration = Date.now() - startTime;

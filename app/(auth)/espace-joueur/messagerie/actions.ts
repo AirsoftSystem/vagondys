@@ -451,6 +451,7 @@ export async function getPlayerMessages(
 
 /**
  * Envoie un message depuis le joueur vers le staff de la ville choisie
+ * ✅ CORRECTION : Ajout du paramètre subject (objet du signal)
  * ✅ Appelle l'API /api/player/message qui écrit dans pending_signals + communication_replies
  */
 export async function sendPlayerMessage(params: {
@@ -460,13 +461,14 @@ export async function sendPlayerMessage(params: {
   userEmail: string;
   userName: string;
   targetCity?: string;
+  subject?: string;      // ✅ NOUVEAU : Objet du signal
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  const { dossierRef, content, targetCity, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, subject, fileUrl, fileKey } = params;
 
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, content length: ${content?.length || 0}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"}, content length: ${content?.length || 0}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
@@ -490,6 +492,7 @@ export async function sendPlayerMessage(params: {
         dossierRef,
         content,
         targetCity: targetCity || "MASTER",
+        subject: subject || "COMMUNICATION", // ✅ Transmission de l'objet
         fileUrl: fileUrl || null,
         fileKey: fileKey || null,
       }),
@@ -503,7 +506,7 @@ export async function sendPlayerMessage(params: {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès`);
+    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès (subject: ${subject || "COMMUNICATION"})`);
 
     return { success: true };
   } catch (err) {

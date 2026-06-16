@@ -26,12 +26,14 @@ interface GitHubMessage {
  * - Récupère tous les messages d’une conversation depuis GitHub
  * * POST /api/messagerie/messages
  * - Envoie un nouveau message (écriture uniquement dans GitHub)
- * - Body: { dossierRef, content, fileUrl?, fileKey? }
+ * - Body: { dossierRef, content, fileUrl?, fileKey?, targetCity?, subject? }
  * 
  * ✅ CORRECTION : Plus d'utilisation de messagerie_conversations
  * ✅ CORRECTION : Utilisation directe de dossier_ref comme identifiant
  * ✅ CORRECTION : Vérification des droits via messagerie_accounts
  * ✅ AJOUT : Logs détaillés pour debug
+ * ✅ NOUVEAU : Ajout des paramètres targetCity et subject pour l'archivage
+ * ✅ NOUVEAU : Synchronisation avec pending_signals (comme le formulaire de contact)
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -102,11 +104,9 @@ export async function GET(request: NextRequest) {
     let participantEmail = "";
 
     if (isStaff) {
-      // Le staff a accès à tous les dossiers
       hasAccess = true;
       console.log(`🔓 [GET] Staff - accès automatique au dossier ${dossierRef}`);
       
-      // Récupérer les infos du participant pour l'affichage
       const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
@@ -125,7 +125,6 @@ export async function GET(request: NextRequest) {
         console.log(`⚠️ [GET] Aucun compte trouvé pour le dossier ${dossierRef}`);
       }
     } else {
-      // Un partenaire ne peut voir que son propre dossier
       console.log(`🔍 [GET] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
       
       const { data: account, error: accountError } = await supabaseAdmin
@@ -214,6 +213,8 @@ export async function GET(request: NextRequest) {
  * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  * ✅ AJOUT : Logs détaillés pour debug
+ * ✅ NOUVEAU : Ajout des paramètres targetCity et subject
+ * ✅ NOUVEAU : Synchronisation avec pending_signals (comme le formulaire de contact)
  * 
  * - Notification email au partenaire lorsque le staff envoie un message
  */
@@ -265,9 +266,9 @@ export async function POST(request: NextRequest) {
     const isStaff = userEmail.endsWith("@vagondys.com");
     console.log(`👤 [POST] Utilisateur: ${userEmail}, isStaff: ${isStaff}, userName: ${userName}`);
 
-    // 3. Récupérer le body (avec dossierRef au lieu de conversationId)
+    // 3. Récupérer le body (avec dossierRef + targetCity + subject)
     const body = await request.json();
-    const { dossierRef, content, fileUrl, fileKey } = body;
+    const { dossierRef, content, fileUrl, fileKey, targetCity, subject } = body;
 
     if (!dossierRef || !content || !content.trim()) {
       console.error(`❌ [POST] Paramètres invalides - dossierRef: ${dossierRef}, content length: ${content?.length || 0}`);
@@ -276,7 +277,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.log(`📁 [POST] dossierRef: ${dossierRef}, content length: ${content.length}, hasFile: ${!!fileUrl}`);
+    console.log(`📁 [POST] dossierRef: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"}`);
 
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -287,11 +288,9 @@ export async function POST(request: NextRequest) {
     let participantName = "";
 
     if (isStaff) {
-      // Le staff a accès à tous les dossiers
       hasAccess = true;
       console.log(`🔓 [POST] Staff - accès automatique au dossier ${dossierRef}`);
       
-      // Récupérer les infos du participant
       const { data: account, error: accountError } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
@@ -314,7 +313,6 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // Un partenaire ne peut envoyer que depuis son propre dossier
       console.log(`🔍 [POST] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
       
       const { data: account, error: accountError } = await supabaseAdmin
@@ -361,37 +359,31 @@ export async function POST(request: NextRequest) {
       is_read: false,
       created_at: now,
     };
-    console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}, content length: ${newMessage.content.length}`);
+    console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}`);
 
     // ✅ 7. Écrire le message UNIQUEMENT dans GITHUB
     const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
     console.log(`💾 [POST] Tentative d'écriture GitHub: ${gitHubPath}`);
     
     try {
-      // Lire les messages existants
       let existingMessages: GitHubMessage[] = [];
       try {
         const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
         if (existing && Array.isArray(existing)) {
           existingMessages = existing;
           console.log(`📖 [POST] ${existingMessages.length} messages existants lus`);
-        } else if (existing) {
-          console.log(`⚠️ [POST] Données existantes non tableau, type: ${typeof existing}`);
-          existingMessages = [];
         } else {
           console.log(`ℹ️ [POST] Aucun message existant, création du fichier`);
           existingMessages = [];
         }
       } catch (readError) {
-        console.log(`ℹ️ [POST] Lecture existante échouée (fichier probablement inexistant):`, readError instanceof Error ? readError.message : String(readError));
+        console.log(`ℹ️ [POST] Lecture existante échouée:`, readError instanceof Error ? readError.message : String(readError));
         existingMessages = [];
       }
       
-      // Ajouter le nouveau message
       existingMessages.push(newMessage);
       console.log(`📊 [POST] Total messages après ajout: ${existingMessages.length}`);
       
-      // Écrire dans GitHub (compressé)
       const writeStartTime = Date.now();
       await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
       const writeDuration = Date.now() - writeStartTime;
@@ -402,7 +394,6 @@ export async function POST(request: NextRequest) {
       const errorStatus = (gitHubError as { status?: number })?.status;
       console.error(`❌ [POST] Erreur écriture GitHub - status: ${errorStatus}, message: ${errorMessage}`);
       
-      // Retourner une erreur explicite
       return NextResponse.json(
         { 
           error: "Erreur lors de l’envoi du message (GitHub)", 
@@ -413,9 +404,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ 8. Plus de mise à jour de messagerie_conversations
+    // ✅ 8. Synchronisation avec pending_signals (comme le formulaire de contact)
+    try {
+      // Récupérer le signal existant pour ce dossier_ref
+      const { data: existingSignal } = await supabaseAdmin
+        .from("pending_signals")
+        .select("payload, dossier_ref")
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
 
-    // 9. Envoyer une notification email au partenaire lorsque le staff envoie un message
+      const signalPayload = {
+        name: participantName || userName,
+        email: userEmail,
+        phone: "",
+        subject: subject || "COMMUNICATION",
+        message: content.trim(),
+        city: targetCity || "MASTER",
+        country: "FR",
+        messages_history: []
+      };
+
+      if (existingSignal) {
+        // Mettre à jour le signal existant
+        const payload = existingSignal.payload as Record<string, unknown>;
+        const messagesHistory = (payload.messages_history as Array<{ content: string; created_at: string }>) || [];
+        
+        messagesHistory.push({
+          content: content.trim(),
+          created_at: now
+        });
+
+        const updatedPayload = {
+          ...payload,
+          messages_history: messagesHistory,
+          message: content.trim(),
+          name: participantName || userName,
+          email: userEmail,
+          city: targetCity || "MASTER",
+          country: "FR",
+          subject: subject || "COMMUNICATION"
+        };
+
+        await supabaseAdmin
+          .from("pending_signals")
+          .update({
+            payload: updatedPayload,
+            is_read: false,
+            updated_at: now
+          })
+          .eq("dossier_ref", dossierRef);
+
+        console.log(`📝 [POST] pending_signals mis à jour pour ${dossierRef}`);
+      } else {
+        // Créer un nouveau signal
+        await supabaseAdmin
+          .from("pending_signals")
+          .insert({
+            dossier_ref: dossierRef,
+            payload: signalPayload,
+            confirmed: false,
+            is_read: false,
+            is_new_athlete: false,
+            city: targetCity || "MASTER",
+            country: "FR",
+            created_at: now
+          });
+
+        console.log(`📝 [POST] Nouveau pending_signals créé pour ${dossierRef}`);
+      }
+    } catch (signalError) {
+      console.error(`❌ [POST] Erreur synchronisation pending_signals:`, signalError);
+      // Non bloquant - on continue
+    }
+
+    // ✅ 9. Plus de mise à jour de messagerie_conversations
+
+    // 10. Envoyer une notification email au partenaire lorsque le staff envoie un message
     if (isStaff && participantEmail) {
       console.log(`📧 [POST] Envoi notification email à ${participantEmail}`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -471,7 +535,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 10. Si le message vient d’un partenaire, notifier le staff
+    // 11. Si le message vient d’un partenaire, notifier le staff
     if (!isStaff) {
       console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName}`);
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
@@ -481,6 +545,8 @@ export async function POST(request: NextRequest) {
         <div style="background:black; color:white; padding:20px; font-family:sans-serif;">
           <h2 style="color:#dc2626;">📩 Nouveau message de ${participantName}</h2>
           <p><strong>Dossier :</strong> ${dossierRef}</p>
+          <p><strong>Objet :</strong> ${subject || "COMMUNICATION"}</p>
+          <p><strong>Ville cible :</strong> ${targetCity || "MASTER"}</p>
           <p><strong>Message :</strong></p>
           <div style="background:#09090b; padding:15px; border-radius:8px; margin:10px 0;">
             ${content.trim()}
@@ -494,8 +560,8 @@ export async function POST(request: NextRequest) {
       try {
         await sendGeneralEmail(
           staffEmails.join(","),
-          `📩 Nouveau message de ${participantName}`,
-          `Nouveau message dans le dossier ${dossierRef}:\n\n${content.trim()}`,
+          `📩 Nouveau message de ${participantName} - ${subject || "COMMUNICATION"}`,
+          `Nouveau message dans le dossier ${dossierRef}:\n\nObjet: ${subject || "COMMUNICATION"}\nVille: ${targetCity || "MASTER"}\n\n${content.trim()}`,
           notificationHtml,
           "no-reply@vagondys.com"
         );
@@ -507,7 +573,7 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [POST] Terminé en ${duration}ms - Message envoyé avec succès`);
+    console.log(`✅ [POST] Terminé en ${duration}ms - Message envoyé avec succès (targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"})`);
 
     return NextResponse.json({
       success: true,

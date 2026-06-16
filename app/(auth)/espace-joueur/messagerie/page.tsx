@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe } from "lucide-react";
+import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe, Search, UserCog } from "lucide-react";
 import Link from "next/link";
 import { createVagondysClient } from "@/lib/supabase/client";
 import {
@@ -35,23 +35,38 @@ interface AdaptedMessage {
   document_url?: string | null;
 }
 
-// ✅ Liste des villes disponibles pour l'envoi
-const AVAILABLE_CITIES = [
-  { code: "NANTES", name: "NANTES", country: "FR" },
-  { code: "LYON", name: "LYON", country: "FR" },
-  { code: "PARIS", name: "PARIS", country: "FR" },
-  { code: "MARSEILLE", name: "MARSEILLE", country: "FR" },
-  { code: "BORDEAUX", name: "BORDEAUX", country: "FR" },
-  { code: "LILLE", name: "LILLE", country: "FR" },
-  { code: "TOULOUSE", name: "TOULOUSE", country: "FR" },
-  { code: "MADRID", name: "MADRID", country: "ES" },
-  { code: "MASTER", name: "ADMINISTRATION CENTRALE", country: "FR" },
+// ✅ STRUCTURE DES VILLES PAR PAYS
+const CITIES_BY_COUNTRY = {
+  "FRANCE": [
+    "BORDEAUX",
+    "LILLE",
+    "LYON",
+    "MARSEILLE",
+    "NANTES",
+    "PARIS",
+    "TOULOUSE"
+  ],
+  "ESPAGNE": [
+    "MADRID"
+  ]
+};
+
+// ✅ OBJETS DU SIGNAL (comme dans le formulaire de contact)
+const SUBJECTS = [
+  { value: "COMMUNICATION", label: "COMMUNICATION" },
+  { value: "SPONSORS", label: "SPONSORS" },
+  { value: "LIGUE", label: "LIGUE" },
+  { value: "INSCRIPTION", label: "INSCRIPTION" },
+  { value: "LICENCE", label: "LICENCE" },
+  { value: "PLAYER", label: "PLAYER" },
+  { value: "COMPETITION", label: "COMPETITION" },
+  { value: "TOURNOIS", label: "TOURNOIS" },
+  { value: "RESERVATIONS", label: "RESERVATIONS" }
 ];
 
 /**
  * Page Messagerie pour l'espace joueur
- * Utilise les mêmes composants que la messagerie des demandeurs
- * mais avec des actions spécifiques lisant depuis l'archive GitHub
+ * ✅ REFONTE COMPLÈTE : Arborescence Pays→Ville, Barre recherche, Super Admin, Objet du signal
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -63,10 +78,13 @@ export default function EspaceJoueurMessageriePage() {
   const [messages, setMessages] = useState<AdaptedMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  
-  // ✅ État pour la ville cible (destinataire)
-  const [targetCity, setTargetCity] = useState<string>("MASTER");
-  const [showCitySelector, setShowCitySelector] = useState(false);
+
+  // ✅ NOUVEAUX ÉTATS POUR LA REFONTE
+  const [selectedCountry, setSelectedCountry] = useState<string>("FRANCE");
+  const [selectedCity, setSelectedCity] = useState<string>("MASTER");
+  const [selectedSubject, setSelectedSubject] = useState<string>("COMMUNICATION");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(true);
 
   // 1. Vérifier l'authentification et charger la conversation
   useEffect(() => {
@@ -85,7 +103,6 @@ export default function EspaceJoueurMessageriePage() {
 
         setUser({ id: userId, email: userEmail, name: userName });
 
-        // Charger la conversation du joueur
         const playerConv = await getPlayerConversation(userId, userEmail);
 
         if (!playerConv) {
@@ -94,7 +111,6 @@ export default function EspaceJoueurMessageriePage() {
           return;
         }
 
-        // Adapter pour les composants existants
         const adaptedConv: AdaptedConversation = {
           dossier_ref: playerConv.dossier_ref,
           last_message: playerConv.last_message,
@@ -107,7 +123,6 @@ export default function EspaceJoueurMessageriePage() {
 
         setConversation(adaptedConv);
 
-        // Charger les messages
         setLoadingMessages(true);
         const playerMessages = await getPlayerMessages(userId, userEmail, playerConv.dossier_ref);
 
@@ -133,20 +148,23 @@ export default function EspaceJoueurMessageriePage() {
     checkAuthAndLoad();
   }, [supabase, router]);
 
-  // 2. Envoyer un nouveau message vers la ville sélectionnée
+  // 2. Envoyer un nouveau message vers la ville sélectionnée AVEC objet
   const handleSendMessage = useCallback(async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!conversation || !user) {
       throw new Error("Conversation non disponible");
     }
 
-    // ✅ Appeler sendPlayerMessage avec la ville cible
+    // ✅ CORRECTION : 'let' → 'const' (jamais réassigné)
+    const targetCity = isSuperAdmin ? "MASTER" : selectedCity;
+
     const result = await sendPlayerMessage({
       dossierRef: conversation.dossier_ref,
       content: content,
       userId: user.id,
       userEmail: user.email,
       userName: user.name,
-      targetCity: targetCity, // ✅ Ajout de la ville cible
+      targetCity: targetCity,
+      subject: selectedSubject,
       fileUrl: fileUrl,
       fileKey: fileKey,
     });
@@ -155,7 +173,6 @@ export default function EspaceJoueurMessageriePage() {
       throw new Error(result.error || "Erreur d'envoi");
     }
 
-    // Recharger les messages
     const updatedMessages = await getPlayerMessages(user.id, user.email, conversation.dossier_ref);
     const adaptedMessages: AdaptedMessage[] = updatedMessages.map((msg) => ({
       id: msg.id,
@@ -167,13 +184,12 @@ export default function EspaceJoueurMessageriePage() {
     }));
     setMessages(adaptedMessages);
 
-    // Mettre à jour le dernier message dans la conversation
     setConversation((prev) => prev ? {
       ...prev,
       last_message: content.substring(0, 100),
       last_message_date: new Date().toISOString(),
     } : null);
-  }, [conversation, user, targetCity]);
+  }, [conversation, user, selectedSubject, isSuperAdmin, selectedCity]);
 
   // 3. Rafraîchir les messages
   const refreshMessages = useCallback(async () => {
@@ -198,10 +214,27 @@ export default function EspaceJoueurMessageriePage() {
     }
   }, [conversation, user]);
 
-  // ✅ Obtenir le nom de la ville sélectionnée
-  const getSelectedCityName = () => {
-    const city = AVAILABLE_CITIES.find(c => c.code === targetCity);
-    return city?.name || "ADMINISTRATION CENTRALE";
+  // ✅ Villes disponibles selon le pays sélectionné
+  const availableCities = useMemo(() => {
+    return CITIES_BY_COUNTRY[selectedCountry as keyof typeof CITIES_BY_COUNTRY] || [];
+  }, [selectedCountry]);
+
+  // ✅ Sélectionner Super Admin
+  const handleSuperAdminToggle = () => {
+    setIsSuperAdmin(true);
+    setSelectedCity("MASTER");
+  };
+
+  // ✅ Sélectionner une ville
+  const handleCitySelect = (city: string) => {
+    setIsSuperAdmin(false);
+    setSelectedCity(city);
+  };
+
+  // ✅ Obtenir le nom de la destination
+  const getDestinationDisplay = () => {
+    if (isSuperAdmin) return "SUPER ADMIN";
+    return `${selectedCountry} - ${selectedCity}`;
   };
 
   if (loading) {
@@ -273,7 +306,7 @@ export default function EspaceJoueurMessageriePage() {
 
       {conversation && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne gauche : Liste des conversations + sélecteur de ville */}
+          {/* ✅ COLONNE GAUCHE : Conversations + Destinataire + Objet */}
           <div className="lg:col-span-1 bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-zinc-900">
               <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
@@ -288,57 +321,113 @@ export default function EspaceJoueurMessageriePage() {
               loading={false}
             />
 
-            {/* ✅ Sélecteur de ville destinataire */}
-            <div className="p-4 border-t border-zinc-900 mt-4">
-              <div className="flex items-center gap-2 mb-2">
+            {/* ✅ DESTINATAIRE - Arborescence Pays → Ville */}
+            <div className="p-4 border-t border-zinc-900">
+              <div className="flex items-center gap-2 mb-3">
                 <MapPin className="w-3 h-3 text-red-600" />
                 <span className="text-[8px] font-black uppercase text-zinc-500">
                   DESTINATAIRE
                 </span>
               </div>
-              
+
+              {/* Bouton Super Admin (par défaut) */}
               <button
-                onClick={() => setShowCitySelector(!showCitySelector)}
-                className="w-full flex items-center justify-between bg-black border border-zinc-800 rounded-lg px-3 py-2 hover:border-red-600/50 transition-all"
+                onClick={handleSuperAdminToggle}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-black uppercase transition-all mb-2 ${
+                  isSuperAdmin
+                    ? "bg-red-600/20 border border-red-600/50 text-red-500"
+                    : "bg-black border border-zinc-800 text-zinc-400 hover:border-red-600/30"
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <Globe className="w-3 h-3 text-zinc-500" />
-                  <span className="text-[9px] font-mono text-white uppercase">
-                    {getSelectedCityName()}
-                  </span>
-                </div>
-                <span className="text-[8px] text-zinc-600">▼</span>
+                <UserCog className="w-3 h-3" />
+                SUPER ADMIN
               </button>
 
-              {showCitySelector && (
-                <div className="mt-2 bg-black border border-zinc-800 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
-                  {AVAILABLE_CITIES.map((city) => (
-                    <button
-                      key={city.code}
-                      onClick={() => {
-                        setTargetCity(city.code);
-                        setShowCitySelector(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 text-[9px] font-mono uppercase transition-colors ${
-                        targetCity === city.code
-                          ? "bg-red-600/20 text-red-500 border-l-2 border-red-600"
-                          : "text-zinc-400 hover:bg-white/5"
-                      }`}
-                    >
-                      {city.name} {city.country !== "FR" && `(${city.country})`}
-                    </button>
+              {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
+              <div className="relative mb-2">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                <select
+                  title="Sélectionner le pays"
+                  value={selectedCountry}
+                  onChange={(e) => {
+                    setSelectedCountry(e.target.value);
+                    setSelectedCity(availableCities[0] || "MASTER");
+                    setIsSuperAdmin(false);
+                  }}
+                  className="w-full bg-black border border-zinc-800 rounded-lg py-2 pl-8 pr-4 text-[9px] font-mono text-white focus:border-red-600 outline-none appearance-none cursor-pointer uppercase"
+                >
+                  {Object.keys(CITIES_BY_COUNTRY).map(country => (
+                    <option key={country} value={country}>{country}</option>
                   ))}
+                </select>
+              </div>
+
+              {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                <select
+                  title="Sélectionner la ville"
+                  value={selectedCity}
+                  onChange={(e) => handleCitySelect(e.target.value)}
+                  disabled={isSuperAdmin}
+                  className={`w-full bg-black border border-zinc-800 rounded-lg py-2 pl-8 pr-4 text-[9px] font-mono text-white focus:border-red-600 outline-none appearance-none cursor-pointer uppercase ${
+                    isSuperAdmin ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {availableCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ BARRE DE RECHERCHE */}
+              <div className="relative mt-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une conversation..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-lg py-2 pl-8 pr-4 text-[9px] text-white placeholder:text-zinc-600 focus:border-red-600 outline-none transition-colors"
+                />
+              </div>
+
+              {/* ✅ OBJET DU SIGNAL */}
+              <div className="mt-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <MessageSquare className="w-3 h-3 text-red-600" />
+                  <span className="text-[8px] font-black uppercase text-zinc-500">
+                    Objet du signal
+                  </span>
                 </div>
-              )}
-              <p className="text-[6px] text-zinc-700 uppercase tracking-wider mt-2 text-center">
-                Sélectionnez la ville du destinataire
-              </p>
+                {/* ✅ CORRECTION : Ajout de title pour l'accessibilité (axe/forms) */}
+                <select
+                  title="Sélectionner l'objet du signal"
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="w-full bg-black border border-zinc-800 rounded-lg py-2 px-3 text-[9px] font-mono text-white focus:border-red-600 outline-none appearance-none cursor-pointer uppercase"
+                >
+                  {SUBJECTS.map(subject => (
+                    <option key={subject.value} value={subject.value}>
+                      {subject.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Indicateur de sélection */}
+              <div className="mt-3 pt-3 border-t border-zinc-800">
+                <p className="text-[6px] text-zinc-700 uppercase tracking-wider text-center">
+                  {isSuperAdmin 
+                    ? "📨 Envoi vers SUPER ADMIN" 
+                    : `📨 Envoi vers ${selectedCountry} - ${selectedCity}`}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Colonne droite : Messages + saisie */}
+          {/* ✅ COLONNE DROITE : Messages + saisie */}
           <div className="lg:col-span-2 bg-zinc-950 border border-zinc-900 rounded-2xl overflow-hidden flex flex-col min-h-[60vh]">
-            {/* Fil de discussion */}
             <MessageThread
               conversation={conversation}
               messages={messages}
@@ -351,7 +440,7 @@ export default function EspaceJoueurMessageriePage() {
               dossierRef={conversation.dossier_ref}
               onSend={handleSendMessage}
               disabled={loadingMessages}
-              placeholder={`Saisissez votre message pour ${getSelectedCityName()} (Ctrl+Entrée pour envoyer)...`}
+              placeholder={`Saisissez votre message pour ${getDestinationDisplay()} (Ctrl+Entrée pour envoyer)...`}
             />
           </div>
         </div>
