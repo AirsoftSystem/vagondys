@@ -93,14 +93,104 @@ export default function AdminDashboardPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isPolling, setIsPolling] = useState(true);
   
+  // États pour l'alerte (BIP + clignotement)
+  const [isAlerting, setIsAlerting] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(false);
+  
   // Refs pour stocker les valeurs précédentes et détecter les changements
   const prevGlobalStatsRef = useRef<GlobalStats | null>(null);
   const prevCityStatsRef = useRef<CityStats[] | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const alertIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMountedRef = useRef(true);
 
-  // Fonction pour jouer le BIP sonore
+  // Fonction pour jouer un BIP unique (1 seconde)
+  const playSingleBip = useCallback(() => {
+    if (!soundEnabled) return;
+
+    // Vérifier si AudioContext est disponible (navigateur)
+    if (typeof window === "undefined" || typeof AudioContext === "undefined") {
+      return;
+    }
+
+    try {
+      const audioCtx = new AudioContext();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.frequency.value = 880; // La3
+      oscillator.type = "sine";
+
+      // Volume initial
+      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      // Atténuation progressive sur 1 seconde
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.0);
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 1.0);
+      
+      // Nettoyer l'oscillator après la fin
+      setTimeout(() => {
+        try {
+          oscillator.disconnect();
+          gainNode.disconnect();
+        } catch {
+          // Ignorer les erreurs de nettoyage
+        }
+      }, 1100);
+    } catch {
+      // Fallback: utiliser un fichier audio si disponible
+      try {
+        if (!audioRef.current) {
+          audioRef.current = new Audio("/sounds/notification-bip.wav");
+        }
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      } catch {
+        // Ignorer les erreurs audio
+      }
+    }
+  }, [soundEnabled]);
+
+  // Fonction pour démarrer l'alerte (BIP + clignotement)
+  const startAlertLoop = useCallback(() => {
+    if (isAlerting) return;
+    
+    setIsAlerting(true);
+    setIsBlinking(true);
+    
+    // Jouer le premier BIP immédiatement
+    playSingleBip();
+    
+    // Puis toutes les 3 secondes (1s BIP + 2s pause)
+    alertIntervalRef.current = setInterval(() => {
+      if (isAlerting) {
+        playSingleBip();
+      }
+    }, 3000);
+    
+  }, [isAlerting, playSingleBip]);
+
+  // Fonction pour arrêter l'alerte
+  const stopAlertLoop = useCallback(() => {
+    if (alertIntervalRef.current) {
+      clearInterval(alertIntervalRef.current);
+      alertIntervalRef.current = null;
+    }
+    if (alertTimeoutRef.current) {
+      clearTimeout(alertTimeoutRef.current);
+      alertTimeoutRef.current = null;
+    }
+    setIsAlerting(false);
+    setIsBlinking(false);
+  }, []);
+
+  // Fonction pour jouer le BIP sonore (legacy - conservée pour compatibilité)
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled) return;
 
@@ -163,7 +253,7 @@ export default function AdminDashboardPage() {
     }
   }, [soundEnabled]);
 
-  // Fonction pour détecter les changements et jouer le son
+  // Fonction pour détecter les changements et gérer l'alerte
   const detectChangesAndNotify = useCallback((newGlobal: GlobalStats, newCities: CityStats[]) => {
     const prevGlobal = prevGlobalStatsRef.current;
     const prevCities = prevCityStatsRef.current;
@@ -180,14 +270,12 @@ export default function AdminDashboardPage() {
       for (const key of keys) {
         if (prevGlobal[key] !== newGlobal[key]) {
           hasChanged = true;
-          console.log(`🔔 Changement détecté: ${key} ${prevGlobal[key]} → ${newGlobal[key]}`);
         }
       }
     }
     
     // Comparer les stats par ville
     if (prevCities && prevCities.length > 0) {
-      // Créer un map des villes précédentes
       const prevCityMap = new Map(prevCities.map((c: CityStats) => [c.name, c]));
       
       for (const newCity of newCities) {
@@ -197,26 +285,32 @@ export default function AdminDashboardPage() {
               prevCity.active !== newCity.active ||
               prevCity.messages !== newCity.messages) {
             hasChanged = true;
-            console.log(`🔔 Changement détecté pour ${newCity.name}: Athlètes ${prevCity.athletes}→${newCity.athletes}, Actifs ${prevCity.active}→${newCity.active}, Messages ${prevCity.messages}→${newCity.messages}`);
           }
         } else {
-          // Nouvelle ville détectée
           hasChanged = true;
-          console.log(`🔔 Nouvelle ville détectée: ${newCity.name}`);
         }
       }
-    }
-    
-    // Jouer le son si des changements ont été détectés
-    if (hasChanged) {
-      playNotificationSound();
     }
     
     // Mettre à jour les références
     prevGlobalStatsRef.current = { ...newGlobal };
     prevCityStatsRef.current = newCities.map((c: CityStats) => ({ ...c }));
     
-  }, [playNotificationSound]);
+    // Gérer l'alerte pour pendingMessagerieRequests
+    if (newGlobal.pendingMessagerieRequests > 0) {
+      // Vérifier si c'est un nouveau changement ou si l'alerte n'est pas active
+      const prevPending = prevGlobal?.pendingMessagerieRequests ?? 0;
+      if (prevPending === 0 || !isAlerting) {
+        startAlertLoop();
+      }
+    } else {
+      // Si plus de demandes, arrêter l'alerte
+      if (isAlerting) {
+        stopAlertLoop();
+      }
+    }
+    
+  }, [startAlertLoop, stopAlertLoop, isAlerting]);
 
   // Fonction de chargement des stats
   const loadStats = useCallback(async (silent: boolean = false) => {
@@ -312,12 +406,20 @@ export default function AdminDashboardPage() {
     };
   }, [startPolling, stopPolling]);
 
-  // Nettoyer l'intervalle au démontage
+  // Nettoyer les intervalles au démontage
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
+      }
+      if (alertIntervalRef.current) {
+        clearInterval(alertIntervalRef.current);
+        alertIntervalRef.current = null;
+      }
+      if (alertTimeoutRef.current) {
+        clearTimeout(alertTimeoutRef.current);
+        alertTimeoutRef.current = null;
       }
     };
   }, []);
@@ -460,15 +562,35 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-black text-white" id="stat-totalStaff">{globalStats.totalStaff}</p>
         </div>
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700">
+        {/* Carte "Demandes" avec clignotement et clic */}
+        <div 
+          className={`bg-zinc-950 border border-zinc-800 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700 cursor-pointer ${isBlinking ? styles.blinking : ''}`}
+          onClick={() => {
+            // Arrêter l'alerte au clic
+            stopAlertLoop();
+            // Rediriger vers la page des demandes messagerie
+            router.push("/staff/admin/messagerie-requests");
+          }}
+          title={isBlinking ? "🔴 Cliquez pour arrêter l'alerte et consulter les demandes" : "Voir les demandes messagerie"}
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-orange-500/10 rounded-xl">
               <Database className="w-5 h-5 text-orange-500" />
             </div>
             <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Demandes</span>
+            {isBlinking && (
+              <span className="ml-auto text-[8px] text-orange-500 font-black uppercase animate-pulse">
+                ● ALERTE
+              </span>
+            )}
           </div>
           <p className="text-2xl font-black text-white" id="stat-pendingMessagerieRequests">{globalStats.pendingMessagerieRequests}</p>
           <p className="text-[8px] text-zinc-600 mt-1">Messagerie en attente</p>
+          {isBlinking && (
+            <p className="text-[7px] text-orange-500/70 mt-2 uppercase tracking-wider font-bold">
+              Cliquez pour consulter
+            </p>
+          )}
         </div>
       </div>
 

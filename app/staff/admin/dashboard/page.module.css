@@ -41,3 +41,41 @@
 .w-90 { width: 90%; }
 .w-95 { width: 95%; }
 .w-100 { width: 100%; }
+
+/* ==========================================================
+   ANIMATION DE CLIGNOTEMENT POUR LA CARTE "DEMANDES"
+   ========================================================== */
+
+@keyframes blink {
+  0% { 
+    border-color: #f97316; 
+    background-color: rgba(249, 115, 22, 0.05); 
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.1);
+  }
+  25% { 
+    border-color: #f97316; 
+    background-color: rgba(249, 115, 22, 0.15); 
+    box-shadow: 0 0 25px rgba(249, 115, 22, 0.25);
+  }
+  50% { 
+    border-color: #f97316; 
+    background-color: rgba(249, 115, 22, 0.25); 
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.4);
+  }
+  75% { 
+    border-color: #f97316; 
+    background-color: rgba(249, 115, 22, 0.15); 
+    box-shadow: 0 0 25px rgba(249, 115, 22, 0.25);
+  }
+  100% { 
+    border-color: #f97316; 
+    background-color: rgba(249, 115, 22, 0.05); 
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.1);
+  }
+}
+
+.blinking {
+  animation: blink 1.5s ease-in-out infinite;
+  border-color: #f97316;
+  cursor: pointer;
+}
