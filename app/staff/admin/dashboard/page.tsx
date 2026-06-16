@@ -88,13 +88,11 @@ export default function AdminDashboardPage() {
   });
   const [cityStats, setCityStats] = useState<CityStats[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [isPolling, setIsPolling] = useState(true);
   
   // État pour la carte "Demandes" (simple bordure rouge)
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   
-  // Refs pour stocker les valeurs précédentes
-  const prevGlobalStatsRef = useRef<GlobalStats | null>(null);
+  // Refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
@@ -106,10 +104,6 @@ export default function AdminDashboardPage() {
     } else {
       setHasPendingRequests(false);
     }
-    
-    // Mettre à jour la référence
-    prevGlobalStatsRef.current = { ...newGlobal };
-    
   }, []);
 
   // Fonction de chargement des stats
@@ -145,39 +139,11 @@ export default function AdminDashboardPage() {
     }
   }, [detectChangesAndNotify]);
 
-  // Fonction pour démarrer le polling
-  const startPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    
-    if (isPolling) {
-      pollingIntervalRef.current = setInterval(() => {
-        if (isMountedRef.current) {
-          loadStats(true); // Chargement silencieux
-        }
-      }, 5000); // Toutes les 5 secondes
-    }
-  }, [isPolling, loadStats]);
-
-  // Fonction pour arrêter le polling
-  const stopPolling = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-  }, []);
-
-  // Basculer le polling
-  const togglePolling = useCallback(() => {
-    setIsPolling((prev: boolean) => !prev);
-  }, []);
-
-  // Vérifier l'authentification admin et charger les stats
+  // Démarrer le polling automatique
   useEffect(() => {
     isMountedRef.current = true;
     
+    // Chargement initial
     const init = async () => {
       const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
       if (!isAuthenticated) {
@@ -187,29 +153,22 @@ export default function AdminDashboardPage() {
       await loadStats(false);
     };
     init();
-    
+
+    // Polling toutes les 5 secondes
+    pollingIntervalRef.current = setInterval(() => {
+      if (isMountedRef.current) {
+        loadStats(true);
+      }
+    }, 5000);
+
     return () => {
       isMountedRef.current = false;
-    };
-  }, [router, loadStats]);
-
-  // Gérer le polling au démarrage et quand isPolling change
-  useEffect(() => {
-    startPolling();
-    return () => {
-      stopPolling();
-    };
-  }, [startPolling, stopPolling]);
-
-  // Nettoyer les intervalles au démontage
-  useEffect(() => {
-    return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [router, loadStats]);
 
   if (loading) {
     return (
@@ -222,7 +181,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       
-      {/* En-tête avec contrôles */}
+      {/* En-tête */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tighter">
@@ -238,35 +197,13 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Indicateur de polling */}
-          <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${isPolling ? 'text-green-500' : 'text-zinc-600'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isPolling ? 'bg-green-500 animate-pulse' : 'bg-zinc-600'}`} />
-            {isPolling ? 'Live' : 'Arrêté'}
-          </div>
-          
-          {/* Bouton pause/play polling */}
-          <button
-            onClick={togglePolling}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-[9px] font-black uppercase tracking-widest ${
-              isPolling 
-                ? 'bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 border border-yellow-600/20' 
-                : 'bg-green-600/20 text-green-500 hover:bg-green-600/30 border border-green-600/20'
-            }`}
-            title={isPolling ? "Mettre en pause l'actualisation automatique" : "Reprendre l'actualisation automatique"}
-          >
-            {isPolling ? '⏸ Pause' : '▶ Play'}
-          </button>
-          
-          {/* Bouton actualiser manuel */}
-          <button
-            onClick={() => loadStats(false)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg"
-          >
-            <RefreshCcw className="w-4 h-4" />
-            Actualiser
-          </button>
-        </div>
+        <button
+          onClick={() => loadStats(false)}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg"
+        >
+          <RefreshCcw className="w-4 h-4" />
+          Actualiser
+        </button>
       </div>
 
       {/* Erreur */}
@@ -335,7 +272,7 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-black text-white" id="stat-totalStaff">{globalStats.totalStaff}</p>
         </div>
 
-        {/* Carte "Demandes" - Bordure rouge si demande en attente, non cliquable */}
+        {/* Carte "Demandes" - Bordure rouge si demande en attente */}
         <div 
           className={`bg-zinc-950 border rounded-2xl p-5 transition-all duration-300 ${
             hasPendingRequests 
