@@ -17,7 +17,7 @@ import { GitHubDB } from "@/lib/github-db/client"; // ✅ AJOUTÉ
  * ✅ CORRECTION : Lecture UNIQUEMENT depuis Supabase (pas GitHub)
  * ✅ CORRECTION : Utilisation du dossier_ref existant (plus de génération)
  * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
- * ✅ CORRECTION : Status 'active' au lieu de 'pending' (contrainte CHECK)
+ * ✅ CORRECTION : Status 'pending' au lieu de 'active' (le statut deviendra actif uniquement après définition du mot de passe)
  * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
  * ✅ AJOUT : Création du fichier GitHub avec message de bienvenue à l'approbation
  */
@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "active",
+          status: "pending", // ✅ CORRECTION : reste en attente jusqu'à définition du mot de passe
           created_by: staffEmail,
           updated_at: now,
         })
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "active",
+          status: "pending", // ✅ CORRECTION : en attente de définition du mot de passe
           created_by: staffEmail,
           created_at: now,
         });
@@ -314,7 +314,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef}`);
+    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending)`);
 
     // ✅ 8bis. CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE
     console.log(`📝 Création du fichier GitHub pour ${dossierRef} avec message de bienvenue`);

@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
  * 
  * Vérifie le token de confirmation, puis met à jour le mot de passe de l’utilisateur
  * 
+ * ✅ CORRECTION : Passage du statut de "pending" à "active" uniquement ici
+ *                 (après que l'utilisateur a défini son mot de passe)
+ * 
  * ✅ AJOUT : Logs détaillés pour debug (token, utilisateur, mise à jour)
  */
 export async function POST(request: NextRequest) {
@@ -163,16 +166,20 @@ export async function POST(request: NextRequest) {
       console.log(`✅ [set-password] Token ${confirmation.id} marqué utilisé avec succès`);
     }
 
-    // 9. Mettre à jour le compte messagerie (dernière connexion)
-    console.log(`📅 [set-password] Mise à jour last_login_at pour ${userId}`);
+    // 9. Mettre à jour le compte messagerie (passage à actif + dernière connexion)
+    console.log(`📅 [set-password] Activation du compte pour ${userId} (status: pending → active)`);
     
     const { error: updateAccountError } = await supabaseAdmin
       .from("messagerie_accounts")
-      .update({ last_login_at: now.toISOString() })
+      .update({ 
+        status: "active",
+        last_login_at: now.toISOString(),
+        updated_at: now.toISOString()
+      })
       .eq("user_id", userId);
 
     if (updateAccountError) {
-      console.error(`❌ [set-password] Erreur mise à jour last_login:`, {
+      console.error(`❌ [set-password] Erreur mise à jour compte:`, {
         message: updateAccountError.message,
         details: updateAccountError.details,
         hint: updateAccountError.hint,
@@ -180,7 +187,7 @@ export async function POST(request: NextRequest) {
       });
       // Non bloquant
     } else {
-      console.log(`✅ [set-password] last_login_at mis à jour pour ${userId}`);
+      console.log(`✅ [set-password] Compte ${messagerieAccount.dossier_ref} activé (status: active, last_login_at mis à jour)`);
     }
 
     const duration = Date.now() - startTime;

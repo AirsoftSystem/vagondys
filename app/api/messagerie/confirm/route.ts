@@ -5,10 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
  * API de confirmation du compte messagerie
  * GET /api/messagerie/confirm?token=xxx&email=xxx
  * 
- * Vérifie le token, active le compte, puis redirige vers une page de définition du mot de passe
+ * Vérifie le token, confirme l'email, puis redirige vers la page de définition du mot de passe
  * 
  * ✅ CORRECTION : Récupère la référence dossier_ref depuis messagerie_accounts
  * ✅ AJOUT : Archivage GitHub après activation (comme pour les athlètes)
+ * ✅ CORRECTION : NE PAS modifier le status de messagerie_accounts (reste "pending")
+ *                Le passage à "active" se fera uniquement après définition du mot de passe
  * 
  * ⚠️ CORRECTION : Le message de bienvenue a été supprimé (sera envoyé après définition du mot de passe)
  */
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
     const dossierRef = messagerieAccount.dossier_ref;
     const fullName = messagerieAccount.full_name;
 
-    console.log(`✅ Activation compte messagerie: ${email} -> ${dossierRef}`);
+    console.log(`✅ Confirmation email: ${email} -> ${dossierRef}`);
 
     // 4. Marquer le token comme utilisé
     const { error: updateTokenError } = await supabaseAdmin
@@ -111,20 +113,9 @@ export async function GET(request: NextRequest) {
       // Non bloquant
     }
 
-    // 5. Mettre à jour le compte messagerie (statut actif)
-    const { error: updateAccountError } = await supabaseAdmin
-      .from("messagerie_accounts")
-      .update({ 
-        status: "active", 
-        updated_at: now.toISOString(),
-        last_login_at: now.toISOString()
-      })
-      .eq("user_id", userId);
-
-    if (updateAccountError) {
-      console.error("Erreur mise à jour messagerie_accounts:", updateAccountError);
-      // Non bloquant
-    }
+    // ❌ SUPPRESSION : Ne pas mettre à jour le statut de messagerie_accounts ici
+    // Le statut reste "pending" jusqu'à la définition du mot de passe
+    // La mise à jour de last_login_at sera faite dans set-password
 
     // 6. Mettre à jour l’utilisateur Auth (email confirmé)
     const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -149,9 +140,9 @@ export async function GET(request: NextRequest) {
             name: fullName,
             email: email.toLowerCase(),
             company: messagerieAccount.company || null,
-            subject: "ACTIVATION COMPTE MESSAGERIE",
-            message: `Compte messagerie activé le ${now.toLocaleString()}`,
-            type: "messagerie_confirmation",
+            subject: "CONFIRMATION EMAIL MESSAGERIE",
+            message: `Email confirmé le ${now.toLocaleString()}`,
+            type: "messagerie_confirmation_email",
           },
         },
         history: [],
@@ -169,7 +160,7 @@ export async function GET(request: NextRequest) {
       if (!archiveRes.ok) {
         console.error("Erreur archivage GitHub confirmation:", await archiveRes.text());
       } else {
-        console.log(`✅ Archivage GitHub réussi pour ${dossierRef} (confirmation)`);
+        console.log(`✅ Archivage GitHub réussi pour ${dossierRef} (confirmation email)`);
       }
     } catch (archiveErr) {
       console.error("Erreur lors de l'archivage GitHub (confirmation):", archiveErr);
