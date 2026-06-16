@@ -12,11 +12,41 @@ interface Activity {
   link: string;
 }
 
+// Interface pour les stats globales
+interface GlobalStats {
+  totalAthletes: number;
+  totalCities: number;
+  totalStaff: number;
+  totalMessages: number;
+  pendingMessagerieRequests: number;
+  activeAthletes: number;
+  newAthletesThisMonth: number;
+}
+
+// Interface pour les stats par ville
+interface CityStats {
+  name: string;
+  country: string;
+  athletes: number;
+  active: number;
+  messages: number;
+}
+
+// Interface pour un athlète (type partiel)
+interface AthleteData {
+  city: string;
+  country: string;
+  status?: string;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const city = searchParams.get("city");
     const country = searchParams.get("country") || "FR";
+    // since est conservé pour compatibilité future mais non utilisé actuellement
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const since = searchParams.get("since");
 
     if (!city) {
       return NextResponse.json({ error: "Ville manquante" }, { status: 400 });
@@ -52,18 +82,37 @@ export async function GET(request: Request) {
     const isAdmin = cityUpper === 'MASTER';
 
     // Récupérer toutes les données nécessaires pour le dashboard (avec ou sans filtre city selon le rôle)
-    let athletesResult, activeAthletesResult, messagesResult, launchesResult;
+    let athletesResult, activeAthletesResult, messagesResult, launchesResult, messagerieRequestsResult, staffResult, citiesResult;
     let recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult;
+    let totalCitiesCount = 0;
+    let totalStaffCount = 0;
+    let pendingMessagerieCount = 0;
 
+    // ✅ STATS GLOBALES - avec/sans filtre selon isAdmin
     if (isAdmin) {
       // ✅ ADMIN (MASTER) : PAS de filtre city - voit TOUTES les données
       console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city");
       
-      [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
+      [
+        athletesResult, 
+        activeAthletesResult, 
+        messagesResult, 
+        launchesResult,
+        messagerieRequestsResult,
+        staffResult,
+        citiesResult,
+        recentMessagesResult, 
+        recentLaunchesResult, 
+        recentMatchesResult, 
+        topPlayersResult
+      ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
         adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("is_read", false),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
+        adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
+        adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
         adminClient.from("pending_signals").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
@@ -73,11 +122,26 @@ export async function GET(request: Request) {
       // ✅ AGENT STANDARD : filtre par city ET country
       console.log("🔍 Dashboard API: Mode STANDARD - filtre city=", cityUpper);
       
-      [athletesResult, activeAthletesResult, messagesResult, launchesResult, recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult] = await Promise.all([
+      [
+        athletesResult, 
+        activeAthletesResult, 
+        messagesResult, 
+        launchesResult,
+        messagerieRequestsResult,
+        staffResult,
+        citiesResult,
+        recentMessagesResult, 
+        recentLaunchesResult, 
+        recentMatchesResult, 
+        topPlayersResult
+      ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
         adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("is_read", false),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
+        adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "pending"),
+        adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
+        adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("pending_signals").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
@@ -85,7 +149,99 @@ export async function GET(request: Request) {
       ]);
     }
 
-    // Traitement des activités récentes
+    // ✅ Extraction des stats globales
+    const totalAthletesCount = athletesResult.count || 0;
+    const activeAthletesCount = activeAthletesResult.count || 0;
+    const pendingMessagesCount = messagesResult.count || 0;
+    const totalGameLaunches = launchesResult.count || 0;
+    pendingMessagerieCount = messagerieRequestsResult?.count || 0;
+    totalStaffCount = staffResult?.count || 0;
+
+    // ✅ Calcul des villes uniques
+    const uniqueCities = new Map<string, CityStats>();
+    if (citiesResult.data) {
+      // Extraire les villes uniques depuis les données des athlètes
+      const cityMap = new Map<string, { athletes: number; active: number; messages: number }>();
+      
+      // Compter par ville
+      for (const athlete of citiesResult.data as AthleteData[]) {
+        const cityKey = athlete.city;
+        if (!cityMap.has(cityKey)) {
+          cityMap.set(cityKey, { athletes: 0, active: 0, messages: 0 });
+        }
+        const stats = cityMap.get(cityKey)!;
+        stats.athletes += 1;
+        if (athlete.status === "ACTIF") {
+          stats.active += 1;
+        }
+      }
+
+      // Ajouter les messages par ville (depuis pending_signals)
+      if (isAdmin) {
+        const { data: cityMessages } = await adminClient
+          .from("pending_signals")
+          .select("city, country")
+          .eq("is_read", false);
+        
+        if (cityMessages) {
+          for (const msg of cityMessages) {
+            const cityKey = msg.city;
+            if (cityMap.has(cityKey)) {
+              cityMap.get(cityKey)!.messages += 1;
+            } else {
+              cityMap.set(cityKey, { athletes: 0, active: 0, messages: 1 });
+            }
+          }
+        }
+      }
+
+      // Convertir en tableau
+      for (const [name, stats] of cityMap) {
+        uniqueCities.set(name, {
+          name: name,
+          country: countryUpper,
+          athletes: stats.athletes,
+          active: stats.active,
+          messages: stats.messages
+        });
+      }
+    }
+
+    totalCitiesCount = uniqueCities.size;
+
+    // ✅ Calcul des nouveaux athlètes ce mois-ci
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    let newAthletesThisMonth = 0;
+    
+    if (isAdmin) {
+      const { count: newAthletesCount } = await adminClient
+        .from("athletes")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", firstDayOfMonth);
+      newAthletesThisMonth = newAthletesCount || 0;
+    } else {
+      const { count: newAthletesCount } = await adminClient
+        .from("athletes")
+        .select("*", { count: "exact", head: true })
+        .eq("city", cityUpper)
+        .eq("country", countryUpper)
+        .gte("created_at", firstDayOfMonth);
+      newAthletesThisMonth = newAthletesCount || 0;
+    }
+
+    // ✅ Construction des stats globales
+    const globalStats: GlobalStats = {
+      totalAthletes: totalAthletesCount,
+      totalCities: totalCitiesCount,
+      totalStaff: totalStaffCount,
+      totalMessages: pendingMessagesCount,
+      pendingMessagerieRequests: pendingMessagerieCount,
+      activeAthletes: activeAthletesCount,
+      newAthletesThisMonth: newAthletesThisMonth
+    };
+
+    // ✅ Traitement des activités récentes
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
@@ -131,7 +287,7 @@ export async function GET(request: Request) {
     // Trier par date décroissante
     activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // Traitement des top joueurs
+    // ✅ Traitement des top joueurs
     const topPlayers = [];
     if (topPlayersResult.data) {
       for (const player of topPlayersResult.data) {
@@ -170,11 +326,14 @@ export async function GET(request: Request) {
       }
     }
 
+    // ✅ Construction de la réponse complète avec les stats globales et par ville
     return NextResponse.json({
-      totalAthletes: athletesResult.count || 0,
-      activeAthletes: activeAthletesResult.count || 0,
-      pendingMessages: messagesResult.count || 0,
-      totalGameLaunches: launchesResult.count || 0,
+      global: globalStats,
+      cities: Array.from(uniqueCities.values()),
+      totalAthletes: totalAthletesCount,
+      activeAthletes: activeAthletesCount,
+      pendingMessages: pendingMessagesCount,
+      totalGameLaunches: totalGameLaunches,
       recentActivities: activities,
       topPlayers: topPlayers,
     });
