@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { GitHubDB } from "@/lib/github-db/client";
 
 // ==========================================================
 // TYPES
@@ -25,30 +26,17 @@ export interface PlayerConversation {
   created_at: string;
 }
 
-// Type pour un message provenant de pending_signals
-interface PendingSignalMessage {
+// Type pour un message GitHub
+interface GitHubMessage {
   id: string;
-  created_at: string;
   dossier_ref: string;
-  payload: {
-    name?: string;
-    email?: string;
-    message?: string;
-    subject?: string;
-    messages_history?: Array<{ content: string; created_at: string }>;
-  };
-  confirmed?: boolean;
-  is_read?: boolean;
-}
-
-// Type pour un message provenant de communication_replies
-interface CommunicationReply {
-  id: string;
-  created_at: string;
-  dossier_ref: string;
-  agent_email: string;
+  sender_email: string;
+  sender_name: string;
   content: string;
-  document_url?: string | null;
+  file_url: string | null;
+  file_key: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
 // ==========================================================
@@ -58,18 +46,32 @@ interface CommunicationReply {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Mapping ville → email staff
-const STAFF_EMAILS: Record<string, string> = {
-  "NANTES": "nantes@vagondys.com",
-  "LYON": "lyon@vagondys.com",
-  "PARIS": "paris@vagondys.com",
-  "MARSEILLE": "marseille@vagondys.com",
-  "BORDEAUX": "bordeaux@vagondys.com",
-  "LILLE": "lille@vagondys.com",
-  "TOULOUSE": "toulouse@vagondys.com",
-  "MADRID": "madrid@vagondys.com",
-  "MASTER": "admin@vagondys.com",
-};
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error("Configuration Supabase manquante pour messagerie");
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// ==========================================================
+// FONCTIONS GITHUB
+// ==========================================================
+
+/**
+ * Récupère les messages d'une conversation depuis GitHub
+ */
+async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[]> {
+  const path = `conversations/${dossierRef}/messages.json.gz`;
+  console.log(`📖 [GitHub] Lecture ${path}`);
+  
+  try {
+    const messages = await GitHubDB.read<GitHubMessage[]>(path);
+    console.log(`✅ [GitHub] ${messages?.length || 0} messages lus depuis ${path}`);
+    return messages || [];
+  } catch (err) {
+    console.log(`⚠️ [GitHub] Lecture échouée pour ${path}:`, err);
+    return [];
+  }
+}
 
 // ==========================================================
 // FONCTIONS PRINCIPALES
@@ -79,15 +81,6 @@ const STAFF_EMAILS: Record<string, string> = {
  * Récupère les informations du joueur depuis athletes_registry
  */
 async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossier_ref: string; city: string; country: string; full_name: string } | null> {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Configuration Supabase manquante");
-    return null;
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  });
-
   try {
     let { data: registry } = await supabase
       .from("athletes_registry")
@@ -144,88 +137,22 @@ async function getPlayerInfo(userId: string, userEmail: string): Promise<{ dossi
 }
 
 /**
- * Récupère l'email du staff responsable d'une ville
- */
-function getStaffEmailForCity(city: string): string {
-  const upperCity = city.toUpperCase().trim();
-  return STAFF_EMAILS[upperCity] || STAFF_EMAILS["MASTER"];
-}
-
-/**
  * Récupère le token d'authentification pour appeler l'API
  */
 async function getAuthToken(): Promise<string | null> {
-  const supabase = createClient(supabaseUrl!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  const { data: { session } } = await supabase.auth.getSession();
+  const supabaseClient = createClient(supabaseUrl!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data: { session } } = await supabaseClient.auth.getSession();
   return session?.access_token || null;
 }
 
 /**
- * Convertit un message de pending_signals en PlayerMessage
- */
-function convertPendingSignalToPlayerMessage(
-  signal: PendingSignalMessage,
-  playerEmail: string
-): PlayerMessage | null {
-  const payload = signal.payload;
-  if (!payload) return null;
-
-  const content = payload.message || "Message sans contenu";
-  const createdAt = signal.created_at;
-
-  const isPlayer = payload.email === playerEmail;
-  
-  return {
-    id: signal.id,
-    content: content,
-    created_at: createdAt,
-    sender: isPlayer ? "player" : "staff",
-    sender_name: isPlayer ? "Moi" : (payload.name || "Staff VAGONDYS"),
-    document_url: null,
-  };
-}
-
-/**
- * Convertit un message de communication_replies en PlayerMessage
- */
-function convertReplyToPlayerMessage(
-  reply: CommunicationReply
-): PlayerMessage | null {
-  if (!reply.content) return null;
-
-  return {
-    id: reply.id,
-    content: reply.content,
-    created_at: reply.created_at,
-    sender: "staff",
-    sender_name: reply.agent_email?.split("@")[0] || "Staff VAGONDYS",
-    document_url: reply.document_url || null,
-  };
-}
-
-/**
- * Fonction utilitaire : normalise une date en nombre (millisecondes)
- */
-function normalizeDate(dateStr: string): number {
-  try {
-    if (typeof dateStr === 'number') return dateStr;
-    const date = new Date(dateStr);
-    return date.getTime();
-  } catch {
-    return 0;
-  }
-}
-
-/**
  * Récupère la conversation du joueur
- * ✅ CORRECTION : Source UNIQUE = Supabase (pending_signals + communication_replies)
- * ✅ Fonctionne comme l'interface staff
+ * ✅ CORRECTION : Source UNIQUE = GitHub (comme l'interface Super Admin)
  */
 export async function getPlayerConversation(
   userId: string,
   userEmail: string
 ): Promise<PlayerConversation | null> {
-  const startTime = Date.now();
   console.log(`👤 [getPlayerConversation] Début pour userId: ${userId}, email: ${userEmail}`);
 
   try {
@@ -235,112 +162,48 @@ export async function getPlayerConversation(
       return null;
     }
 
-    console.log(`✅ [getPlayerConversation] Infos trouvées: dossier=${playerInfo.dossier_ref}, city=${playerInfo.city}`);
+    console.log(`✅ [getPlayerConversation] Infos trouvées: dossier=${playerInfo.dossier_ref}`);
 
-    const allMessages: PlayerMessage[] = [];
-    const messageKeys = new Set<string>(); // Dédoublonnage
+    // Récupérer les messages depuis GitHub
+    const gitHubMessages = await getMessagesFromGitHub(playerInfo.dossier_ref);
 
-    const addUniqueMessage = (msg: PlayerMessage) => {
-      const key = `${msg.content}_${normalizeDate(msg.created_at)}`;
-      if (!messageKeys.has(key)) {
-        messageKeys.add(key);
-        allMessages.push(msg);
-      }
-    };
-
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    // 1. Récupérer depuis pending_signals
-    const { data: signals } = await supabase
-      .from("pending_signals")
-      .select("*")
-      .eq("dossier_ref", playerInfo.dossier_ref)
-      .order("created_at", { ascending: true });
-
-    if (signals && signals.length > 0) {
-      for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
-        const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
-        if (mainMsg) addUniqueMessage(mainMsg);
-        
-        // Historique des messages
-        if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
-          for (const histMsg of signal.payload.messages_history) {
-            if (histMsg.content !== signal.payload.message) {
-              addUniqueMessage({
-                id: `${signal.id}_hist_${histMsg.created_at}`,
-                content: histMsg.content,
-                created_at: histMsg.created_at,
-                sender: "player",
-                sender_name: "Moi",
-                document_url: null,
-              });
-            }
-          }
-        }
-      }
-      console.log(`📦 [getPlayerConversation] ${allMessages.length} messages depuis pending_signals`);
-    }
-
-    // 2. Récupérer depuis communication_replies
-    const { data: replies } = await supabase
-      .from("communication_replies")
-      .select("*")
-      .eq("dossier_ref", playerInfo.dossier_ref)
-      .order("created_at", { ascending: true });
-
-    if (replies && replies.length > 0) {
-      for (const reply of replies as CommunicationReply[]) {
-        const converted = convertReplyToPlayerMessage(reply);
-        if (converted) addUniqueMessage(converted);
-      }
-      console.log(`📦 [getPlayerConversation] ${allMessages.length} messages au total (avec replies)`);
-    }
-
-    if (allMessages.length === 0) {
+    if (gitHubMessages.length === 0) {
       return {
         dossier_ref: playerInfo.dossier_ref,
         participant_name: "Support VAGONDYS",
-        participant_email: getStaffEmailForCity(playerInfo.city),
+        participant_email: "support@vagondys.com",
         last_message: "Aucun message",
         last_message_date: new Date().toISOString(),
         created_at: new Date().toISOString(),
       };
     }
 
-    // ✅ Tri décroissant (du plus récent au plus ancien)
-    const sortedMessages = [...allMessages].sort((a, b) => {
-      const dateA = normalizeDate(a.created_at);
-      const dateB = normalizeDate(b.created_at);
-      return dateB - dateA;
-    });
+    // Trier par date décroissante
+    gitHubMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const latest = gitHubMessages[0];
 
-    const latest = sortedMessages[0];
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerConversation] Terminé en ${duration}ms, ${allMessages.length} messages`);
+    // Déterminer le participant
+    const isPlayerMessage = latest.sender_email === userEmail;
+    const participantName = isPlayerMessage ? "Support VAGONDYS" : latest.sender_name;
+    const participantEmail = isPlayerMessage ? "support@vagondys.com" : latest.sender_email;
 
     return {
       dossier_ref: playerInfo.dossier_ref,
-      participant_name: "Support VAGONDYS",
-      participant_email: getStaffEmailForCity(playerInfo.city),
+      participant_name: participantName,
+      participant_email: participantEmail,
       last_message: latest.content.substring(0, 100),
       last_message_date: latest.created_at,
-      created_at: new Date().toISOString(),
+      created_at: gitHubMessages[gitHubMessages.length - 1]?.created_at || new Date().toISOString(),
     };
   } catch (err) {
-    const duration = Date.now() - startTime;
-    console.error(`❌ [getPlayerConversation] Erreur après ${duration}ms:`, err);
+    console.error(`❌ [getPlayerConversation] Erreur:`, err);
     return null;
   }
 }
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Source UNIQUE = Supabase (pending_signals + communication_replies)
- * ✅ Fonctionne comme l'interface staff
+ * ✅ CORRECTION : Source UNIQUE = GitHub (comme l'interface Super Admin)
  * ✅ Tri décroissant (du plus récent au plus ancien)
  */
 export async function getPlayerMessages(
@@ -348,7 +211,6 @@ export async function getPlayerMessages(
   userEmail: string,
   dossierRef?: string
 ): Promise<PlayerMessage[]> {
-  const startTime = Date.now();
   console.log(`💬 [getPlayerMessages] Début pour userId: ${userId}, dossierRef: ${dossierRef || "auto"}`);
 
   try {
@@ -363,96 +225,43 @@ export async function getPlayerMessages(
       targetDossierRef = playerInfo.dossier_ref;
     }
 
-    const allMessages: PlayerMessage[] = [];
-    const messageKeys = new Set<string>(); // Dédoublonnage
+    // Lire les messages depuis GitHub
+    const gitHubMessages = await getMessagesFromGitHub(targetDossierRef);
 
-    const addUniqueMessage = (msg: PlayerMessage) => {
-      const key = `${msg.content}_${normalizeDate(msg.created_at)}`;
-      if (!messageKeys.has(key)) {
-        messageKeys.add(key);
-        allMessages.push(msg);
-      }
-    };
+    // Trier par date décroissante (du plus récent au plus ancien)
+    gitHubMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
-      auth: { autoRefreshToken: false, persistSession: false }
+    // Convertir en PlayerMessage
+    const playerMessages: PlayerMessage[] = gitHubMessages.map((msg) => {
+      const isPlayer = msg.sender_email === userEmail;
+      const isStaff = msg.sender_email.endsWith("@vagondys.com") || msg.sender_email === "system@vagondys.com";
+      
+      let sender: "player" | "staff" | "system" = "player";
+      if (isStaff) sender = "staff";
+      else if (!isPlayer) sender = "staff";
+      
+      return {
+        id: msg.id,
+        content: msg.content,
+        created_at: msg.created_at,
+        sender: sender,
+        sender_name: isPlayer ? "Moi" : msg.sender_name,
+        document_url: msg.file_url || null,
+      };
     });
 
-    // 1. Récupérer depuis pending_signals
-    const { data: signals } = await supabase
-      .from("pending_signals")
-      .select("*")
-      .eq("dossier_ref", targetDossierRef)
-      .order("created_at", { ascending: true });
-
-    if (signals && signals.length > 0) {
-      for (const signal of signals as PendingSignalMessage[]) {
-        // Message principal
-        const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
-        if (mainMsg) addUniqueMessage(mainMsg);
-        
-        // Historique des messages
-        if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
-          for (const histMsg of signal.payload.messages_history) {
-            if (histMsg.content !== signal.payload.message) {
-              addUniqueMessage({
-                id: `${signal.id}_hist_${histMsg.created_at}`,
-                content: histMsg.content,
-                created_at: histMsg.created_at,
-                sender: "player",
-                sender_name: "Moi",
-                document_url: null,
-              });
-            }
-          }
-        }
-      }
-      console.log(`📦 [getPlayerMessages] ${allMessages.length} messages depuis pending_signals`);
-    }
-
-    // 2. Récupérer depuis communication_replies
-    const { data: replies } = await supabase
-      .from("communication_replies")
-      .select("*")
-      .eq("dossier_ref", targetDossierRef)
-      .order("created_at", { ascending: true });
-
-    if (replies && replies.length > 0) {
-      for (const reply of replies as CommunicationReply[]) {
-        const converted = convertReplyToPlayerMessage(reply);
-        if (converted) addUniqueMessage(converted);
-      }
-      console.log(`📦 [getPlayerMessages] ${allMessages.length} messages au total (avec replies)`);
-    }
-
-    if (allMessages.length === 0) {
-      console.log(`ℹ️ [getPlayerMessages] Aucun message trouvé pour ${targetDossierRef}`);
-      return [];
-    }
-
-    // ✅ Tri décroissant (du plus récent au plus ancien)
-    const sortedMessages = [...allMessages].sort((a, b) => {
-      const dateA = normalizeDate(a.created_at);
-      const dateB = normalizeDate(b.created_at);
-      return dateB - dateA;
-    });
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerMessages] ${sortedMessages.length} messages retournés en ${duration}ms (tri décroissant)`);
-
-    return sortedMessages;
+    console.log(`✅ [getPlayerMessages] ${playerMessages.length} messages retournés`);
+    return playerMessages;
   } catch (err) {
-    const duration = Date.now() - startTime;
-    console.error(`❌ [getPlayerMessages] Erreur après ${duration}ms:`, err);
+    console.error(`❌ [getPlayerMessages] Erreur:`, err);
     return [];
   }
 }
 
 /**
- * Envoie un message depuis le joueur vers le staff de la ville choisie
- * ✅ CORRECTION : Ajout du paramètre targetEmail pour le Super Admin
- * ✅ CORRECTION : Ajout du paramètre subject (objet du signal)
- * ✅ Appelle l'API /api/player/message qui écrit dans pending_signals + communication_replies
+ * Envoie un message depuis le joueur
+ * ✅ CORRECTION : Écrit dans GitHub (comme l'interface Super Admin)
+ * ✅ Appelle l'API /api/player/message qui écrit dans GitHub
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -461,18 +270,14 @@ export async function sendPlayerMessage(params: {
   userEmail: string;
   userName: string;
   targetCity?: string;
-  targetEmail?: string;  // ✅ NOUVEAU : Email cible pour Super Admin
-  subject?: string;      // ✅ Objet du signal
+  subject?: string;
   fileUrl?: string;
   fileKey?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
-  const { dossierRef, content, targetCity, targetEmail, subject, fileUrl, fileKey } = params;
+  const { dossierRef, content, targetCity, subject, fileUrl, fileKey } = params;
 
-  // ✅ Si targetEmail est fourni (Super Admin), on l'utilise comme destinataire
-  const finalTargetEmail = targetEmail || undefined;
-
-  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, targetEmail: ${finalTargetEmail || "AUTO"}, subject: ${subject || "COMMUNICATION"}`);
+  console.log(`📤 [sendPlayerMessage] Début - dossier: ${dossierRef}, targetCity: ${targetCity || "MASTER"}, subject: ${subject || "COMMUNICATION"}`);
 
   if (!dossierRef || !content) {
     return { success: false, error: "Paramètres manquants" };
@@ -487,37 +292,20 @@ export async function sendPlayerMessage(params: {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vagondys.com";
     
-    // ✅ Construire le body avec targetEmail si présent
-    const requestBody: {
-      dossierRef: string;
-      content: string;
-      targetCity: string;
-      subject: string;
-      fileUrl: string | null;
-      fileKey: string | null;
-      targetEmail?: string;
-    } = {
-      dossierRef,
-      content,
-      targetCity: targetCity || "MASTER",
-      subject: subject || "COMMUNICATION",
-      fileUrl: fileUrl || null,
-      fileKey: fileKey || null,
-    };
-
-    // ✅ Ajouter targetEmail seulement s'il est défini (Super Admin)
-    if (finalTargetEmail) {
-      requestBody.targetEmail = finalTargetEmail;
-      console.log(`📤 [sendPlayerMessage] Envoi vers Super Admin: ${finalTargetEmail}`);
-    }
-
     const response = await fetch(`${baseUrl}/api/player/message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        dossierRef,
+        content,
+        targetCity: targetCity || "MASTER",
+        subject: subject || "COMMUNICATION",
+        fileUrl: fileUrl || null,
+        fileKey: fileKey || null,
+      }),
     });
 
     const result = await response.json();
@@ -528,7 +316,7 @@ export async function sendPlayerMessage(params: {
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès (subject: ${subject || "COMMUNICATION"})`);
+    console.log(`✅ [sendPlayerMessage] Terminé en ${duration}ms, message envoyé avec succès`);
 
     return { success: true };
   } catch (err) {
