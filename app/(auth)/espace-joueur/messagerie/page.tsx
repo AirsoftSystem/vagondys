@@ -64,12 +64,10 @@ const SUBJECTS = [
   { value: "RESERVATIONS", label: "RESERVATIONS" }
 ];
 
-// ✅ SUPER ADMIN - Email du Super Admin
-const SUPER_ADMIN_EMAIL = "vagondys@gmail.com";
-
 /**
  * Page Messagerie pour l'espace joueur
- * ✅ CORRECTION : Le bouton Super Admin envoie UNIQUEMENT à vagondys@gmail.com
+ * ✅ CORRECTION : Messagerie 100% interne (pas d'email)
+ * ✅ Le Super Admin est un rôle interne, pas un email
  */
 export default function EspaceJoueurMessageriePage() {
   const router = useRouter();
@@ -157,11 +155,11 @@ export default function EspaceJoueurMessageriePage() {
       throw new Error("Conversation non disponible");
     }
 
-    // ✅ Déterminer la destination : Super Admin ou Ville sélectionnée
+    // ✅ CORRECTION : Déterminer la destination UNIQUEMENT par la ville (messagerie 100% interne)
+    // Super Admin = "MASTER" (rôle interne)
     const targetCity = isSuperAdmin ? "MASTER" : selectedCity;
-    const targetEmail = isSuperAdmin ? SUPER_ADMIN_EMAIL : undefined;
 
-    console.log(`📤 Envoi message - SuperAdmin: ${isSuperAdmin}, targetCity: ${targetCity}, targetEmail: ${targetEmail || "non spécifié"}`);
+    console.log(`📤 Envoi message - SuperAdmin: ${isSuperAdmin}, targetCity: ${targetCity}`);
 
     const result = await sendPlayerMessage({
       dossierRef: conversation.dossier_ref,
@@ -170,7 +168,6 @@ export default function EspaceJoueurMessageriePage() {
       userEmail: user.email,
       userName: user.name,
       targetCity: targetCity,
-      targetEmail: targetEmail, // ✅ Ajout de l'email cible pour Super Admin
       subject: selectedSubject,
       fileUrl: fileUrl,
       fileKey: fileKey,
@@ -242,7 +239,7 @@ export default function EspaceJoueurMessageriePage() {
 
   // ✅ Obtenir le nom de la destination
   const getDestinationDisplay = () => {
-    if (isSuperAdmin) return "SUPER ADMIN (vagondys@gmail.com)";
+    if (isSuperAdmin) return "SUPER ADMIN";
     return `${selectedCountry} - ${selectedCity}`;
   };
 
@@ -339,7 +336,7 @@ export default function EspaceJoueurMessageriePage() {
                 </span>
               </div>
 
-              {/* ✅ Bouton Super Admin (par défaut) - ENVOIE VERS vagondys@gmail.com */}
+              {/* ✅ Bouton Super Admin (par défaut) - RÔLE INTERNE */}
               <button
                 onClick={handleSuperAdminToggle}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-black uppercase transition-all mb-2 ${
@@ -350,9 +347,6 @@ export default function EspaceJoueurMessageriePage() {
               >
                 <UserCog className="w-3 h-3" />
                 SUPER ADMIN
-                {isSuperAdmin && (
-                  <span className="ml-auto text-[6px] text-zinc-500">(vagondys@gmail.com)</span>
-                )}
               </button>
 
               {/* Sélection du pays */}
@@ -426,11 +420,11 @@ export default function EspaceJoueurMessageriePage() {
                 </select>
               </div>
 
-              {/* ✅ Indicateur de sélection avec email Super Admin */}
+              {/* ✅ Indicateur de sélection */}
               <div className="mt-3 pt-3 border-t border-zinc-800">
                 <p className="text-[6px] text-zinc-700 uppercase tracking-wider text-center">
                   {isSuperAdmin 
-                    ? "📨 Envoi vers SUPER ADMIN (vagondys@gmail.com)" 
+                    ? "📨 Envoi vers SUPER ADMIN" 
                     : `📨 Envoi vers ${selectedCountry} - ${selectedCity}`}
                 </p>
               </div>
