@@ -216,7 +216,7 @@ function convertThreadMessageToPlayerMessage(
 }
 
 /**
- * ✅ FONCTION DE SECOURS : Récupère les messages depuis pending_signals
+ * FONCTION DE SECOURS : Récupère les messages depuis pending_signals
  */
 function convertPendingSignalToPlayerMessage(
   signal: PendingSignalMessage,
@@ -241,7 +241,7 @@ function convertPendingSignalToPlayerMessage(
 }
 
 /**
- * ✅ FONCTION DE SECOURS : Récupère les messages depuis communication_replies
+ * FONCTION DE SECOURS : Récupère les messages depuis communication_replies
  */
 function convertReplyToPlayerMessage(
   reply: CommunicationReply
@@ -259,8 +259,24 @@ function convertReplyToPlayerMessage(
 }
 
 /**
+ * Fonction utilitaire : normalise une date en nombre (millisecondes)
+ * Gère différents formats de date
+ */
+function normalizeDate(dateStr: string): number {
+  try {
+    // Si la date est déjà un nombre, la retourner
+    if (typeof dateStr === 'number') return dateStr;
+    // Sinon, la convertir en Date puis en timestamp
+    const date = new Date(dateStr);
+    return date.getTime();
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Récupère la conversation du joueur
- * ✅ CORRECTION : Fallback sur pending_signals et communication_replies
+ * ✅ CORRECTION : Fusion et tri unifiés sur TOUTES les sources
  */
 export async function getPlayerConversation(
   userId: string,
@@ -278,27 +294,48 @@ export async function getPlayerConversation(
 
     console.log(`✅ [getPlayerConversation] Infos trouvées: dossier=${playerInfo.dossier_ref}, city=${playerInfo.city}`);
 
-    // ✅ CORRECTION : 'let' → 'const' car jamais réassigné
+    // ✅ Fusion de TOUTES les sources dans un SEUL tableau
     const allMessages: PlayerMessage[] = [];
 
-    // 1. Tenter de lire l'archive GitHub
+    // 1. SOURCE 1 : Archive GitHub (fil_de_discussion + echanges_staff + fullThread)
     const archive = await fetchGitHubArchive(
       playerInfo.dossier_ref,
       playerInfo.city,
       playerInfo.country
     );
 
-    if (archive && archive.fil_de_discussion && Array.isArray(archive.fil_de_discussion)) {
-      for (const msg of archive.fil_de_discussion) {
-        const converted = convertThreadMessageToPlayerMessage(msg as ThreadMessage, userEmail);
-        if (converted) allMessages.push(converted);
+    if (archive) {
+      // 1a. fil_de_discussion
+      if (archive.fil_de_discussion && Array.isArray(archive.fil_de_discussion)) {
+        for (const msg of archive.fil_de_discussion) {
+          const converted = convertThreadMessageToPlayerMessage(msg as ThreadMessage, userEmail);
+          if (converted) allMessages.push(converted);
+        }
       }
+      
+      // 1b. echanges_staff
+      if (archive.echanges_staff && Array.isArray(archive.echanges_staff)) {
+        for (const reply of archive.echanges_staff) {
+          const converted = convertThreadMessageToPlayerMessage(reply as ThreadMessage, userEmail);
+          if (converted) allMessages.push(converted);
+        }
+      }
+      
+      // 1c. fullThread (messages système)
+      if ('fullThread' in archive && Array.isArray((archive as { fullThread?: ThreadMessage[] }).fullThread)) {
+        const fullThread = (archive as { fullThread: ThreadMessage[] }).fullThread;
+        for (const msg of fullThread) {
+          const converted = convertThreadMessageToPlayerMessage(msg, userEmail);
+          if (converted) allMessages.push(converted);
+        }
+      }
+      
       console.log(`📦 [getPlayerConversation] ${allMessages.length} messages depuis l'archive GitHub`);
     }
 
-    // 2. ✅ FALLBACK : Si pas de messages depuis l'archive, utiliser Supabase
-    if (allMessages.length === 0) {
-      console.log(`ℹ️ [getPlayerConversation] Aucune archive trouvée, fallback sur Supabase pour ${playerInfo.dossier_ref}`);
+    // 2. SOURCE 2 : pending_signals (fallback / complément)
+    if (allMessages.length === 0 || allMessages.length < 5) {
+      console.log(`ℹ️ [getPlayerConversation] Complément avec Supabase pour ${playerInfo.dossier_ref}`);
       
       const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
         auth: { autoRefreshToken: false, persistSession: false }
@@ -347,7 +384,7 @@ export async function getPlayerConversation(
         }
       }
       
-      console.log(`💾 [getPlayerConversation] ${allMessages.length} messages depuis Supabase (fallback)`);
+      console.log(`💾 [getPlayerConversation] ${allMessages.length} messages totaux après fusion`);
     }
 
     if (allMessages.length === 0) {
@@ -361,11 +398,17 @@ export async function getPlayerConversation(
       };
     }
 
-    const sortedMessages = [...allMessages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // ✅ TRI UNIFIÉ sur TOUS les messages (du plus récent au plus ancien)
+    const sortedMessages = [...allMessages].sort((a, b) => {
+      const dateA = normalizeDate(a.created_at);
+      const dateB = normalizeDate(b.created_at);
+      return dateB - dateA;
+    });
+
     const latest = sortedMessages[0];
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerConversation] Terminé en ${duration}ms, ${allMessages.length} messages`);
+    console.log(`✅ [getPlayerConversation] Terminé en ${duration}ms, ${allMessages.length} messages triés`);
 
     return {
       dossier_ref: playerInfo.dossier_ref,
@@ -384,8 +427,9 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Fallback sur pending_signals et communication_replies
- * ✅ Tri décroissant (du plus récent au plus ancien)
+ * ✅ CORRECTION : Fusion de TOUTES les sources (GitHub + Supabase) dans un SEUL tableau
+ * ✅ CORRECTION : Tri UNIFIÉ sur l'ensemble des messages
+ * ✅ CORRECTION : Dédoublonnage par contenu + date
  */
 export async function getPlayerMessages(
   userId: string,
@@ -411,79 +455,119 @@ export async function getPlayerMessages(
       playerCountry = playerInfo.country;
     }
 
-    // ✅ CORRECTION : 'let' → 'const' car jamais réassigné
+    // ✅ Fusion de TOUTES les sources dans un SEUL tableau
     const allMessages: PlayerMessage[] = [];
 
-    // 1. Tenter de lire l'archive GitHub
+    // 1. SOURCE 1 : Archive GitHub (fil_de_discussion + echanges_staff + fullThread)
     const archive = await fetchGitHubArchive(targetDossierRef, playerCity, playerCountry);
 
-    if (archive && archive.fil_de_discussion && Array.isArray(archive.fil_de_discussion)) {
-      for (const msg of archive.fil_de_discussion) {
-        const converted = convertThreadMessageToPlayerMessage(msg as ThreadMessage, userEmail);
-        if (converted) allMessages.push(converted);
-      }
-      console.log(`📦 [getPlayerMessages] ${allMessages.length} messages depuis l'archive GitHub`);
-    }
-
-    // 2. ✅ FALLBACK : Si pas de messages depuis l'archive, utiliser Supabase
-    if (allMessages.length === 0) {
-      console.log(`ℹ️ [getPlayerMessages] Aucune archive trouvée, fallback sur Supabase pour ${targetDossierRef}`);
-      
-      const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-
-      // Récupérer depuis pending_signals
-      const { data: signals } = await supabase
-        .from("pending_signals")
-        .select("*")
-        .eq("dossier_ref", targetDossierRef)
-        .order("created_at", { ascending: true });
-
-      if (signals && signals.length > 0) {
-        for (const signal of signals as PendingSignalMessage[]) {
-          const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
-          if (mainMsg) allMessages.push(mainMsg);
-          
-          if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
-            for (const histMsg of signal.payload.messages_history) {
-              if (histMsg.content !== signal.payload.message) {
-                allMessages.push({
-                  id: `${signal.id}_hist_${histMsg.created_at}`,
-                  content: histMsg.content,
-                  created_at: histMsg.created_at,
-                  sender: "player",
-                  sender_name: "Moi",
-                  document_url: null,
-                });
-              }
-            }
-          }
-        }
-      }
-
-      // Récupérer depuis communication_replies
-      const { data: replies } = await supabase
-        .from("communication_replies")
-        .select("*")
-        .eq("dossier_ref", targetDossierRef)
-        .order("created_at", { ascending: true });
-
-      if (replies && replies.length > 0) {
-        for (const reply of replies as CommunicationReply[]) {
-          const converted = convertReplyToPlayerMessage(reply);
+    if (archive) {
+      // 1a. fil_de_discussion
+      if (archive.fil_de_discussion && Array.isArray(archive.fil_de_discussion)) {
+        for (const msg of archive.fil_de_discussion) {
+          const converted = convertThreadMessageToPlayerMessage(msg as ThreadMessage, userEmail);
           if (converted) allMessages.push(converted);
         }
       }
       
-      console.log(`💾 [getPlayerMessages] ${allMessages.length} messages depuis Supabase (fallback)`);
+      // 1b. echanges_staff
+      if (archive.echanges_staff && Array.isArray(archive.echanges_staff)) {
+        for (const reply of archive.echanges_staff) {
+          const converted = convertThreadMessageToPlayerMessage(reply as ThreadMessage, userEmail);
+          if (converted) allMessages.push(converted);
+        }
+      }
+      
+      // 1c. fullThread (messages système)
+      if ('fullThread' in archive && Array.isArray((archive as { fullThread?: ThreadMessage[] }).fullThread)) {
+        const fullThread = (archive as { fullThread: ThreadMessage[] }).fullThread;
+        for (const msg of fullThread) {
+          const converted = convertThreadMessageToPlayerMessage(msg, userEmail);
+          if (converted) allMessages.push(converted);
+        }
+      }
+      
+      console.log(`📦 [getPlayerMessages] ${allMessages.length} messages depuis l'archive GitHub`);
     }
 
-    // 3. Tri décroissant (du plus récent au plus ancien)
-    const sortedMessages = [...allMessages].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // 2. SOURCE 2 : Supabase (pending_signals + communication_replies)
+    // On les ajoute TOUJOURS pour compléter, même si l'archive existe
+    console.log(`📦 [getPlayerMessages] Complément avec Supabase pour ${targetDossierRef}`);
+    
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // 2a. pending_signals
+    const { data: signals } = await supabase
+      .from("pending_signals")
+      .select("*")
+      .eq("dossier_ref", targetDossierRef)
+      .order("created_at", { ascending: true });
+
+    if (signals && signals.length > 0) {
+      for (const signal of signals as PendingSignalMessage[]) {
+        const mainMsg = convertPendingSignalToPlayerMessage(signal, userEmail);
+        if (mainMsg) allMessages.push(mainMsg);
+        
+        if (signal.payload?.messages_history && signal.payload.messages_history.length > 0) {
+          for (const histMsg of signal.payload.messages_history) {
+            if (histMsg.content !== signal.payload.message) {
+              allMessages.push({
+                id: `${signal.id}_hist_${histMsg.created_at}`,
+                content: histMsg.content,
+                created_at: histMsg.created_at,
+                sender: "player",
+                sender_name: "Moi",
+                document_url: null,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // 2b. communication_replies
+    const { data: replies } = await supabase
+      .from("communication_replies")
+      .select("*")
+      .eq("dossier_ref", targetDossierRef)
+      .order("created_at", { ascending: true });
+
+    if (replies && replies.length > 0) {
+      for (const reply of replies as CommunicationReply[]) {
+        const converted = convertReplyToPlayerMessage(reply);
+        if (converted) allMessages.push(converted);
+      }
+    }
+    
+    console.log(`💾 [getPlayerMessages] ${allMessages.length} messages totaux après fusion`);
+
+    if (allMessages.length === 0) {
+      console.log(`ℹ️ [getPlayerMessages] Aucun message trouvé pour ${targetDossierRef}`);
+      return [];
+    }
+
+    // ✅ DÉDOUBLONNAGE : Éliminer les doublons par contenu + date (garder le plus récent)
+    const uniqueMap = new Map<string, PlayerMessage>();
+    for (const msg of allMessages) {
+      const key = `${msg.content}_${normalizeDate(msg.created_at)}`;
+      const existing = uniqueMap.get(key);
+      if (!existing || normalizeDate(msg.created_at) > normalizeDate(existing.created_at)) {
+        uniqueMap.set(key, msg);
+      }
+    }
+    const uniqueMessages = Array.from(uniqueMap.values());
+
+    // ✅ TRI UNIFIÉ sur TOUS les messages (du plus récent au plus ancien)
+    const sortedMessages = [...uniqueMessages].sort((a, b) => {
+      const dateA = normalizeDate(a.created_at);
+      const dateB = normalizeDate(b.created_at);
+      return dateB - dateA;
+    });
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerMessages] ${sortedMessages.length} messages retournés en ${duration}ms (tri décroissant)`);
+    console.log(`✅ [getPlayerMessages] ${sortedMessages.length} messages uniques retournés en ${duration}ms (tri décroissant)`);
 
     return sortedMessages;
   } catch (err) {
