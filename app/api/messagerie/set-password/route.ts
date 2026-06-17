@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
 
       // 10c. Envoyer l'email de bienvenue (uniquement si l'email est défini)
       if (userData.user.email) {
-        const messagerieUrl = `${frontendUrl}/messagerie`;
+        const messagerieUrl = `${frontendUrl}/messagerie/connexion`;
         
         const welcomeEmailHtml = `
           <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
