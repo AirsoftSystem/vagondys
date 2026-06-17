@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
     icon: Users,
   },
   {
-    title: "DEMANDES MESSAGERIE",
+    title: "MESSAGERIE",
     href: "/staff/admin/messagerie",
     icon: MessageSquare,
   },

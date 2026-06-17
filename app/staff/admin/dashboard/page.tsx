@@ -93,11 +93,8 @@ export default function AdminDashboardPage() {
   // État pour la carte "Demandes" (simple bordure rouge)
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   
-  // ✅ État pour la carte "Messages" (même comportement que "Demandes")
+  // ✅ État pour la carte "Messages" (identique à "Demandes")
   const [hasNewMessages, setHasNewMessages] = useState(false);
-  
-  // ✅ Référence pour stocker l'ancien nombre de messages
-  const prevMessagesCountRef = useRef<number>(0);
 
   // Refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -105,25 +102,20 @@ export default function AdminDashboardPage() {
 
   // Fonction pour détecter les changements et mettre à jour les cartes
   const detectChangesAndNotify = useCallback((newGlobal: GlobalStats) => {
-    // Mettre à jour la carte "Demandes" si la valeur change
+    // Mettre à jour la carte "Demandes" si des demandes en attente
     if (newGlobal.pendingMessagerieRequests > 0) {
       setHasPendingRequests(true);
     } else {
       setHasPendingRequests(false);
     }
 
-    // ✅ Mettre à jour la carte "Messages" si le nombre de messages a augmenté
-    const currentMessages = newGlobal.totalMessages;
-    const previousMessages = prevMessagesCountRef.current;
-    
-    if (currentMessages > previousMessages && previousMessages > 0) {
-      // ✅ Nouveaux messages détectés → activer le clignotement
+    // ✅ Mettre à jour la carte "Messages" si des messages non lus
+    // Identique au comportement de "Demandes" : > 0 = clignotement
+    if (newGlobal.totalMessages > 0) {
       setHasNewMessages(true);
-      console.log(`📨 Nouveaux messages détectés: ${previousMessages} → ${currentMessages}`);
+    } else {
+      setHasNewMessages(false);
     }
-    
-    // ✅ Mettre à jour la référence avec la valeur actuelle
-    prevMessagesCountRef.current = currentMessages;
   }, []);
 
   // Fonction de chargement des stats
@@ -272,7 +264,7 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-black text-white" id="stat-totalCities">{globalStats.totalCities}</p>
         </div>
 
-        {/* ✅ Carte "Messages" - Bordure rouge et clignotement si nouveaux messages */}
+        {/* ✅ Carte "Messages" - Bordure rouge et clignotement si messages non lus */}
         <div 
           className={`bg-zinc-950 border rounded-2xl p-5 transition-all duration-300 ${
             hasNewMessages 
@@ -288,12 +280,12 @@ export default function AdminDashboardPage() {
             {hasNewMessages && (
               <span className={styles.alertBadge}>
                 <CheckCircle className="w-2 h-2" />
-                Nouveau(x)
+                Non lu(s)
               </span>
             )}
           </div>
           <p className="text-2xl font-black text-white" id="stat-totalMessages">{globalStats.totalMessages}</p>
-          <p className="text-[8px] text-zinc-600 mt-1">Total messages</p>
+          <p className="text-[8px] text-zinc-600 mt-1">Messages non lus</p>
         </div>
 
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700">

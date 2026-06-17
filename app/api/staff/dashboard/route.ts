@@ -109,14 +109,14 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        // ✅ CORRECTION : Compter les messages depuis messagerie_messages (plus de pending_signals)
-        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true }),
+        // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS (is_read = false)
+        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true }).eq("is_read", false),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        // ✅ CORRECTION : Récupérer les messages récents depuis messagerie_messages
-        adminClient.from("messagerie_messages").select("*").order("created_at", { ascending: false }).limit(3),
+        // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents
+        adminClient.from("messagerie_messages").select("*").eq("is_read", false).order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
@@ -140,9 +140,9 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
-        // ✅ CORRECTION : Compter les messages depuis messagerie_messages avec filtre city (via dossier_ref)
-        // Pour les agents, on filtre par ville via les comptes associés aux messages
+        // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS avec filtre city
         adminClient.from("messagerie_messages").select("*", { count: "exact", head: true })
+          .eq("is_read", false)
           .in("dossier_ref", (await adminClient
             .from("messagerie_accounts")
             .select("dossier_ref")
@@ -153,8 +153,9 @@ export async function GET(request: Request) {
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
-        // ✅ CORRECTION : Récupérer les messages récents depuis messagerie_messages avec filtre city
+        // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents avec filtre city
         adminClient.from("messagerie_messages").select("*")
+          .eq("is_read", false)
           .in("dossier_ref", (await adminClient
             .from("messagerie_accounts")
             .select("dossier_ref")
@@ -171,7 +172,7 @@ export async function GET(request: Request) {
     // ✅ Extraction des stats globales
     const totalAthletesCount = athletesResult.count || 0;
     const activeAthletesCount = activeAthletesResult.count || 0;
-    totalMessagesCount = messagesResult.count || 0; // ✅ Maintenant depuis messagerie_messages
+    totalMessagesCount = messagesResult.count || 0; // ✅ UNIQUEMENT les messages NON LUS
     const totalGameLaunches = launchesResult.count || 0;
     pendingMessagerieCount = messagerieRequestsResult?.count || 0;
     totalStaffCount = staffResult?.count || 0;
@@ -195,7 +196,7 @@ export async function GET(request: Request) {
         }
       }
 
-      // ✅ CORRECTION : Ajouter les messages par ville (depuis messagerie_messages)
+      // ✅ CORRECTION : Ajouter les messages NON LUS par ville (depuis messagerie_messages)
       if (isAdmin) {
         // Récupérer les comptes messagerie avec leur ville
         const { data: accounts } = await adminClient
@@ -203,15 +204,16 @@ export async function GET(request: Request) {
           .select("dossier_ref, city, country");
         
         if (accounts && accounts.length > 0) {
-          // Récupérer les messages par dossier
+          // Récupérer les messages NON LUS par dossier
           const dossierRefs = accounts.map(a => a.dossier_ref);
           const { data: messages } = await adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
+            .eq("is_read", false)
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
-            // Compter les messages par ville via les comptes
+            // Compter les messages NON LUS par ville via les comptes
             const messageCountByDossier = new Map<string, number>();
             for (const msg of messages) {
               messageCountByDossier.set(msg.dossier_ref, (messageCountByDossier.get(msg.dossier_ref) || 0) + 1);
@@ -228,7 +230,7 @@ export async function GET(request: Request) {
           }
         }
       } else {
-        // Pour les agents, les messages sont déjà filtrés par ville
+        // Pour les agents, les messages NON LUS sont déjà filtrés par ville
         const { data: accounts } = await adminClient
           .from("messagerie_accounts")
           .select("dossier_ref")
@@ -240,6 +242,7 @@ export async function GET(request: Request) {
           const { data: messages } = await adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
+            .eq("is_read", false)
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
@@ -293,13 +296,13 @@ export async function GET(request: Request) {
       totalAthletes: totalAthletesCount,
       totalCities: totalCitiesCount,
       totalStaff: totalStaffCount,
-      totalMessages: totalMessagesCount, // ✅ Maintenant depuis messagerie_messages
+      totalMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS
       pendingMessagerieRequests: pendingMessagerieCount,
       activeAthletes: activeAthletesCount,
       newAthletesThisMonth: newAthletesThisMonth
     };
 
-    // ✅ Traitement des activités récentes
+    // ✅ Traitement des activités récentes (uniquement messages NON LUS)
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
@@ -307,7 +310,7 @@ export async function GET(request: Request) {
         activities.push({
           id: msg.id,
           type: "message",
-          title: "Nouveau message",
+          title: "Nouveau message non lu",
           description: `De: ${msg.sender_name || "inconnu"}`,
           timestamp: msg.created_at,
           link: "/staff/admin/messagerie",
@@ -390,7 +393,7 @@ export async function GET(request: Request) {
       cities: Array.from(uniqueCities.values()),
       totalAthletes: totalAthletesCount,
       activeAthletes: activeAthletesCount,
-      pendingMessages: totalMessagesCount, // ✅ Maintenant depuis messagerie_messages
+      pendingMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS
       totalGameLaunches: totalGameLaunches,
       recentActivities: activities,
       topPlayers: topPlayers,
