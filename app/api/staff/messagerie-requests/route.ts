@@ -5,13 +5,14 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * API de récupération des demandes d’inscription à la messagerie privée
+ * API de récupération des conversations de la messagerie privée
  * GET /api/staff/messagerie-requests
  * 
  * Sécurité : Réservé au staff (email @vagondys.com ou dans staff_registry)
  * 
- * ✅ CORRECTION : Ajout du statut d'activation du compte (messagerie_accounts.status)
+ * ✅ CORRECTION : Lecture depuis messagerie_accounts + messagerie_messages
  * ✅ AJOUT : Récupération des JOUEURS (athlètes) en plus des PARTENAIRES
+ * ✅ AJOUT : Dernier message de chaque conversation
  */
 export async function GET() {
   try {
@@ -75,14 +76,14 @@ export async function GET() {
       );
     }
 
-    // ✅ 4. Récupérer les demandes PARTENAIRES (pending_messagerie_requests)
-    const { data: partnerRequests, error: fetchPartnerError } = await supabaseAdmin
-      .from("pending_messagerie_requests")
+    // ✅ 4. Récupérer les comptes PARTENAIRES (messagerie_accounts)
+    const { data: partnerAccounts, error: fetchPartnerError } = await supabaseAdmin
+      .from("messagerie_accounts")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (fetchPartnerError) {
-      console.error("Erreur récupération demandes partenaires:", fetchPartnerError);
+      console.error("Erreur récupération comptes partenaires:", fetchPartnerError);
       // Non bloquant - on continue
     }
 
@@ -98,41 +99,115 @@ export async function GET() {
       // Non bloquant - on continue
     }
 
-    // ✅ 6. Transformer les joueurs en format compatible avec MessagerieRequest
-    const playerRequests = (players || []).map((player) => ({
-      id: player.id || `player_${Date.now()}`,
-      full_name: player.full_name || "Joueur",
-      email: player.email || "",
-      company: null,
-      phone: player.phone || null,
-      reason: "Joueur actif VAGONDYS - Accès à la messagerie",
-      status: "approved" as const, // Les joueurs sont déjà approuvés
-      reviewed_by: "system",
-      reviewed_at: player.created_at || new Date().toISOString(),
-      created_at: player.created_at || new Date().toISOString(),
-      dossier_ref: player.dossier_ref || null,
-      city: player.city || null,
-      type: "player" as const, // ✅ Type "player" pour identifier les joueurs
-      account_status: player.status === "ACTIF" ? "active" : "inactive",
-    }));
+    // ✅ 6. Récupérer les derniers messages pour chaque dossier
+    const allDossierRefs: string[] = [];
+    
+    // Ajouter les dossier_ref des partenaires
+    if (partnerAccounts) {
+      for (const account of partnerAccounts) {
+        if (account.dossier_ref) {
+          allDossierRefs.push(account.dossier_ref);
+        }
+      }
+    }
+    
+    // Ajouter les dossier_ref des joueurs
+    if (players) {
+      for (const player of players) {
+        if (player.dossier_ref) {
+          allDossierRefs.push(player.dossier_ref);
+        }
+      }
+    }
 
-    // ✅ 7. Transformer les partenaires en format compatible avec MessagerieRequest
-    const partnerRequestsFormatted = (partnerRequests || []).map((request) => ({
-      ...request,
-      type: "partner" as const, // ✅ Type "partner" pour identifier les partenaires
-    }));
+    // ✅ 7. Récupérer le dernier message pour chaque dossier (en une seule requête)
+    let lastMessagesMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
+    
+    if (allDossierRefs.length > 0) {
+      // Récupérer les derniers messages par dossier
+      const { data: lastMessages, error: messagesError } = await supabaseAdmin
+        .from("messagerie_messages")
+        .select("dossier_ref, content, created_at, sender_name")
+        .in("dossier_ref", allDossierRefs)
+        .order("created_at", { ascending: false });
 
-    // ✅ 8. Fusionner les deux listes
-    const allRequests = [...partnerRequestsFormatted, ...playerRequests];
+      if (messagesError) {
+        console.error("Erreur récupération derniers messages:", messagesError);
+      } else if (lastMessages) {
+        // Garder uniquement le plus récent par dossier
+        const tempMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
+        for (const msg of lastMessages) {
+          if (!tempMap.has(msg.dossier_ref)) {
+            tempMap.set(msg.dossier_ref, {
+              content: msg.content,
+              created_at: msg.created_at,
+              sender_name: msg.sender_name
+            });
+          }
+        }
+        lastMessagesMap = tempMap;
+      }
+    }
 
-    // Trier par date décroissante (plus récent en premier)
+    // ✅ 8. Transformer les partenaires en format compatible avec MessagerieRequest
+    const partnerRequests = (partnerAccounts || []).map((account) => {
+      const lastMsg = lastMessagesMap.get(account.dossier_ref);
+      
+      return {
+        id: account.id || `partner_${Date.now()}`,
+        full_name: account.full_name || "Partenaire",
+        email: account.email || "",
+        company: account.company || null,
+        phone: account.phone || null,
+        reason: "Compte partenaire VAGONDYS",
+        status: "approved" as const,
+        reviewed_by: account.created_by || "system",
+        reviewed_at: account.updated_at || account.created_at,
+        created_at: account.created_at || new Date().toISOString(),
+        dossier_ref: account.dossier_ref || null,
+        city: null,
+        type: "partner" as const,
+        account_status: account.status === "active" ? "active" : "inactive",
+        last_message: lastMsg?.content || null,
+        last_message_date: lastMsg?.created_at || null,
+      };
+    });
+
+    // ✅ 9. Transformer les joueurs en format compatible avec MessagerieRequest
+    const playerRequests = (players || []).map((player) => {
+      const lastMsg = lastMessagesMap.get(player.dossier_ref);
+      
+      return {
+        id: player.id || `player_${Date.now()}`,
+        full_name: player.full_name || "Joueur",
+        email: player.email || "",
+        company: null,
+        phone: player.phone || null,
+        reason: "Joueur actif VAGONDYS",
+        status: "approved" as const,
+        reviewed_by: "system",
+        reviewed_at: player.created_at || new Date().toISOString(),
+        created_at: player.created_at || new Date().toISOString(),
+        dossier_ref: player.dossier_ref || null,
+        city: player.city || null,
+        type: "player" as const,
+        account_status: player.status === "ACTIF" ? "active" : "inactive",
+        last_message: lastMsg?.content || null,
+        last_message_date: lastMsg?.created_at || null,
+      };
+    });
+
+    // ✅ 10. Fusionner les deux listes
+    const allRequests = [...partnerRequests, ...playerRequests];
+
+    // Trier par date du dernier message décroissante (plus récent en premier)
     allRequests.sort((a, b) => {
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      const dateA = a.last_message_date ? new Date(a.last_message_date).getTime() : 0;
+      const dateB = b.last_message_date ? new Date(b.last_message_date).getTime() : 0;
       return dateB - dateA;
     });
 
-    // ✅ 9. Récupérer les comptes messagerie associés (pour le statut d'activation)
+    // ✅ 11. Récupérer les comptes messagerie associés (pour le statut d'activation)
     const emails = allRequests.map(r => r.email);
     const { data: accounts, error: accountsError } = await supabaseAdmin
       .from("messagerie_accounts")
@@ -144,7 +219,7 @@ export async function GET() {
       // Non bloquant – on continue sans le statut
     }
 
-    // ✅ 10. Construire un map email -> status
+    // ✅ 12. Construire un map email -> status
     const accountStatusMap = new Map();
     if (accounts) {
       for (const account of accounts) {
@@ -152,7 +227,7 @@ export async function GET() {
       }
     }
 
-    // ✅ 11. Ajouter le champ account_status à chaque demande
+    // ✅ 13. Ajouter le champ account_status à chaque demande
     const enrichedRequests = allRequests.map(request => ({
       ...request,
       account_status: accountStatusMap.get(request.email) || "not_created",

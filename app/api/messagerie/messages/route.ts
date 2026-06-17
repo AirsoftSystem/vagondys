@@ -5,8 +5,7 @@ import { sendGeneralEmail } from "@/lib/email/gmail";
 import { GitHubDB } from "@/lib/github-db/client";
 
 /**
- * Interface pour un message (GitHub)
- * ✅ CORRECTION : plus de conversation_id, on utilise dossier_ref comme identifiant
+ * Interface pour un message (GitHub - pour synchronisation asynchrone)
  */
 interface GitHubMessage {
   id: string;
@@ -20,16 +19,19 @@ interface GitHubMessage {
   created_at: string;
 }
 
+// ❌ SUPPRESSION : SupabaseMessage (non utilisé)
+// ❌ SUPPRESSION : AccountInfo (non utilisé)
+
 /**
  * API de gestion des messages de la messagerie privée
  * * GET /api/messagerie/messages?dossierRef=xxx
- * - Récupère tous les messages d’une conversation depuis GitHub
+ * - Récupère tous les messages d'une conversation depuis Supabase (instantané)
  * * POST /api/messagerie/messages
- * - Envoie un nouveau message (écriture uniquement dans GitHub)
+ * - Envoie un nouveau message (écriture dans Supabase + sync GitHub asynchrone)
  * - Body: { dossierRef, content, fileUrl?, fileKey?, senderType? }
  * 
- * ✅ CORRECTION : Plus d'utilisation de messagerie_conversations
- * ✅ CORRECTION : Utilisation directe de dossier_ref comme identifiant
+ * ✅ CORRECTION : Lecture depuis messagerie_messages (Supabase) au lieu de GitHub
+ * ✅ CORRECTION : Écriture dans messagerie_messages (Supabase) + sync GitHub asynchrone
  * ✅ CORRECTION : Vérification des droits via messagerie_accounts OU athletes
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
   console.log(`🔍 [GET] Début - ${new Date().toISOString()}`);
   
   try {
-    // 1. Vérification des variables d’environnement
+    // 1. Vérification des variables d'environnement
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 2. Récupérer l’utilisateur authentifié
+    // 2. Récupérer l'utilisateur authentifié
     const { createServerClient } = await import("@supabase/ssr");
     const { cookies } = await import("next/headers");
     
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
     const isStaff = userEmail.endsWith("@vagondys.com");
     console.log(`👤 [GET] Utilisateur: ${userEmail}, isStaff: ${isStaff}`);
 
-    // 3. Récupérer le paramètre dossierRef (au lieu de conversationId)
+    // 3. Récupérer le paramètre dossierRef
     const { searchParams } = new URL(request.url);
     const dossierRef = searchParams.get("dossierRef");
 
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 5. Vérifier que l’utilisateur a accès à ce dossier
+    // 5. Vérifier que l'utilisateur a accès à ce dossier
     let hasAccess = false;
     let participantName = "";
     let participantEmail = "";
@@ -109,7 +111,6 @@ export async function GET(request: NextRequest) {
       console.log(`🔓 [GET] Staff - accès automatique au dossier ${dossierRef}`);
       
       // ✅ Récupérer les infos du participant (partenaire OU joueur)
-      // D'abord chercher dans messagerie_accounts (partenaires)
       let account = null;
       
       const { data: partnerAccount } = await supabaseAdmin
@@ -123,7 +124,6 @@ export async function GET(request: NextRequest) {
         participantType = "partner";
         console.log(`👤 [GET] Partenaire trouvé: ${partnerAccount.full_name} (${partnerAccount.email})`);
       } else {
-        // ✅ Si pas trouvé dans messagerie_accounts, chercher dans athletes (joueurs)
         const { data: playerAccount } = await supabaseAdmin
           .from("athletes")
           .select("full_name, email")
@@ -148,7 +148,6 @@ export async function GET(request: NextRequest) {
       // ✅ Un partenaire ou joueur ne peut voir que son propre dossier
       console.log(`🔍 [GET] Vérification accès pour ${userEmail} sur ${dossierRef}`);
       
-      // Vérifier dans messagerie_accounts (partenaires)
       let account = null;
       
       const { data: partnerAccount } = await supabaseAdmin
@@ -163,7 +162,6 @@ export async function GET(request: NextRequest) {
         participantType = "partner";
         console.log(`✅ [GET] Partenaire validé pour ${dossierRef}`);
       } else {
-        // ✅ Si pas trouvé, vérifier dans athletes (joueurs)
         const { data: playerAccount } = await supabaseAdmin
           .from("athletes")
           .select("dossier_ref, full_name, email")
@@ -196,37 +194,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ✅ 6. Lire les messages depuis GITHUB (uniquement)
-    const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
-    console.log(`📖 [GET] Lecture GitHub: ${gitHubPath}`);
+    // ✅ 6. Lire les messages depuis Supabase (instantané)
+    console.log(`📖 [GET] Lecture Supabase: messagerie_messages pour ${dossierRef}`);
     
-    let messages: GitHubMessage[] = [];
-    try {
-      const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
-      if (existing && Array.isArray(existing)) {
-        messages = existing;
-        console.log(`✅ [GET] ${messages.length} messages lus depuis GitHub (${gitHubPath})`);
-      } else if (existing) {
-        console.log(`⚠️ [GET] Données lues mais pas un tableau:`, typeof existing);
-        messages = [];
-      } else {
-        console.log(`ℹ️ [GET] Aucun message trouvé dans GitHub pour ${dossierRef}`);
-        messages = [];
-      }
-    } catch (readError) {
-      console.log(`⚠️ [GET] Erreur lecture GitHub (probablement fichier inexistant):`, readError instanceof Error ? readError.message : String(readError));
-      messages = [];
+    const { data: messages, error: dbError } = await supabaseAdmin
+      .from("messagerie_messages")
+      .select("*")
+      .eq("dossier_ref", dossierRef)
+      .order("created_at", { ascending: true });
+
+    if (dbError) {
+      console.error(`❌ [GET] Erreur lecture Supabase:`, dbError);
+      return NextResponse.json(
+        { error: "Erreur lors de la lecture des messages" },
+        { status: 500 }
+      );
     }
 
-    // 7. Trier par date croissante
-    messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    
-    if (messages.length > 0) {
-      console.log(`📅 [GET] Messages triés, premier: ${messages[0]?.created_at}, dernier: ${messages[messages.length-1]?.created_at}`);
+    if (!messages || messages.length === 0) {
+      console.log(`ℹ️ [GET] Aucun message dans Supabase pour ${dossierRef}`);
+    } else {
+      console.log(`✅ [GET] ${messages.length} messages lus depuis Supabase pour ${dossierRef}`);
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [GET] Terminé en ${duration}ms - ${messages.length} messages retournés`);
+    console.log(`✅ [GET] Terminé en ${duration}ms - ${messages?.length || 0} messages retournés`);
 
     return NextResponse.json({
       success: true,
@@ -234,7 +226,7 @@ export async function GET(request: NextRequest) {
       participant_email: participantEmail,
       participant_name: participantName,
       participant_type: participantType,
-      messages: messages,
+      messages: messages || [],
     });
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -248,22 +240,48 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Synchronise un message vers GitHub (en arrière-plan, non bloquant)
+ */
+async function syncMessageToGitHub(message: GitHubMessage): Promise<void> {
+  try {
+    const path = `conversations/${message.dossier_ref}/messages.json.gz`;
+    
+    let existingMessages: GitHubMessage[] = [];
+    try {
+      const existing = await GitHubDB.read<GitHubMessage[]>(path);
+      if (existing && Array.isArray(existing)) {
+        existingMessages = existing;
+      }
+    } catch {
+      existingMessages = [];
+    }
+    
+    const exists = existingMessages.some((m) => m.id === message.id);
+    if (!exists) {
+      existingMessages.push(message);
+      await GitHubDB.write(path, existingMessages, { compress: true });
+      console.log(`✅ [GitHub-Sync] Message ${message.id} synchronisé vers GitHub`);
+    }
+  } catch (err) {
+    console.error(`⚠️ [GitHub-Sync] Erreur synchronisation pour ${message.dossier_ref}:`, err);
+  }
+}
+
+/**
  * POST /api/messagerie/messages
  * Envoie un nouveau message
  * 
- * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
+ * ✅ CORRECTION : Écriture dans Supabase (instantané) + sync GitHub asynchrone
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
- * 
- * - Notification email au partenaire/joueur lorsque le staff envoie un message
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   console.log(`✏️ [POST] Début - ${new Date().toISOString()}`);
   
   try {
-    // 1. Vérification des variables d’environnement
+    // 1. Vérification des variables d'environnement
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -276,7 +294,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Récupérer l’utilisateur authentifié
+    // 2. Récupérer l'utilisateur authentifié
     const { createServerClient } = await import("@supabase/ssr");
     const { cookies } = await import("next/headers");
     
@@ -306,7 +324,7 @@ export async function POST(request: NextRequest) {
     const isStaff = userEmail.endsWith("@vagondys.com");
     console.log(`👤 [POST] Utilisateur: ${userEmail}, isStaff: ${isStaff}, userName: ${userName}`);
 
-    // 3. Récupérer le body (avec dossierRef au lieu de conversationId)
+    // 3. Récupérer le body
     const body = await request.json();
     const { dossierRef, content, fileUrl, fileKey, senderType } = body;
 
@@ -322,7 +340,7 @@ export async function POST(request: NextRequest) {
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 5. Vérifier que l’utilisateur a accès à ce dossier
+    // 5. Vérifier que l'utilisateur a accès à ce dossier
     let hasAccess = false;
     let participantEmail = "";
     let participantName = "";
@@ -333,10 +351,8 @@ export async function POST(request: NextRequest) {
       hasAccess = true;
       console.log(`🔓 [POST] Staff - accès automatique au dossier ${dossierRef}`);
       
-      // ✅ Récupérer les infos du participant (partenaire OU joueur)
       let account = null;
       
-      // D'abord chercher dans messagerie_accounts (partenaires)
       const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
@@ -348,7 +364,6 @@ export async function POST(request: NextRequest) {
         participantType = "partner";
         console.log(`👤 [POST] Partenaire trouvé: ${partnerAccount.full_name} (${partnerAccount.email})`);
       } else {
-        // ✅ Si pas trouvé dans messagerie_accounts, chercher dans athletes (joueurs)
         const { data: playerAccount } = await supabaseAdmin
           .from("athletes")
           .select("full_name, email")
@@ -379,7 +394,6 @@ export async function POST(request: NextRequest) {
       
       let account = null;
       
-      // Vérifier dans messagerie_accounts (partenaires)
       const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
@@ -392,7 +406,6 @@ export async function POST(request: NextRequest) {
         participantType = "partner";
         console.log(`✅ [POST] Partenaire validé pour ${dossierRef}`);
       } else {
-        // ✅ Si pas trouvé, vérifier dans athletes (joueurs)
         const { data: playerAccount } = await supabaseAdmin
           .from("athletes")
           .select("full_name, email")
@@ -439,7 +452,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-    const newMessage: GitHubMessage = {
+    const newMessage = {
       id: messageId,
       dossier_ref: dossierRef,
       sender_email: userEmail,
@@ -452,61 +465,37 @@ export async function POST(request: NextRequest) {
     };
     console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}, type: ${participantType}`);
 
-    // ✅ 8. Écrire le message UNIQUEMENT dans GITHUB
-    const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
-    console.log(`💾 [POST] Tentative d'écriture GitHub: ${gitHubPath}`);
-    
-    try {
-      // Lire les messages existants
-      let existingMessages: GitHubMessage[] = [];
-      try {
-        const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
-        if (existing && Array.isArray(existing)) {
-          existingMessages = existing;
-          console.log(`📖 [POST] ${existingMessages.length} messages existants lus`);
-        } else if (existing) {
-          console.log(`⚠️ [POST] Données existantes non tableau, type: ${typeof existing}`);
-          existingMessages = [];
-        } else {
-          console.log(`ℹ️ [POST] Aucun message existant, création du fichier`);
-          existingMessages = [];
-        }
-      } catch (readError) {
-        console.log(`ℹ️ [POST] Lecture existante échouée (fichier probablement inexistant):`, readError instanceof Error ? readError.message : String(readError));
-        existingMessages = [];
-      }
-      
-      // Ajouter le nouveau message
-      existingMessages.push(newMessage);
-      console.log(`📊 [POST] Total messages après ajout: ${existingMessages.length}`);
-      
-      // Écrire dans GitHub (compressé)
-      const writeStartTime = Date.now();
-      await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
-      const writeDuration = Date.now() - writeStartTime;
-      console.log(`✅ [POST] Message écrit dans GitHub en ${writeDuration}ms: ${gitHubPath}`);
-      
-    } catch (gitHubError) {
-      const errorMessage = gitHubError instanceof Error ? gitHubError.message : String(gitHubError);
-      const errorStatus = (gitHubError as { status?: number })?.status;
-      console.error(`❌ [POST] Erreur écriture GitHub - status: ${errorStatus}, message: ${errorMessage}`);
-      
+    // ✅ 8. Écrire dans Supabase (instantané)
+    const { error: insertError } = await supabaseAdmin
+      .from("messagerie_messages")
+      .insert([newMessage]);
+
+    if (insertError) {
+      console.error(`❌ [POST] Erreur insertion Supabase:`, insertError);
       return NextResponse.json(
-        { 
-          error: "Erreur lors de l’envoi du message (GitHub)", 
-          details: errorMessage,
-          status: errorStatus 
-        },
+        { error: "Erreur lors de l'enregistrement du message" },
         { status: 500 }
       );
     }
 
-    // 9. Envoyer une notification email au destinataire lorsque le staff envoie un message
+    console.log(`✅ [POST] Message écrit dans Supabase pour ${dossierRef}`);
+
+    // ✅ 9. Synchroniser vers GitHub (asynchrone, non bloquant)
+    const gitHubMessage: GitHubMessage = {
+      ...newMessage,
+      file_url: newMessage.file_url || null,
+      file_key: newMessage.file_key || null,
+    };
+    
+    syncMessageToGitHub(gitHubMessage).catch((err) => {
+      console.error(`⚠️ [POST] Erreur synchro GitHub (non bloquante):`, err);
+    });
+
+    // 10. Envoyer une notification email au destinataire lorsque le staff envoie un message
     if (isStaff && participantEmail) {
       console.log(`📧 [POST] Envoi notification email à ${participantEmail} (${participantType})`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
-      // ✅ URL de la messagerie selon le type
       const messagerieUrl = participantType === "player" 
         ? `${frontendUrl}/espace-joueur/messagerie`
         : `${frontendUrl}/messagerie`;
@@ -558,11 +547,10 @@ export async function POST(request: NextRequest) {
         console.log(`✅ [POST] Email notification envoyé à ${participantEmail} (${participantType})`);
       } catch (emailError) {
         console.error(`❌ [POST] Erreur envoi email à ${participantEmail}:`, emailError instanceof Error ? emailError.message : String(emailError));
-        // Non bloquant
       }
     }
     
-    // 10. Si le message vient d’un partenaire ou joueur, notifier le staff
+    // 11. Si le message vient d'un partenaire ou joueur, notifier le staff
     if (!isStaff) {
       console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName} (${participantType})`);
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
@@ -594,7 +582,6 @@ export async function POST(request: NextRequest) {
         console.log(`✅ [POST] Notification staff envoyée pour ${dossierRef} (${participantType})`);
       } catch (emailError) {
         console.error(`❌ [POST] Erreur envoi notification staff:`, emailError instanceof Error ? emailError.message : String(emailError));
-        // Non bloquant
       }
     }
 

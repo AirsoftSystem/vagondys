@@ -23,7 +23,8 @@ import {
   Maximize2,
   Minimize2,
   DatabaseBackup,
-  UserCircle
+  UserCircle,
+  Users
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -55,6 +56,9 @@ interface MessagerieRequest {
   is_online?: boolean;
   // ✅ AJOUT : Type de messagerie (partenaire ou joueur)
   type?: "partner" | "player";
+  // ✅ AJOUT : Dernier message
+  last_message?: string;
+  last_message_date?: string;
 }
 
 interface GlobalRequestsStats {
@@ -132,23 +136,8 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
   }
 }
 
-// ✅ FONCTION POUR LE BADGE DE STATUT DU COMPTE
-function getAccountStatusBadge(accountStatus?: string) {
-  if (accountStatus === "active") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-600/20 border border-green-600/30">
-        <CheckCircle className="w-3 h-3 text-green-500" />
-        <span className="text-[8px] font-black uppercase tracking-widest text-green-500">Compte activé</span>
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 border border-red-600/30">
-      <XCircle className="w-3 h-3 text-red-500" />
-      <span className="text-[8px] font-black uppercase tracking-widest text-red-500">Compte non activé</span>
-    </span>
-  );
-}
+// ❌ SUPPRESSION : getAccountStatusBadge n'est plus utilisée
+// La colonne "Compte" a été remplacée par "Dernier message"
 
 // ✅ FONCTION POUR LE BADGE DE TYPE
 function getTypeBadge(type?: string) {
@@ -209,7 +198,7 @@ export default function AdminMessageriePage() {
   // ✅ Ref pour éviter les appels multiples
   const hasLoadedRef = useRef(false);
 
-  // Charger les demandes
+  // ✅ Charger les conversations depuis messagerie_accounts + messagerie_messages
   const loadRequests = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -223,31 +212,24 @@ export default function AdminMessageriePage() {
           return;
         }
         const errorData = await response.json();
-        throw new Error(errorData.error || "Erreur chargement demandes");
+        throw new Error(errorData.error || "Erreur chargement conversations");
       }
       
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      // ✅ Marquer les demandes comme "partner" par défaut
-      // Les joueurs seront ajoutés via une autre source
-      const requestsWithType = allRequests.map((r: MessagerieRequest) => ({
-        ...r,
-        type: "partner" as const
-      }));
-      
-      setRequests(requestsWithType);
+      setRequests(allRequests);
       
       const stats: GlobalRequestsStats = {
-        total: requestsWithType.length,
-        pending: requestsWithType.filter((r: MessagerieRequest) => r.status === "pending").length,
-        approved: requestsWithType.filter((r: MessagerieRequest) => r.status === "approved").length,
-        rejected: requestsWithType.filter((r: MessagerieRequest) => r.status === "rejected").length
+        total: allRequests.length,
+        pending: allRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
+        approved: allRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
+        rejected: allRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
       };
       setGlobalStats(stats);
       
     } catch (err) {
-      console.error("Erreur chargement demandes:", err);
+      console.error("Erreur chargement conversations:", err);
       setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setLoading(false);
@@ -739,10 +721,10 @@ export default function AdminMessageriePage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tighter">
-            Demandes <span className="text-red-600">Messagerie</span>
+            Conversations <span className="text-red-600">Messagerie</span>
           </h1>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-            Gestion des demandes d&apos;accès à la messagerie privée (Partenaires & Joueurs)
+            Gestion des conversations (Partenaires & Joueurs)
           </p>
         </div>
         <button
@@ -795,7 +777,7 @@ export default function AdminMessageriePage() {
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-blue-500/10 rounded-xl">
-              <MessageSquare className="w-5 h-5 text-blue-500" />
+              <Users className="w-5 h-5 text-blue-500" />
             </div>
             <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Total</span>
           </div>
@@ -881,23 +863,23 @@ export default function AdminMessageriePage() {
         </button>
       </div>
 
-      {/* Tableau des demandes */}
+      {/* Tableau des conversations */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
           <h2 className="text-sm font-black uppercase tracking-tighter">
-            Liste des <span className="text-red-600">demandes</span>
+            Liste des <span className="text-red-600">conversations</span>
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-800 bg-black/30">
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Demandeur</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Correspondant</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Email</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Type</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Compte</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Dernier message</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500"></th>
               </tr>
             </thead>
@@ -934,7 +916,9 @@ export default function AdminMessageriePage() {
                       {getStatusBadge(request.status)}
                     </td>
                     <td className="p-4">
-                      {getAccountStatusBadge(request.account_status)}
+                      <span className="text-[9px] text-zinc-400 truncate max-w-[150px] block">
+                        {request.last_message || "Aucun message"}
+                      </span>
                     </td>
                     <td className="p-4">
                       {expandedRequest === request.id ? (
@@ -967,7 +951,7 @@ export default function AdminMessageriePage() {
                               </p>
                               <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
                                 <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
-                                <span className="font-mono text-white">{request.dossier_ref || "En attente d'approbation"}</span>
+                                <span className="font-mono text-white">{request.dossier_ref || "Non défini"}</span>
                               </p>
                               <p className="text-[10px] text-zinc-400">
                                 <strong className="text-blue-500">Type:</strong>{' '}
@@ -1056,7 +1040,7 @@ export default function AdminMessageriePage() {
                             <div className="flex items-center justify-between">
                               <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
                                 <MessageSquare className="w-3 h-3 text-red-600" />
-                                Échanges avec le demandeur
+                                Échanges avec le correspondant
                               </h4>
                               <div className="flex items-center gap-2">
                                 {request.dossier_ref && (

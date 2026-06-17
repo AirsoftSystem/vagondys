@@ -2017,6 +2017,52 @@ VAGONDYS/
 
 
 
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              SUPER ADMIN                                            │
+│  (vagondys@gmail.com, admin@vagondys.com)                                           │
+│  ✅ Accès à TOUT                                                                    │
+│  ✅ Gère les demandes PARTENAIRES                                                   │
+│  ✅ Gère les demandes JOUEURS                                                       │
+│  ✅ Voit TOUS les échanges                                                          │
+│  ✅ Peut archiver dans GitHub (Coffre-Fort)                                         │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        │ Délégation
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              VGD-TECH                                               │
+│  (tech@vagondys.com)                                                                │
+│  ✅ Accès technique                                                                 │
+│  ✅ Gère les aspects techniques                                                     │
+│  ❌ Ne voit PAS les échanges confidentiels                                          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        │ Délégation
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              STAFF ADMIN                                            │
+│  (admin@vagondys.com)                                                               │
+│  ✅ Gère les villes (NANTES, LYON, PARIS, etc.)                                     │
+│  ✅ Voit les échanges de SA ville                                                   │
+│  ❌ Ne voit PAS les échanges des autres villes                                      │
+│  ❌ Ne voit PAS les échanges confidentiels                                          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        │ Délégation
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              STAFF (Agent)                                          │
+│  (nantes@vagondys.com, lyon@vagondys.com, etc.)                                     │
+│  ✅ Répond aux demandes de SA ville                                                 │
+│  ✅ Voit les échanges de SA ville                                                   │
+│  ❌ Ne voit PAS les échanges confidentiels                                          │
+│  ❌ Ne voit PAS les échanges des autres villes                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
 /*
 Fil de discussion du "Staff > Nantes" décroissant :
 ---
