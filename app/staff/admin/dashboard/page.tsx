@@ -11,7 +11,8 @@ import {
   Activity,
   AlertTriangle,
   RefreshCcw,
-  Clock
+  Clock,
+  CheckCircle
 } from "lucide-react";
 
 import styles from "./page.module.css";
@@ -92,11 +93,17 @@ export default function AdminDashboardPage() {
   // État pour la carte "Demandes" (simple bordure rouge)
   const [hasPendingRequests, setHasPendingRequests] = useState(false);
   
+  // ✅ État pour la carte "Messages" (même comportement que "Demandes")
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  
+  // ✅ Référence pour stocker l'ancien nombre de messages
+  const prevMessagesCountRef = useRef<number>(0);
+
   // Refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
-  // Fonction pour détecter les changements et mettre à jour la carte
+  // Fonction pour détecter les changements et mettre à jour les cartes
   const detectChangesAndNotify = useCallback((newGlobal: GlobalStats) => {
     // Mettre à jour la carte "Demandes" si la valeur change
     if (newGlobal.pendingMessagerieRequests > 0) {
@@ -104,6 +111,19 @@ export default function AdminDashboardPage() {
     } else {
       setHasPendingRequests(false);
     }
+
+    // ✅ Mettre à jour la carte "Messages" si le nombre de messages a augmenté
+    const currentMessages = newGlobal.totalMessages;
+    const previousMessages = prevMessagesCountRef.current;
+    
+    if (currentMessages > previousMessages && previousMessages > 0) {
+      // ✅ Nouveaux messages détectés → activer le clignotement
+      setHasNewMessages(true);
+      console.log(`📨 Nouveaux messages détectés: ${previousMessages} → ${currentMessages}`);
+    }
+    
+    // ✅ Mettre à jour la référence avec la valeur actuelle
+    prevMessagesCountRef.current = currentMessages;
   }, []);
 
   // Fonction de chargement des stats
@@ -252,14 +272,28 @@ export default function AdminDashboardPage() {
           <p className="text-2xl font-black text-white" id="stat-totalCities">{globalStats.totalCities}</p>
         </div>
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700">
+        {/* ✅ Carte "Messages" - Bordure rouge et clignotement si nouveaux messages */}
+        <div 
+          className={`bg-zinc-950 border rounded-2xl p-5 transition-all duration-300 ${
+            hasNewMessages 
+              ? styles.blinking
+              : 'border-zinc-800 hover:border-zinc-700'
+          }`}
+        >
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-yellow-500/10 rounded-xl">
               <MessageSquare className="w-5 h-5 text-yellow-500" />
             </div>
             <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Messages</span>
+            {hasNewMessages && (
+              <span className={styles.alertBadge}>
+                <CheckCircle className="w-2 h-2" />
+                Nouveau(x)
+              </span>
+            )}
           </div>
           <p className="text-2xl font-black text-white" id="stat-totalMessages">{globalStats.totalMessages}</p>
+          <p className="text-[8px] text-zinc-600 mt-1">Total messages</p>
         </div>
 
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 transition-all duration-300 hover:border-zinc-700">
@@ -276,7 +310,7 @@ export default function AdminDashboardPage() {
         <div 
           className={`bg-zinc-950 border rounded-2xl p-5 transition-all duration-300 ${
             hasPendingRequests 
-              ? 'border-red-600 border-2' 
+              ? styles.blinking
               : 'border-zinc-800 hover:border-zinc-700'
           }`}
         >
@@ -285,6 +319,12 @@ export default function AdminDashboardPage() {
               <Database className="w-5 h-5 text-orange-500" />
             </div>
             <span className="text-[8px] text-zinc-600 uppercase tracking-widest">Demandes</span>
+            {hasPendingRequests && (
+              <span className={styles.alertBadge}>
+                <CheckCircle className="w-2 h-2" />
+                Nouvelle(s)
+              </span>
+            )}
           </div>
           <p className="text-2xl font-black text-white" id="stat-pendingMessagerieRequests">{globalStats.pendingMessagerieRequests}</p>
           <p className="text-[8px] text-zinc-600 mt-1">Messagerie en attente</p>
