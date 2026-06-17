@@ -113,6 +113,18 @@ export default function StaffDashboard() {
         
         if (!isMounted.current) return;
         
+        // ✅ CORRECTION : Pour MASTER (Staff Admin), on masque les messages privés
+        // Le Staff Admin ne doit pas voir les messages de la messagerie privée (Système 2)
+        const isMaster = city === "MASTER";
+        const pendingMessages = isMaster ? 0 : (data.pendingMessages || 0);
+        
+        // ✅ CORRECTION : Filtrer les activités récentes pour MASTER
+        // Supprimer les activités de type "message" pour MASTER
+        let filteredActivities = data.recentActivities || [];
+        if (isMaster) {
+          filteredActivities = filteredActivities.filter((act: RecentActivity) => act.type !== "message");
+        }
+        
         // 3. Mettre à jour les états
         setCityInfo({
           name: city,
@@ -124,17 +136,17 @@ export default function StaffDashboard() {
         setStats({
           totalAthletes: data.totalAthletes || 0,
           activeAthletes: data.activeAthletes || 0,
-          pendingMessages: data.pendingMessages || 0,
+          pendingMessages: pendingMessages,
           todayMatches: data.todayMatches || 0,
           totalGameLaunches: data.totalGameLaunches || 0,
           newAthletesThisMonth: data.newAthletesThisMonth || 0
         });
         
-        setUnreadCount(data.pendingMessages || 0);
+        setUnreadCount(pendingMessages);
         setNewAthletesCount(data.newAthletesThisMonth || 0);
         
-        // 4. Formater les activités récentes
-        const activities: RecentActivity[] = (data.recentActivities || []).map((act: RecentActivity) => ({
+        // 4. Formater les activités récentes (filtrées pour MASTER)
+        const activities: RecentActivity[] = filteredActivities.map((act: RecentActivity) => ({
           ...act,
           type: act.type || 'message'
         }));
@@ -168,11 +180,15 @@ export default function StaffDashboard() {
         const data = await response.json();
         
         if (response.ok && isMounted.current) {
-          setUnreadCount(data.pendingMessages || 0);
+          // ✅ CORRECTION : Pour MASTER, on force 0
+          const isMaster = userCity === "MASTER";
+          const pendingMessages = isMaster ? 0 : (data.pendingMessages || 0);
+          
+          setUnreadCount(pendingMessages);
           setNewAthletesCount(data.newAthletesThisMonth || 0);
           setStats(prev => ({
             ...prev,
-            pendingMessages: data.pendingMessages || 0,
+            pendingMessages: pendingMessages,
             newAthletesThisMonth: data.newAthletesThisMonth || 0
           }));
         }
