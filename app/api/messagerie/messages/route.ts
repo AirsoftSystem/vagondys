@@ -26,6 +26,7 @@ interface GitHubMessage {
  * API de gestion des messages de la messagerie privée
  * * GET /api/messagerie/messages?dossierRef=xxx
  * - Récupère tous les messages d'une conversation depuis Supabase (instantané)
+ * - ✅ Marque automatiquement les messages comme lus pour le staff
  * * POST /api/messagerie/messages
  * - Envoie un nouveau message (écriture dans Supabase + sync GitHub asynchrone)
  * - Body: { dossierRef, content, fileUrl?, fileKey?, senderType? }
@@ -34,6 +35,7 @@ interface GitHubMessage {
  * ✅ CORRECTION : Écriture dans messagerie_messages (Supabase) + sync GitHub asynchrone
  * ✅ CORRECTION : Vérification des droits via messagerie_accounts OU athletes
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
+ * ✅ AJOUT : Marquage des messages comme lus lors de la lecture
  * ✅ AJOUT : Logs détaillés pour debug
  */
 export async function GET(request: NextRequest) {
@@ -215,6 +217,46 @@ export async function GET(request: NextRequest) {
       console.log(`ℹ️ [GET] Aucun message dans Supabase pour ${dossierRef}`);
     } else {
       console.log(`✅ [GET] ${messages.length} messages lus depuis Supabase pour ${dossierRef}`);
+    }
+
+    // ✅ 7. MARQUER LES MESSAGES COMME LUS (uniquement pour le staff)
+    // Quand le staff (Super Admin) lit les messages, on les marque comme lus
+    if (isStaff && messages && messages.length > 0) {
+      try {
+        // Récupérer les IDs des messages non lus envoyés par des non-staff
+        const unreadMessageIds = messages
+          .filter((msg: { is_read: boolean; sender_email: string }) => 
+            msg.is_read === false && 
+            !msg.sender_email.endsWith("@vagondys.com") &&
+            msg.sender_email !== "system@vagondys.com"
+          )
+          .map((msg: { id: string }) => msg.id);
+
+        if (unreadMessageIds.length > 0) {
+          console.log(`📝 [GET] Marquage de ${unreadMessageIds.length} messages comme lus pour ${dossierRef}`);
+          
+          const { error: updateError } = await supabaseAdmin
+            .from("messagerie_messages")
+            .update({ is_read: true })
+            .in("id", unreadMessageIds);
+
+          if (updateError) {
+            console.error(`❌ [GET] Erreur lors du marquage des messages comme lus:`, updateError);
+          } else {
+            console.log(`✅ [GET] ${unreadMessageIds.length} messages marqués comme lus pour ${dossierRef}`);
+            
+            // Mettre à jour la liste des messages retournée pour refléter le changement
+            for (const msg of messages) {
+              if (unreadMessageIds.includes(msg.id)) {
+                msg.is_read = true;
+              }
+            }
+          }
+        }
+      } catch (markError) {
+        console.error(`❌ [GET] Erreur lors du marquage des messages:`, markError);
+        // Non bloquant - on continue
+      }
     }
 
     const duration = Date.now() - startTime;

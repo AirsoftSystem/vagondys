@@ -82,8 +82,10 @@ export async function GET(request: Request) {
     let pendingMessagerieCount = 0;
     let totalMessagesCount = 0;
 
+    // ✅ Pour MASTER : compter depuis messagerie_messages (Système 2 - Messagerie privée)
+    // ✅ Pour les autres villes : compter depuis pending_signals (Système 1 - Contact/Staff)
     if (isAdmin) {
-      console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city");
+      console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city (messagerie_messages)");
       
       [
         athletesResult, 
@@ -100,7 +102,7 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        // ✅ Compter UNIQUEMENT les messages NON LUS (hors staff)
+        // ✅ MASTER : Compter les messages NON LUS depuis messagerie_messages (hors staff)
         adminClient.from("messagerie_messages")
           .select("*", { count: "exact", head: true })
           .eq("is_read", false)
@@ -110,7 +112,7 @@ export async function GET(request: Request) {
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        // ✅ Récupérer UNIQUEMENT les messages NON LUS récents (hors staff)
+        // ✅ MASTER : Messages récents depuis messagerie_messages
         adminClient.from("messagerie_messages")
           .select("*")
           .eq("is_read", false)
@@ -122,7 +124,8 @@ export async function GET(request: Request) {
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
       ]);
     } else {
-      console.log("🔍 Dashboard API: Mode STANDARD - filtre city=", cityUpper);
+      // ✅ AGENTS STANDARDS (NANTES, LYON, etc.) : compter depuis pending_signals
+      console.log(`🔍 Dashboard API: Mode STANDARD - filtre city=${cityUpper} (pending_signals)`);
       
       [
         athletesResult, 
@@ -139,36 +142,28 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
-        adminClient.from("messagerie_messages")
+        // ✅ STANDARD : Compter les signaux NON LUS depuis pending_signals
+        adminClient.from("pending_signals")
           .select("*", { count: "exact", head: true })
+          .eq("city", cityUpper)
+          .eq("country", countryUpper)
           .eq("is_read", false)
-          .not("sender_email", "like", "%@vagondys.com")
-          .neq("sender_email", "system@vagondys.com")
-          .in("dossier_ref", (await adminClient
-            .from("messagerie_accounts")
-            .select("dossier_ref")
-            .eq("city", cityUpper)
-            .eq("country", countryUpper)
-          ).data?.map(a => a.dossier_ref) || []),
+          .eq("confirmed", true),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
-        adminClient.from("messagerie_messages")
+        // ✅ STANDARD : Signaux récents depuis pending_signals
+        adminClient.from("pending_signals")
           .select("*")
+          .eq("city", cityUpper)
+          .eq("country", countryUpper)
           .eq("is_read", false)
-          .not("sender_email", "like", "%@vagondys.com")
-          .neq("sender_email", "system@vagondys.com")
-          .in("dossier_ref", (await adminClient
-            .from("messagerie_accounts")
-            .select("dossier_ref")
-            .eq("city", cityUpper)
-            .eq("country", countryUpper)
-          ).data?.map(a => a.dossier_ref) || [])
+          .eq("confirmed", true)
           .order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
-        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", cityUpper).order("points", { ascending: false }).limit(5),
+        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", countryUpper).order("points", { ascending: false }).limit(5),
       ]);
     }
 
@@ -196,6 +191,7 @@ export async function GET(request: Request) {
         }
       }
 
+      // ✅ Pour MASTER : compter les messages par ville depuis messagerie_messages
       if (isAdmin) {
         const { data: accounts } = await adminClient
           .from("messagerie_accounts")
@@ -228,29 +224,21 @@ export async function GET(request: Request) {
           }
         }
       } else {
-        const { data: accounts } = await adminClient
-          .from("messagerie_accounts")
-          .select("dossier_ref")
+        // ✅ Pour les agents standards : compter les signaux par ville depuis pending_signals
+        const { data: signals } = await adminClient
+          .from("pending_signals")
+          .select("city, country")
           .eq("city", cityUpper)
-          .eq("country", countryUpper);
+          .eq("country", countryUpper)
+          .eq("is_read", false)
+          .eq("confirmed", true);
         
-        if (accounts && accounts.length > 0) {
-          const dossierRefs = accounts.map(a => a.dossier_ref);
-          const { data: messages } = await adminClient
-            .from("messagerie_messages")
-            .select("dossier_ref")
-            .eq("is_read", false)
-            .not("sender_email", "like", "%@vagondys.com")
-            .neq("sender_email", "system@vagondys.com")
-            .in("dossier_ref", dossierRefs);
-          
-          if (messages) {
-            const count = messages.length;
-            if (cityMap.has(cityUpper)) {
-              cityMap.get(cityUpper)!.messages += count;
-            } else {
-              cityMap.set(cityUpper, { athletes: 0, active: 0, messages: count });
-            }
+        if (signals) {
+          const count = signals.length;
+          if (cityMap.has(cityUpper)) {
+            cityMap.get(cityUpper)!.messages += count;
+          } else {
+            cityMap.set(cityUpper, { athletes: 0, active: 0, messages: count });
           }
         }
       }
@@ -304,13 +292,14 @@ export async function GET(request: Request) {
 
     if (recentMessagesResult.data) {
       recentMessagesResult.data.forEach((msg: { id: string; content: string; sender_name: string; created_at: string }) => {
+        // ✅ SUPPRESSION de la variable 'type' non utilisée
         activities.push({
           id: msg.id,
           type: "message",
-          title: "Nouveau message non lu",
+          title: isAdmin ? "Nouveau message non lu" : "Nouveau signal",
           description: `De: ${msg.sender_name || "inconnu"}`,
           timestamp: msg.created_at,
-          link: "/staff/admin/messagerie",
+          link: isAdmin ? "/staff/admin/messagerie" : "/staff/interface",
         });
       });
     }

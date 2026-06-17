@@ -184,24 +184,7 @@ export default function StaffMessagesPage() {
         }
         
         if (isMounted) {
-          // ✅ CORRECTION : Filtrer les messages de la messagerie privée
-          // Les messages provenant de la messagerie privée (Système 2) ne doivent pas apparaître ici
-          // Ils sont réservés au Super Admin via /staff/admin/dashboard
-          const filteredMessages = (result.messages || []).filter((msg: SignalMessage) => {
-            // Si le dossier_ref existe et que le message vient de la messagerie privée,
-            // on l'exclut de l'interface Staff standard
-            if (msg.dossier_ref) {
-              // Les messages de la messagerie privée ont un dossier_ref qui commence par VGD-
-              // mais on vérifie aussi si le message a un contenu de messagerie privée
-              // (les messages de pending_signals ont un payload avec subject, message, etc.)
-              // On garde tous les messages qui viennent de pending_signals
-              // car ils sont gérés par le Système 1
-              return true;
-            }
-            return true;
-          });
-          
-          setMessages(filteredMessages);
+          setMessages(result.messages || []);
         }
       } catch (err) {
         console.error("❌ Erreur chargement:", err);
