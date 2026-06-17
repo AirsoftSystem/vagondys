@@ -24,7 +24,8 @@ import {
   Minimize2,
   DatabaseBackup,
   UserCircle,
-  Users
+  Users,
+  Hourglass
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -54,8 +55,8 @@ interface MessagerieRequest {
   // ✅ NOUVEAUX CHAMPS
   account_status?: "active" | "inactive" | "suspended" | "not_created";
   is_online?: boolean;
-  // ✅ AJOUT : Type de messagerie (partenaire ou joueur)
-  type?: "partner" | "player";
+  // ✅ AJOUT : Type de messagerie (partenaire, joueur ou pending)
+  type?: "partner" | "player" | "pending";
   // ✅ AJOUT : Dernier message
   last_message?: string;
   last_message_date?: string;
@@ -136,9 +137,6 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
   }
 }
 
-// ❌ SUPPRESSION : getAccountStatusBadge n'est plus utilisée
-// La colonne "Compte" a été remplacée par "Dernier message"
-
 // ✅ FONCTION POUR LE BADGE DE TYPE
 function getTypeBadge(type?: string) {
   if (type === "player") {
@@ -146,6 +144,14 @@ function getTypeBadge(type?: string) {
       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600/20 border border-blue-600/30">
         <UserCircle className="w-3 h-3 text-blue-500" />
         <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">Joueur</span>
+      </span>
+    );
+  }
+  if (type === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-600/20 border border-yellow-600/30">
+        <Hourglass className="w-3 h-3 text-yellow-500" />
+        <span className="text-[8px] font-black uppercase tracking-widest text-yellow-500">En attente</span>
       </span>
     );
   }
@@ -724,7 +730,7 @@ export default function AdminMessageriePage() {
             Conversations <span className="text-red-600">Messagerie</span>
           </h1>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-            Gestion des conversations (Partenaires & Joueurs)
+            Gestion des conversations (Partenaires, Joueurs & Demandes en attente)
           </p>
         </div>
         <button
@@ -851,6 +857,7 @@ export default function AdminMessageriePage() {
           <option value="all">Tous les types</option>
           <option value="partner">Partenaires</option>
           <option value="player">Joueurs</option>
+          <option value="pending">En attente</option>
         </select>
         <button
           onClick={loadRequests}
@@ -955,7 +962,7 @@ export default function AdminMessageriePage() {
                               </p>
                               <p className="text-[10px] text-zinc-400">
                                 <strong className="text-blue-500">Type:</strong>{' '}
-                                <span className="text-zinc-400">{request.type === "player" ? "Joueur" : "Partenaire"}</span>
+                                <span className="text-zinc-400">{request.type === "player" ? "Joueur" : request.type === "pending" ? "Demande en attente" : "Partenaire"}</span>
                               </p>
                             </div>
                             
@@ -1180,7 +1187,7 @@ export default function AdminMessageriePage() {
                 </h2>
                 <p className="text-[8px] text-zinc-500 uppercase tracking-widest mt-1">
                   {selectedRequest.email} • {selectedRequest.company || "Particulier"} • N° Dossier: <span className="text-red-600 font-mono">{selectedRequest.dossier_ref || "N/A"}</span>
-                  <span className="ml-2 text-blue-500">• {selectedRequest.type === "player" ? "Joueur" : "Partenaire"}</span>
+                  <span className="ml-2 text-blue-500">• {selectedRequest.type === "player" ? "Joueur" : selectedRequest.type === "pending" ? "Demande en attente" : "Partenaire"}</span>
                 </p>
               </div>
               <button
