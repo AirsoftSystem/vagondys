@@ -27,8 +27,21 @@ export interface PlayerConversation {
   created_at: string;
 }
 
-// Interface pour un message GitHub
+// Interface pour un message GitHub (pour la synchronisation)
 interface GitHubMessage {
+  id: string;
+  dossier_ref: string;
+  sender_email: string;
+  sender_name: string;
+  content: string;
+  file_url: string | null;
+  file_key: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Interface pour un message Supabase
+interface SupabaseMessage {
   id: string;
   dossier_ref: string;
   sender_email: string;
@@ -67,86 +80,39 @@ const STAFF_EMAILS: Record<string, string> = {
 };
 
 // ==========================================================
-// FONCTIONS UTILITAIRES GITHUB
+// SYNCHRONISATION GITHUB (ASYNCHRONE)
 // ==========================================================
 
 /**
- * Récupère les messages d'une conversation depuis GitHub
- * @param dossierRef - Référence du dossier (ex: VGD-XXXXXX)
- * @returns Liste des messages ou tableau vide
+ * Synchronise un message vers GitHub (en arrière-plan, non bloquant)
+ * @param message - Le message à synchroniser
  */
-async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[]> {
-  const startTime = Date.now();
-  const path = `conversations/${dossierRef}/messages.json.gz`;
-  console.log(`📖 [GitHub-Joueur] Lecture ${path}`);
-  
+async function syncMessageToGitHub(message: GitHubMessage): Promise<void> {
   try {
-    const messages = await GitHubDB.read<GitHubMessage[]>(path);
-    const count = messages?.length || 0;
-    const duration = Date.now() - startTime;
-    console.log(`✅ [GitHub-Joueur] ${count} messages lus depuis ${path} en ${duration}ms`);
-    return messages || [];
-  } catch (err) {
-    const duration = Date.now() - startTime;
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`⚠️ [GitHub-Joueur] Lecture échouée pour ${path} en ${duration}ms: ${errorMsg}`);
-    return [];
-  }
-}
-
-/**
- * Écrit un message dans GitHub
- * @param dossierRef - Référence du dossier
- * @param message - Message à ajouter
- */
-async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): Promise<boolean> {
-  const startTime = Date.now();
-  const path = `conversations/${dossierRef}/messages.json.gz`;
-  console.log(`💾 [GitHub-Joueur] Écriture dans ${path}`);
-  console.log(`📝 [GitHub-Joueur] Message: id=${message.id}, sender=${message.sender_email}, content length=${message.content.length}`);
-  
-  try {
-    // Lire les messages existants
+    const path = `conversations/${message.dossier_ref}/messages.json.gz`;
+    
+    // Lire les messages existants sur GitHub
     let existingMessages: GitHubMessage[] = [];
     try {
       const existing = await GitHubDB.read<GitHubMessage[]>(path);
       if (existing && Array.isArray(existing)) {
         existingMessages = existing;
-        console.log(`📖 [GitHub-Joueur] ${existingMessages.length} messages existants lus`);
-      } else if (existing) {
-        console.log(`⚠️ [GitHub-Joueur] Données existantes non tableau, type: ${typeof existing}`);
-        existingMessages = [];
-      } else {
-        console.log(`ℹ️ [GitHub-Joueur] Aucun message existant, création du fichier`);
-        existingMessages = [];
       }
-    } catch (readError) {
-      const readErrorMsg = readError instanceof Error ? readError.message : String(readError);
-      console.log(`ℹ️ [GitHub-Joueur] Lecture existante échouée (fichier probablement inexistant): ${readErrorMsg}`);
+    } catch {
+      // Fichier inexistant, on commence avec un tableau vide
       existingMessages = [];
     }
     
-    // Ajouter le nouveau message
-    existingMessages.push(message);
-    console.log(`📊 [GitHub-Joueur] Total messages après ajout: ${existingMessages.length}`);
-    
-    // Écrire dans GitHub (compressé)
-    const writeStartTime = Date.now();
-    await GitHubDB.write(path, existingMessages, { compress: true });
-    const writeDuration = Date.now() - writeStartTime;
-    const totalDuration = Date.now() - startTime;
-    
-    console.log(`✅ [GitHub-Joueur] Message écrit dans GitHub en ${writeDuration}ms (total ${totalDuration}ms): ${path}`);
-    return true;
-    
+    // Vérifier si le message existe déjà (éviter les doublons)
+    const exists = existingMessages.some((m) => m.id === message.id);
+    if (!exists) {
+      existingMessages.push(message);
+      await GitHubDB.write(path, existingMessages, { compress: true });
+      console.log(`✅ [GitHub-Sync-Joueur] Message ${message.id} synchronisé vers GitHub`);
+    }
   } catch (err) {
-    const totalDuration = Date.now() - startTime;
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    const errorStatus = (err as { status?: number })?.status;
-    
-    console.error(`❌ [GitHub-Joueur] Erreur écriture - status: ${errorStatus}, message: ${errorMsg}, durée: ${totalDuration}ms`);
-    console.error(`❌ [GitHub-Joueur] Détail erreur:`, err);
-    return false;
+    // Non bloquant - on log l'erreur mais on ne bloque pas l'utilisateur
+    console.error(`⚠️ [GitHub-Sync-Joueur] Erreur synchronisation pour ${message.dossier_ref}:`, err);
   }
 }
 
@@ -232,7 +198,7 @@ function getStaffEmailForCity(city: string): string {
 
 /**
  * Récupère la conversation du joueur (une seule, basée sur son dossier_ref)
- * ✅ CORRECTION : Lecture UNIQUEMENT depuis GitHub
+ * ✅ CORRECTION : Lecture depuis messagerie_messages (Supabase) pour la performance
  */
 export async function getPlayerConversation(
   userId: string,
@@ -251,23 +217,26 @@ export async function getPlayerConversation(
 
     console.log(`✅ [getPlayerConversation] Infos trouvées: dossier=${playerInfo.dossier_ref}, city=${playerInfo.city}`);
 
-    // 2. Lire les messages depuis GitHub
-    const messages = await getMessagesFromGitHub(playerInfo.dossier_ref);
+    // 2. Lire le dernier message depuis Supabase (instantané)
+    const { data: messages, error: msgError } = await supabase
+      .from("messagerie_messages")
+      .select("content, created_at")
+      .eq("dossier_ref", playerInfo.dossier_ref)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    // 3. Trouver le dernier message
     let lastMessage = "Aucun message";
     let lastMessageDate = new Date().toISOString();
 
-    if (messages.length > 0) {
-      const sorted = [...messages].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      lastMessage = sorted[0].content.substring(0, 100);
-      lastMessageDate = sorted[0].created_at;
+    if (msgError) {
+      console.error(`⚠️ [getPlayerConversation] Erreur lecture dernier message:`, msgError);
+    } else if (messages && messages.length > 0) {
+      lastMessage = messages[0].content.substring(0, 100);
+      lastMessageDate = messages[0].created_at;
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [getPlayerConversation] Terminé en ${duration}ms, ${messages.length} messages`);
+    console.log(`✅ [getPlayerConversation] Terminé en ${duration}ms`);
 
     return {
       dossier_ref: playerInfo.dossier_ref,
@@ -286,7 +255,7 @@ export async function getPlayerConversation(
 
 /**
  * Récupère tous les messages du joueur
- * ✅ CORRECTION : Lecture UNIQUEMENT depuis GitHub
+ * ✅ CORRECTION : Lecture depuis messagerie_messages (Supabase) pour la performance
  * ✅ CORRECTION : Tri chronologique (du plus ancien au plus récent)
  */
 export async function getPlayerMessages(
@@ -310,14 +279,25 @@ export async function getPlayerMessages(
       targetDossierRef = playerInfo.dossier_ref;
     }
 
-    // 2. Lire les messages depuis GitHub
-    const gitHubMessages = await getMessagesFromGitHub(targetDossierRef);
+    // 2. Lire les messages depuis Supabase (instantané)
+    const { data: messages, error: dbError } = await supabase
+      .from("messagerie_messages")
+      .select("*")
+      .eq("dossier_ref", targetDossierRef)
+      .order("created_at", { ascending: true });
 
-    // 3. Trier par date croissante (du plus ancien au plus récent)
-    gitHubMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    if (dbError) {
+      console.error(`❌ [getPlayerMessages] Erreur lecture Supabase:`, dbError);
+      return [];
+    }
 
-    // 4. Formater les messages pour le frontend
-    const formattedMessages: PlayerMessage[] = gitHubMessages.map((msg: GitHubMessage) => {
+    if (!messages || messages.length === 0) {
+      console.log(`ℹ️ [getPlayerMessages] Aucun message dans Supabase pour ${targetDossierRef}`);
+      return [];
+    }
+
+    // 3. Formater les messages pour le frontend
+    const formattedMessages: PlayerMessage[] = (messages as SupabaseMessage[]).map((msg) => {
       const isSystem = msg.sender_email === "system@vagondys.com";
       const isStaff = msg.sender_email.endsWith("@vagondys.com") && !isSystem;
       const isPlayer = msg.sender_email === userEmail.toLowerCase();
@@ -362,7 +342,7 @@ export async function getPlayerMessages(
 
 /**
  * Envoie un message depuis le joueur vers le staff de la ville choisie
- * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub
+ * ✅ CORRECTION : Écriture dans Supabase (instantané) + synchronisation asynchrone vers GitHub
  */
 export async function sendPlayerMessage(params: {
   dossierRef: string;
@@ -386,15 +366,40 @@ export async function sendPlayerMessage(params: {
 
   try {
     // 1. Vérifier que l'utilisateur a accès à ce dossier
-    const { data: account, error: accountError } = await supabase
+    // Vérifier d'abord dans messagerie_accounts (partenaires)
+    let account = null;
+    
+    const { data: partnerAccount, error: partnerError } = await supabase
       .from("messagerie_accounts")
       .select("full_name")
       .eq("user_id", userId)
       .eq("dossier_ref", dossierRef)
       .maybeSingle();
 
-    if (accountError) {
-      console.error(`⚠️ [sendPlayerMessage] Erreur vérification accès:`, accountError);
+    if (partnerError) {
+      console.error(`⚠️ [sendPlayerMessage] Erreur vérification partenaire:`, partnerError);
+    }
+
+    if (partnerAccount) {
+      account = partnerAccount;
+      console.log(`✅ [sendPlayerMessage] Partenaire validé pour ${dossierRef}`);
+    } else {
+      // Vérifier dans athletes (joueurs)
+      const { data: playerAccount, error: playerError } = await supabase
+        .from("athletes")
+        .select("full_name")
+        .eq("id", userId)
+        .eq("dossier_ref", dossierRef)
+        .maybeSingle();
+
+      if (playerError) {
+        console.error(`⚠️ [sendPlayerMessage] Erreur vérification joueur:`, playerError);
+      }
+
+      if (playerAccount) {
+        account = playerAccount;
+        console.log(`✅ [sendPlayerMessage] Joueur validé pour ${dossierRef}`);
+      }
     }
 
     if (!account) {
@@ -406,7 +411,7 @@ export async function sendPlayerMessage(params: {
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-    const newMessage: GitHubMessage = {
+    const newMessage = {
       id: messageId,
       dossier_ref: dossierRef,
       sender_email: userEmail.toLowerCase(),
@@ -420,13 +425,27 @@ export async function sendPlayerMessage(params: {
     
     console.log(`📝 [sendPlayerMessage] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}`);
 
-    // 3. Écrire dans GitHub
-    const success = await addMessageToGitHub(dossierRef, newMessage);
+    // 3. Écrire dans Supabase (instantané)
+    const { error: insertError } = await supabase
+      .from("messagerie_messages")
+      .insert([newMessage]);
 
-    if (!success) {
-      console.error(`❌ [sendPlayerMessage] Échec écriture GitHub pour ${dossierRef}`);
-      return { success: false, error: "Erreur lors de l’écriture dans GitHub" };
+    if (insertError) {
+      console.error(`❌ [sendPlayerMessage] Erreur insertion Supabase:`, insertError);
+      return { success: false, error: "Erreur lors de l'enregistrement du message" };
     }
+
+    // 4. Synchroniser vers GitHub (en arrière-plan, non bloquant)
+    const gitHubMessage: GitHubMessage = {
+      ...newMessage,
+      file_url: newMessage.file_url || null,
+      file_key: newMessage.file_key || null,
+    };
+    
+    // Lancer la synchronisation en arrière-plan (Promise non attendue)
+    syncMessageToGitHub(gitHubMessage).catch((err) => {
+      console.error(`⚠️ [sendPlayerMessage] Erreur synchro GitHub (non bloquante):`, err);
+    });
 
     revalidatePath("/espace-joueur/messagerie");
 

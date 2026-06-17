@@ -861,58 +861,87 @@ CREATE TRIGGER trigger_messagerie_conversations_updated_at
 
 -- ==========================================================
 -- 22. TABLE messagerie_messages (Messages de la messagerie privée)
+-- ✅ CORRECTION : Utilisation directe de dossier_ref (pas de conversation_id)
+-- ✅ AJOUT : Index sur dossier_ref pour des requêtes ultra-rapides
+-- ✅ AJOUT : Index composite pour les conversations récentes
 -- ==========================================================
 
 DROP TABLE IF EXISTS public.messagerie_messages CASCADE;
 CREATE TABLE public.messagerie_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id UUID NOT NULL REFERENCES messagerie_conversations(id) ON DELETE CASCADE,
-    sender_email TEXT NOT NULL,
-    sender_name TEXT NOT NULL,
-    content TEXT NOT NULL,
-    file_url TEXT,
-    file_key TEXT,
-    is_read BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT now()
+    dossier_ref TEXT NOT NULL,                          -- ✅ Référence du dossier (VGD-XXXXXX)
+    sender_email TEXT NOT NULL,                         -- ✅ Email de l'expéditeur
+    sender_name TEXT NOT NULL,                          -- ✅ Nom de l'expéditeur
+    content TEXT NOT NULL,                              -- ✅ Contenu du message
+    file_url TEXT,                                      -- ✅ URL du fichier joint (optionnel)
+    file_key TEXT,                                      -- ✅ Clé du fichier (optionnel)
+    is_read BOOLEAN DEFAULT false,                      -- ✅ Marqué comme lu
+    created_at TIMESTAMPTZ DEFAULT now()                -- ✅ Date de création
 );
 
--- Index
-CREATE INDEX IF NOT EXISTS idx_messagerie_messages_conversation_id ON messagerie_messages(conversation_id);
+-- ✅ Index pour des requêtes ultra-rapides
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_dossier_ref ON messagerie_messages(dossier_ref);
 CREATE INDEX IF NOT EXISTS idx_messagerie_messages_created_at ON messagerie_messages(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messagerie_messages_sender_email ON messagerie_messages(sender_email);
-CREATE INDEX IF NOT EXISTS idx_messagerie_messages_is_read ON messagerie_messages(is_read);
+CREATE INDEX IF NOT EXISTS idx_messagerie_messages_dossier_created ON messagerie_messages(dossier_ref, created_at DESC);
 
 -- RLS
 ALTER TABLE public.messagerie_messages ENABLE ROW LEVEL SECURITY;
 
--- Le participant peut voir les messages de ses conversations
+-- ✅ Le participant peut voir les messages de ses dossiers
 CREATE POLICY "Participant can read own messages"
     ON public.messagerie_messages
     FOR SELECT
     TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM messagerie_conversations
-            WHERE messagerie_conversations.id = messagerie_messages.conversation_id
-            AND messagerie_conversations.participant_email = auth.email()
+            SELECT 1 FROM messagerie_accounts
+            WHERE messagerie_accounts.dossier_ref = messagerie_messages.dossier_ref
+            AND messagerie_accounts.email = auth.email()
         )
     );
 
--- Le participant peut envoyer des messages
+-- ✅ Le participant peut envoyer des messages dans ses dossiers
 CREATE POLICY "Participant can insert messages"
     ON public.messagerie_messages
     FOR INSERT
     TO authenticated
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM messagerie_conversations
-            WHERE messagerie_conversations.id = conversation_id
-            AND messagerie_conversations.participant_email = auth.email()
+            SELECT 1 FROM messagerie_accounts
+            WHERE messagerie_accounts.dossier_ref = messagerie_messages.dossier_ref
+            AND messagerie_accounts.email = auth.email()
         )
         AND sender_email = auth.email()
     );
 
--- Le staff (admin) peut voir et insérer tous les messages
+-- ✅ Les joueurs peuvent voir les messages de leurs dossiers
+CREATE POLICY "Player can read own messages"
+    ON public.messagerie_messages
+    FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM athletes
+            WHERE athletes.dossier_ref = messagerie_messages.dossier_ref
+            AND athletes.email = auth.email()
+        )
+    );
+
+-- ✅ Les joueurs peuvent envoyer des messages dans leurs dossiers
+CREATE POLICY "Player can insert messages"
+    ON public.messagerie_messages
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM athletes
+            WHERE athletes.dossier_ref = messagerie_messages.dossier_ref
+            AND athletes.email = auth.email()
+        )
+        AND sender_email = auth.email()
+    );
+
+-- ✅ Le staff (admin) peut voir et insérer tous les messages
 CREATE POLICY "Staff full access messages"
     ON public.messagerie_messages
     FOR ALL
@@ -931,7 +960,7 @@ CREATE POLICY "Staff authenticated insert messages"
     TO authenticated
     WITH CHECK (auth.email() LIKE '%@vagondys.com');
 
--- Mise à jour is_read (staff uniquement)
+-- ✅ Mise à jour is_read (staff uniquement)
 CREATE POLICY "Staff authenticated update messages"
     ON public.messagerie_messages
     FOR UPDATE

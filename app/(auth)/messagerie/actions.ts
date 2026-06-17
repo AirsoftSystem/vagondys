@@ -46,7 +46,20 @@ interface MessagerieAccount {
   created_at: string;
 }
 
-// Interface pour un message GitHub (sans conversation_id)
+// Interface pour un message Supabase
+interface SupabaseMessage {
+  id: string;
+  dossier_ref: string;
+  sender_email: string;
+  sender_name: string;
+  content: string;
+  file_url: string | null;
+  file_key: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Interface pour un message GitHub
 interface GitHubMessage {
   id: string;
   dossier_ref: string;
@@ -73,87 +86,39 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ==========================================================
-// FONCTIONS UTILITAIRES GITHUB
+// SYNCHRONISATION GITHUB (ASYNCHRONE)
 // ==========================================================
 
 /**
- * Récupère les messages d'une conversation depuis GitHub
- * @param dossierRef - Référence du dossier (ex: VGD-XXXXXX)
- * @returns Liste des messages ou tableau vide
+ * Synchronise un message vers GitHub (en arrière-plan, non bloquant)
+ * @param message - Le message à synchroniser
  */
-async function getMessagesFromGitHub(dossierRef: string): Promise<GitHubMessage[]> {
-  const startTime = Date.now();
-  const path = `conversations/${dossierRef}/messages.json.gz`;
-  console.log(`📖 [GitHub] Lecture ${path}`);
-  
+async function syncMessageToGitHub(message: GitHubMessage): Promise<void> {
   try {
-    const messages = await GitHubDB.read<GitHubMessage[]>(path);
-    const count = messages?.length || 0;
-    const duration = Date.now() - startTime;
-    console.log(`✅ [GitHub] ${count} messages lus depuis ${path} en ${duration}ms`);
-    return messages || [];
-  } catch (err) {
-    const duration = Date.now() - startTime;
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    console.log(`⚠️ [GitHub] Lecture échouée pour ${path} en ${duration}ms: ${errorMsg}`);
-    return [];
-  }
-}
-
-/**
- * Écrit un message dans GitHub
- * @param dossierRef - Référence du dossier
- * @param message - Message à ajouter
- */
-async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): Promise<boolean> {
-  const startTime = Date.now();
-  const path = `conversations/${dossierRef}/messages.json.gz`;
-  console.log(`💾 [GitHub] Écriture dans ${path}`);
-  console.log(`📝 [GitHub] Message: id=${message.id}, sender=${message.sender_email}, content length=${message.content.length}`);
-  
-  try {
-    // Lire les messages existants
+    const path = `conversations/${message.dossier_ref}/messages.json.gz`;
+    
+    // Lire les messages existants sur GitHub
     let existingMessages: GitHubMessage[] = [];
     try {
       const existing = await GitHubDB.read<GitHubMessage[]>(path);
       if (existing && Array.isArray(existing)) {
         existingMessages = existing;
-        console.log(`📖 [GitHub] ${existingMessages.length} messages existants lus`);
-      } else if (existing) {
-        console.log(`⚠️ [GitHub] Données existantes non tableau, type: ${typeof existing}`);
-        existingMessages = [];
-      } else {
-        console.log(`ℹ️ [GitHub] Aucun message existant, création du fichier`);
-        existingMessages = [];
       }
-    } catch (readError) {
-      const readErrorMsg = readError instanceof Error ? readError.message : String(readError);
-      console.log(`ℹ️ [GitHub] Lecture existante échouée (fichier probablement inexistant): ${readErrorMsg}`);
+    } catch {
+      // Fichier inexistant, on commence avec un tableau vide
       existingMessages = [];
     }
     
-    // Ajouter le nouveau message
-    existingMessages.push(message);
-    console.log(`📊 [GitHub] Total messages après ajout: ${existingMessages.length}`);
-    
-    // Écrire dans GitHub (compressé)
-    const writeStartTime = Date.now();
-    await GitHubDB.write(path, existingMessages, { compress: true });
-    const writeDuration = Date.now() - writeStartTime;
-    const totalDuration = Date.now() - startTime;
-    
-    console.log(`✅ [GitHub] Message écrit dans GitHub en ${writeDuration}ms (total ${totalDuration}ms): ${path}`);
-    return true;
-    
+    // Vérifier si le message existe déjà (éviter les doublons)
+    const exists = existingMessages.some((m) => m.id === message.id);
+    if (!exists) {
+      existingMessages.push(message);
+      await GitHubDB.write(path, existingMessages, { compress: true });
+      console.log(`✅ [GitHub-Sync] Message ${message.id} synchronisé vers GitHub`);
+    }
   } catch (err) {
-    const totalDuration = Date.now() - startTime;
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    // ✅ Correction : remplacer "any" par un type explicite { status?: number }
-    const errorStatus = (err as { status?: number })?.status;
-    
-    console.error(`❌ [GitHub] Erreur écriture - status: ${errorStatus}, message: ${errorMsg}, durée: ${totalDuration}ms`);
-    console.error(`❌ [GitHub] Détail erreur:`, err);
-    return false;
+    // Non bloquant - on log l'erreur mais on ne bloque pas l'utilisateur
+    console.error(`⚠️ [GitHub-Sync] Erreur synchronisation pour ${message.dossier_ref}:`, err);
   }
 }
 
@@ -163,7 +128,7 @@ async function addMessageToGitHub(dossierRef: string, message: GitHubMessage): P
 
 /**
  * Récupère toutes les conversations d'un utilisateur
- * ✅ CORRECTION : Lecture depuis messagerie_accounts (pas messagerie_conversations)
+ * ✅ CORRECTION : Lecture depuis messagerie_messages (Supabase) pour la performance
  * Une conversation = un dossier_ref associé à l'utilisateur
  */
 export async function getUserConversations(userEmail: string): Promise<Conversation[]> {
@@ -189,21 +154,26 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
     
     console.log(`📁 [getUserConversations] ${accounts.length} comptes trouvés pour ${userEmail}`);
 
-    // Pour chaque dossier, récupérer le dernier message depuis GitHub
+    // Pour chaque dossier, récupérer le dernier message depuis Supabase (instantané)
     const conversations: Conversation[] = await Promise.all(
       accounts.map(async (account: MessagerieAccount) => {
         let lastMessage = "";
         let lastMessageDate = account.created_at;
         
         try {
-          const messages = await getMessagesFromGitHub(account.dossier_ref);
-          if (messages.length > 0) {
-            // Trier par date décroissante pour prendre le dernier
-            const sorted = [...messages].sort(
-              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            );
-            lastMessage = sorted[0].content.substring(0, 100);
-            lastMessageDate = sorted[0].created_at;
+          // ✅ Lire le dernier message depuis Supabase
+          const { data: messages, error: msgError } = await supabase
+            .from("messagerie_messages")
+            .select("content, created_at")
+            .eq("dossier_ref", account.dossier_ref)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          if (msgError) {
+            console.error(`⚠️ [getUserConversations] Erreur lecture dernier message pour ${account.dossier_ref}:`, msgError);
+          } else if (messages && messages.length > 0) {
+            lastMessage = messages[0].content.substring(0, 100);
+            lastMessageDate = messages[0].created_at;
             console.log(`📬 [getUserConversations] Dernier message pour ${account.dossier_ref}: ${lastMessage.substring(0, 30)}...`);
           }
         } catch (err) {
@@ -239,7 +209,7 @@ export async function getUserConversations(userEmail: string): Promise<Conversat
 
 /**
  * Récupère tous les messages d'une conversation spécifique
- * ✅ CORRECTION : Utilisation directe de dossierRef (pas conversationId)
+ * ✅ CORRECTION : Lecture depuis messagerie_messages (Supabase) pour la performance
  */
 export async function getConversationMessages(
   dossierRef: string,
@@ -282,14 +252,25 @@ export async function getConversationMessages(
       return [];
     }
 
-    // 2. Lire les messages depuis GITHUB
-    const gitHubMessages = await getMessagesFromGitHub(dossierRef);
+    // 2. Lire les messages depuis Supabase (instantané)
+    const { data: messages, error: dbError } = await supabase
+      .from("messagerie_messages")
+      .select("*")
+      .eq("dossier_ref", dossierRef)
+      .order("created_at", { ascending: true });
 
-    // 3. Trier par date croissante
-    gitHubMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    if (dbError) {
+      console.error(`❌ [getConversationMessages] Erreur lecture Supabase:`, dbError);
+      return [];
+    }
 
-    // 4. Formater les messages pour le frontend
-    const formattedMessages: Message[] = gitHubMessages.map((msg: GitHubMessage) => {
+    if (!messages || messages.length === 0) {
+      console.log(`ℹ️ [getConversationMessages] Aucun message dans Supabase pour ${dossierRef}`);
+      return [];
+    }
+
+    // 3. Formater les messages pour le frontend
+    const formattedMessages: Message[] = (messages as SupabaseMessage[]).map((msg) => {
       const isStaffSender = msg.sender_email.endsWith("@vagondys.com") || msg.sender_email === "system@vagondys.com";
       const isSystem = msg.sender_email === "system@vagondys.com";
       
@@ -319,8 +300,7 @@ export async function getConversationMessages(
 
 /**
  * Envoie un nouveau message dans une conversation
- * ✅ CORRECTION : Utilisation directe de dossierRef (pas conversationId)
- * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
+ * ✅ CORRECTION : Écriture dans Supabase (instantané) + synchronisation asynchrone vers GitHub
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
@@ -398,7 +378,7 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
-    const newMessage: GitHubMessage = {
+    const newMessage = {
       id: messageId,
       dossier_ref: dossierRef,
       sender_email: userEmail.toLowerCase(),
@@ -412,15 +392,29 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     
     console.log(`📝 [sendMessage] Message préparé - id: ${messageId}, sender: ${senderName}, content length: ${newMessage.content.length}`);
 
-    // 3. Écrire UNIQUEMENT dans GitHub
-    const success = await addMessageToGitHub(dossierRef, newMessage);
+    // 3. Écrire dans Supabase (instantané)
+    const { error: insertError } = await supabase
+      .from("messagerie_messages")
+      .insert([newMessage]);
 
-    if (!success) {
-      console.error(`❌ [sendMessage] Échec écriture GitHub pour ${dossierRef}`);
-      return { success: false, error: "Erreur lors de l’écriture dans GitHub" };
+    if (insertError) {
+      console.error(`❌ [sendMessage] Erreur insertion Supabase:`, insertError);
+      return { success: false, error: "Erreur lors de l'enregistrement du message" };
     }
 
-    // ✅ 4. Plus de mise à jour de messagerie_conversations
+    // 4. Synchroniser vers GitHub (en arrière-plan, non bloquant)
+    // On ne attend pas la fin de la synchronisation pour ne pas bloquer l'utilisateur
+    const gitHubMessage: GitHubMessage = {
+      ...newMessage,
+      file_url: newMessage.file_url || null,
+      file_key: newMessage.file_key || null,
+    };
+    
+    // Lancer la synchronisation en arrière-plan (Promise non attendue)
+    syncMessageToGitHub(gitHubMessage).catch((err) => {
+      console.error(`⚠️ [sendMessage] Erreur synchro GitHub (non bloquante):`, err);
+    });
+
     revalidatePath("/messagerie");
 
     const duration = Date.now() - startTime;
