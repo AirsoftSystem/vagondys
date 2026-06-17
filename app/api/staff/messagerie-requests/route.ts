@@ -14,6 +14,8 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION : Exclusion du compte admin (VGD-ADMIN001)
  * ✅ AJOUT : Récupération des JOUEURS (athlètes) en plus des PARTENAIRES
  * ✅ AJOUT : Dernier message de chaque conversation
+ * ✅ AJOUT : Détermination automatique du type (sponsor, client, fournisseur, etc.)
+ * ✅ AJOUT : Tri alphabétique des résultats
  */
 export async function GET() {
   try {
@@ -94,7 +96,7 @@ export async function GET() {
     const { data: partnerAccounts, error: fetchPartnerError } = await supabaseAdmin
       .from("messagerie_accounts")
       .select("*")
-      .neq("dossier_ref", "VGD-ADMIN001") // ✅ Exclusion du compte admin
+      .neq("dossier_ref", "VGD-ADMIN001")
       .order("created_at", { ascending: false });
 
     if (fetchPartnerError) {
@@ -137,7 +139,7 @@ export async function GET() {
     // ✅ 9. Récupérer TOUS les messages pour vérifier quels dossiers ont des messages
     const allDossierRefs = [...partnerDossierRefs, ...playerDossierRefs];
     let lastMessagesMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
-    const dossierWithMessages = new Set<string>(); // ✅ CORRECTION : let → const
+    const dossierWithMessages = new Set<string>();
 
     if (allDossierRefs.length > 0) {
       // Récupérer tous les messages par dossier
@@ -170,38 +172,92 @@ export async function GET() {
       }
     }
 
+    // ✅ FONCTION : Déterminer le type en fonction du company ou reason
+    // ✅ CORRECTION : Ajout de "player" dans le type de retour
+    function determineType(company: string | null, reason: string): "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player" {
+      const companyLower = (company || "").toLowerCase();
+      const reasonLower = reason.toLowerCase();
+
+      // Mots-clés pour chaque type
+      const keywords: Record<string, string[]> = {
+        "sponsor": ["sponsor", "sponsoring", "partenaire financier", "mécène"],
+        "client": ["client", "acheteur", "consommateur", "utilisateur"],
+        "supplier": ["fournisseur", "prestataire", "sous-traitant", "fourniture"],
+        "advertising": ["publicité", "pub", "marketing", "promotion", "annonceur"],
+        "communication": ["communication", "presse", "media", "relations publiques", "rp"]
+      };
+
+      // Vérifier dans le company
+      for (const [type, words] of Object.entries(keywords)) {
+        for (const word of words) {
+          if (companyLower.includes(word)) {
+            return type as "sponsor" | "client" | "supplier" | "advertising" | "communication";
+          }
+        }
+      }
+
+      // Vérifier dans le reason
+      for (const [type, words] of Object.entries(keywords)) {
+        for (const word of words) {
+          if (reasonLower.includes(word)) {
+            return type as "sponsor" | "client" | "supplier" | "advertising" | "communication";
+          }
+        }
+      }
+
+      // Si "joueur" ou "player" dans le reason
+      if (reasonLower.includes("joueur") || reasonLower.includes("player")) {
+        return "player";
+      }
+
+      // Si "partenaire" ou "partner" dans le reason
+      if (reasonLower.includes("partenaire") || reasonLower.includes("partner")) {
+        return "partner";
+      }
+
+      // Par défaut : divers
+      return "divers";
+    }
+
     // ✅ 10. Transformer les demandes EN ATTENTE en format compatible
-    const pendingRequestsFormatted = (pendingRequests || []).map((request) => ({
-      id: request.id,
-      full_name: request.full_name,
-      email: request.email,
-      company: request.company || null,
-      phone: request.phone || null,
-      reason: request.reason,
-      status: "pending" as const,
-      reviewed_by: request.reviewed_by || null,
-      reviewed_at: request.reviewed_at || null,
-      created_at: request.created_at || new Date().toISOString(),
-      dossier_ref: request.dossier_ref || null,
-      city: request.city || null,
-      kbis_url: request.kbis_url || null,
-      kbis_key: request.kbis_key || null,
-      kbis_validated: request.kbis_validated || false,
-      kbis_scan_result: request.kbis_scan_result || null,
-      type: "pending" as const, // ✅ Type "pending" pour les demandes en attente
-      account_status: "not_created",
-      last_message: null,
-      last_message_date: null,
-    }));
+    const pendingRequestsFormatted = (pendingRequests || []).map((request) => {
+      // Déterminer le type pour les demandes en attente
+      const type = determineType(request.company, request.reason);
+      
+      return {
+        id: request.id,
+        full_name: request.full_name,
+        email: request.email,
+        company: request.company || null,
+        phone: request.phone || null,
+        reason: request.reason,
+        status: "pending" as const,
+        reviewed_by: request.reviewed_by || null,
+        reviewed_at: request.reviewed_at || null,
+        created_at: request.created_at || new Date().toISOString(),
+        dossier_ref: request.dossier_ref || null,
+        city: request.city || null,
+        kbis_url: request.kbis_url || null,
+        kbis_key: request.kbis_key || null,
+        kbis_validated: request.kbis_validated || false,
+        kbis_scan_result: request.kbis_scan_result || null,
+        type: type,
+        account_status: "not_created",
+        last_message: null,
+        last_message_date: null,
+      };
+    });
 
     // ✅ 11. Transformer les partenaires (uniquement ceux avec des messages)
     const partnerRequests = (partnerAccounts || [])
       .filter((account) => {
-        // ✅ Ne garder que les comptes qui ont des messages
         return dossierWithMessages.has(account.dossier_ref);
       })
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
+        
+        // Déterminer le type en fonction du company ou reason
+        const type = determineType(account.company, "Compte partenaire VAGONDYS");
         
         return {
           id: account.id || `partner_${Date.now()}`,
@@ -220,7 +276,7 @@ export async function GET() {
           kbis_key: null,
           kbis_validated: false,
           kbis_scan_result: null,
-          type: "partner" as const, // ✅ Type "partner" pour les conversations actives
+          type: type,
           account_status: account.status === "active" ? "active" : "inactive",
           last_message: lastMsg?.content || null,
           last_message_date: lastMsg?.created_at || null,
@@ -230,7 +286,6 @@ export async function GET() {
     // ✅ 12. Transformer les joueurs (uniquement ceux avec des messages)
     const playerRequests = (players || [])
       .filter((player) => {
-        // ✅ Ne garder que les joueurs qui ont des messages
         return dossierWithMessages.has(player.dossier_ref);
       })
       .map((player) => {
@@ -253,7 +308,7 @@ export async function GET() {
           kbis_key: null,
           kbis_validated: false,
           kbis_scan_result: null,
-          type: "player" as const, // ✅ Type "player" pour les joueurs actifs
+          type: "player" as const,
           account_status: player.status === "ACTIF" ? "active" : "inactive",
           last_message: lastMsg?.content || null,
           last_message_date: lastMsg?.created_at || null,
@@ -263,19 +318,14 @@ export async function GET() {
     // ✅ 13. Fusionner les trois listes
     const allRequests = [...pendingRequestsFormatted, ...partnerRequests, ...playerRequests];
 
-    // Trier par date (les demandes en attente en premier, puis par date du dernier message)
+    // ✅ 14. TRI ALPHABÉTIQUE par nom du correspondant
     allRequests.sort((a, b) => {
-      // Les demandes en attente passent en premier
-      if (a.type === "pending" && b.type !== "pending") return -1;
-      if (b.type === "pending" && a.type !== "pending") return 1;
-      
-      // Sinon trier par date du dernier message décroissante
-      const dateA = a.last_message_date ? new Date(a.last_message_date).getTime() : 0;
-      const dateB = b.last_message_date ? new Date(b.last_message_date).getTime() : 0;
-      return dateB - dateA;
+      const nameA = a.full_name?.toLowerCase() || "";
+      const nameB = b.full_name?.toLowerCase() || "";
+      return nameA.localeCompare(nameB);
     });
 
-    // ✅ 14. Récupérer les comptes messagerie associés (pour le statut d'activation)
+    // ✅ 15. Récupérer les comptes messagerie associés (pour le statut d'activation)
     const emails = allRequests.map(r => r.email);
     const { data: accounts, error: accountsError } = await supabaseAdmin
       .from("messagerie_accounts")
@@ -287,7 +337,7 @@ export async function GET() {
       // Non bloquant – on continue sans le statut
     }
 
-    // ✅ 15. Construire un map email -> status
+    // ✅ 16. Construire un map email -> status
     const accountStatusMap = new Map();
     if (accounts) {
       for (const account of accounts) {
@@ -295,7 +345,7 @@ export async function GET() {
       }
     }
 
-    // ✅ 16. Ajouter le champ account_status à chaque demande
+    // ✅ 17. Ajouter le champ account_status à chaque demande
     const enrichedRequests = allRequests.map(request => ({
       ...request,
       account_status: accountStatusMap.get(request.email) || "not_created",

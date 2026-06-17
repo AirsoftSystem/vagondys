@@ -25,7 +25,13 @@ import {
   DatabaseBackup,
   UserCircle,
   Users,
-  Hourglass
+  Hourglass,
+  Sparkles,      // Sponsor
+  User,           // Client
+  Package,        // Fournisseur
+  Megaphone,      // Publicité
+  Network,        // Communication
+  MoreHorizontal  // Divers
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -55,8 +61,8 @@ interface MessagerieRequest {
   // ✅ NOUVEAUX CHAMPS
   account_status?: "active" | "inactive" | "suspended" | "not_created";
   is_online?: boolean;
-  // ✅ AJOUT : Type de messagerie (partenaire, joueur ou pending)
-  type?: "partner" | "player" | "pending";
+  // ✅ AJOUT : Type de messagerie (partenaire, joueur, sponsor, client, fournisseur, publicite, communication, divers)
+  type?: "partner" | "player" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "pending";
   // ✅ AJOUT : Dernier message
   last_message?: string;
   last_message_date?: string;
@@ -137,30 +143,73 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
   }
 }
 
-// ✅ FONCTION POUR LE BADGE DE TYPE
+// ✅ FONCTION POUR LE BADGE DE TYPE (avec tous les nouveaux types)
 function getTypeBadge(type?: string) {
-  if (type === "player") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600/20 border border-blue-600/30">
-        <UserCircle className="w-3 h-3 text-blue-500" />
-        <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">Joueur</span>
-      </span>
-    );
+  switch (type) {
+    case "player":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600/20 border border-blue-600/30">
+          <UserCircle className="w-3 h-3 text-blue-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">Joueur</span>
+        </span>
+      );
+    case "sponsor":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-pink-600/20 border border-pink-600/30">
+          <Sparkles className="w-3 h-3 text-pink-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-pink-500">Sponsor</span>
+        </span>
+      );
+    case "client":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600/20 border border-teal-600/30">
+          <User className="w-3 h-3 text-teal-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-teal-500">Client</span>
+        </span>
+      );
+    case "supplier":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-600/30">
+          <Package className="w-3 h-3 text-amber-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-amber-500">Fournisseur</span>
+        </span>
+      );
+    case "advertising":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600/20 border border-indigo-600/30">
+          <Megaphone className="w-3 h-3 text-indigo-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-500">Publicité</span>
+        </span>
+      );
+    case "communication":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-600/20 border border-cyan-600/30">
+          <Network className="w-3 h-3 text-cyan-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-cyan-500">Communication</span>
+        </span>
+      );
+    case "divers":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-600/20 border border-gray-600/30">
+          <MoreHorizontal className="w-3 h-3 text-gray-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-500">Divers</span>
+        </span>
+      );
+    case "pending":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-600/20 border border-yellow-600/30">
+          <Hourglass className="w-3 h-3 text-yellow-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-yellow-500">En attente</span>
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-600/30">
+          <Building2 className="w-3 h-3 text-purple-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-purple-500">Partenaire</span>
+        </span>
+      );
   }
-  if (type === "pending") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-600/20 border border-yellow-600/30">
-        <Hourglass className="w-3 h-3 text-yellow-500" />
-        <span className="text-[8px] font-black uppercase tracking-widest text-yellow-500">En attente</span>
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-600/30">
-      <Building2 className="w-3 h-3 text-purple-500" />
-      <span className="text-[8px] font-black uppercase tracking-widest text-purple-500">Partenaire</span>
-    </span>
-  );
 }
 
 export default function AdminMessageriePage() {
@@ -224,13 +273,20 @@ export default function AdminMessageriePage() {
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      setRequests(allRequests);
+      // ✅ TRI ALPHABÉTIQUE par nom du correspondant
+      const sortedRequests = [...allRequests].sort((a, b) => {
+        const nameA = a.full_name?.toLowerCase() || "";
+        const nameB = b.full_name?.toLowerCase() || "";
+        return nameA.localeCompare(nameB);
+      });
+      
+      setRequests(sortedRequests);
       
       const stats: GlobalRequestsStats = {
-        total: allRequests.length,
-        pending: allRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
-        approved: allRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
-        rejected: allRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
+        total: sortedRequests.length,
+        pending: sortedRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
+        approved: sortedRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
+        rejected: sortedRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
       };
       setGlobalStats(stats);
       
@@ -857,7 +913,12 @@ export default function AdminMessageriePage() {
           <option value="all">Tous les types</option>
           <option value="partner">Partenaires</option>
           <option value="player">Joueurs</option>
-          <option value="pending">En attente</option>
+          <option value="sponsor">Sponsors</option>
+          <option value="client">Clients</option>
+          <option value="supplier">Fournisseurs</option>
+          <option value="advertising">Publicité</option>
+          <option value="communication">Communication</option>
+          <option value="divers">Divers</option>
         </select>
         <button
           onClick={loadRequests}
