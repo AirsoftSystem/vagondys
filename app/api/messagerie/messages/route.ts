@@ -26,11 +26,12 @@ interface GitHubMessage {
  * - Récupère tous les messages d’une conversation depuis GitHub
  * * POST /api/messagerie/messages
  * - Envoie un nouveau message (écriture uniquement dans GitHub)
- * - Body: { dossierRef, content, fileUrl?, fileKey? }
+ * - Body: { dossierRef, content, fileUrl?, fileKey?, senderType? }
  * 
  * ✅ CORRECTION : Plus d'utilisation de messagerie_conversations
  * ✅ CORRECTION : Utilisation directe de dossier_ref comme identifiant
- * ✅ CORRECTION : Vérification des droits via messagerie_accounts
+ * ✅ CORRECTION : Vérification des droits via messagerie_accounts OU athletes
+ * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
  */
 export async function GET(request: NextRequest) {
@@ -100,50 +101,88 @@ export async function GET(request: NextRequest) {
     let hasAccess = false;
     let participantName = "";
     let participantEmail = "";
+    let participantType: "partner" | "player" = "partner";
 
     if (isStaff) {
       // Le staff a accès à tous les dossiers
       hasAccess = true;
       console.log(`🔓 [GET] Staff - accès automatique au dossier ${dossierRef}`);
       
-      // Récupérer les infos du participant pour l'affichage
-      const { data: account, error: accountError } = await supabaseAdmin
+      // ✅ Récupérer les infos du participant (partenaire OU joueur)
+      // D'abord chercher dans messagerie_accounts (partenaires)
+      let account = null;
+      
+      const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
       
-      if (accountError) {
-        console.error(`⚠️ [GET] Erreur récupération compte pour ${dossierRef}:`, accountError.message);
+      if (partnerAccount) {
+        account = partnerAccount;
+        participantType = "partner";
+        console.log(`👤 [GET] Partenaire trouvé: ${partnerAccount.full_name} (${partnerAccount.email})`);
+      } else {
+        // ✅ Si pas trouvé dans messagerie_accounts, chercher dans athletes (joueurs)
+        const { data: playerAccount } = await supabaseAdmin
+          .from("athletes")
+          .select("full_name, email")
+          .eq("dossier_ref", dossierRef)
+          .maybeSingle();
+        
+        if (playerAccount) {
+          account = playerAccount;
+          participantType = "player";
+          console.log(`👤 [GET] Joueur trouvé: ${playerAccount.full_name} (${playerAccount.email})`);
+        }
       }
       
       if (account) {
         participantName = account.full_name;
         participantEmail = account.email;
-        console.log(`👤 [GET] Participant trouvé: ${participantName} (${participantEmail})`);
+        console.log(`👤 [GET] Participant trouvé: ${participantName} (${participantEmail}) - Type: ${participantType}`);
       } else {
         console.log(`⚠️ [GET] Aucun compte trouvé pour le dossier ${dossierRef}`);
       }
     } else {
-      // Un partenaire ne peut voir que son propre dossier
-      console.log(`🔍 [GET] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
+      // ✅ Un partenaire ou joueur ne peut voir que son propre dossier
+      console.log(`🔍 [GET] Vérification accès pour ${userEmail} sur ${dossierRef}`);
       
-      const { data: account, error: accountError } = await supabaseAdmin
+      // Vérifier dans messagerie_accounts (partenaires)
+      let account = null;
+      
+      const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("dossier_ref, full_name, email")
         .eq("email", userEmail)
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
 
-      if (accountError) {
-        console.error(`⚠️ [GET] Erreur vérification accès partenaire:`, accountError.message);
+      if (partnerAccount) {
+        account = partnerAccount;
+        participantType = "partner";
+        console.log(`✅ [GET] Partenaire validé pour ${dossierRef}`);
+      } else {
+        // ✅ Si pas trouvé, vérifier dans athletes (joueurs)
+        const { data: playerAccount } = await supabaseAdmin
+          .from("athletes")
+          .select("dossier_ref, full_name, email")
+          .eq("email", userEmail)
+          .eq("dossier_ref", dossierRef)
+          .maybeSingle();
+
+        if (playerAccount) {
+          account = playerAccount;
+          participantType = "player";
+          console.log(`✅ [GET] Joueur validé pour ${dossierRef}`);
+        }
       }
 
       if (account) {
         hasAccess = true;
         participantName = account.full_name;
         participantEmail = account.email;
-        console.log(`✅ [GET] Accès partenaire validé pour ${dossierRef}`);
+        console.log(`✅ [GET] Accès validé pour ${dossierRef} (${participantType})`);
       } else {
         console.log(`❌ [GET] Aucun compte trouvé pour ${userEmail} avec dossier ${dossierRef}`);
       }
@@ -194,6 +233,7 @@ export async function GET(request: NextRequest) {
       dossier_ref: dossierRef,
       participant_email: participantEmail,
       participant_name: participantName,
+      participant_type: participantType,
       messages: messages,
     });
   } catch (error) {
@@ -213,9 +253,10 @@ export async function GET(request: NextRequest) {
  * 
  * ✅ CORRECTION : Écriture UNIQUEMENT dans GitHub (plus de Supabase)
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
+ * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
  * 
- * - Notification email au partenaire lorsque le staff envoie un message
+ * - Notification email au partenaire/joueur lorsque le staff envoie un message
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -267,7 +308,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Récupérer le body (avec dossierRef au lieu de conversationId)
     const body = await request.json();
-    const { dossierRef, content, fileUrl, fileKey } = body;
+    const { dossierRef, content, fileUrl, fileKey, senderType } = body;
 
     if (!dossierRef || !content || !content.trim()) {
       console.error(`❌ [POST] Paramètres invalides - dossierRef: ${dossierRef}, content length: ${content?.length || 0}`);
@@ -276,7 +317,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.log(`📁 [POST] dossierRef: ${dossierRef}, content length: ${content.length}, hasFile: ${!!fileUrl}`);
+    console.log(`📁 [POST] dossierRef: ${dossierRef}, content length: ${content.length}, hasFile: ${!!fileUrl}, senderType: ${senderType || "auto"}`);
 
     // 4. Connexion admin pour les opérations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -285,54 +326,92 @@ export async function POST(request: NextRequest) {
     let hasAccess = false;
     let participantEmail = "";
     let participantName = "";
+    let participantType: "partner" | "player" = "partner";
 
     if (isStaff) {
       // Le staff a accès à tous les dossiers
       hasAccess = true;
       console.log(`🔓 [POST] Staff - accès automatique au dossier ${dossierRef}`);
       
-      // Récupérer les infos du participant
-      const { data: account, error: accountError } = await supabaseAdmin
+      // ✅ Récupérer les infos du participant (partenaire OU joueur)
+      let account = null;
+      
+      // D'abord chercher dans messagerie_accounts (partenaires)
+      const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
       
-      if (accountError) {
-        console.error(`⚠️ [POST] Erreur récupération compte:`, accountError.message);
+      if (partnerAccount) {
+        account = partnerAccount;
+        participantType = "partner";
+        console.log(`👤 [POST] Partenaire trouvé: ${partnerAccount.full_name} (${partnerAccount.email})`);
+      } else {
+        // ✅ Si pas trouvé dans messagerie_accounts, chercher dans athletes (joueurs)
+        const { data: playerAccount } = await supabaseAdmin
+          .from("athletes")
+          .select("full_name, email")
+          .eq("dossier_ref", dossierRef)
+          .maybeSingle();
+        
+        if (playerAccount) {
+          account = playerAccount;
+          participantType = "player";
+          console.log(`👤 [POST] Joueur trouvé: ${playerAccount.full_name} (${playerAccount.email})`);
+        }
       }
       
       if (account) {
         participantName = account.full_name;
         participantEmail = account.email;
-        console.log(`👤 [POST] Participant trouvé: ${participantName} (${participantEmail})`);
+        console.log(`👤 [POST] Participant trouvé: ${participantName} (${participantEmail}) - Type: ${participantType}`);
       } else {
-        console.error(`❌ [POST] Dossier ${dossierRef} non trouvé dans messagerie_accounts`);
+        console.error(`❌ [POST] Dossier ${dossierRef} non trouvé dans messagerie_accounts ou athletes`);
         return NextResponse.json(
           { error: "Dossier introuvable" },
           { status: 404 }
         );
       }
     } else {
-      // Un partenaire ne peut envoyer que depuis son propre dossier
-      console.log(`🔍 [POST] Vérification accès partenaire pour ${userEmail} sur ${dossierRef}`);
+      // ✅ Un partenaire ou joueur ne peut envoyer que depuis son propre dossier
+      console.log(`🔍 [POST] Vérification accès pour ${userEmail} sur ${dossierRef}`);
       
-      const { data: account, error: accountError } = await supabaseAdmin
+      let account = null;
+      
+      // Vérifier dans messagerie_accounts (partenaires)
+      const { data: partnerAccount } = await supabaseAdmin
         .from("messagerie_accounts")
         .select("full_name, email")
         .eq("email", userEmail)
         .eq("dossier_ref", dossierRef)
         .maybeSingle();
 
-      if (accountError) {
-        console.error(`⚠️ [POST] Erreur vérification accès partenaire:`, accountError.message);
+      if (partnerAccount) {
+        account = partnerAccount;
+        participantType = "partner";
+        console.log(`✅ [POST] Partenaire validé pour ${dossierRef}`);
+      } else {
+        // ✅ Si pas trouvé, vérifier dans athletes (joueurs)
+        const { data: playerAccount } = await supabaseAdmin
+          .from("athletes")
+          .select("full_name, email")
+          .eq("email", userEmail)
+          .eq("dossier_ref", dossierRef)
+          .maybeSingle();
+
+        if (playerAccount) {
+          account = playerAccount;
+          participantType = "player";
+          console.log(`✅ [POST] Joueur validé pour ${dossierRef}`);
+        }
       }
 
       if (account) {
         hasAccess = true;
         participantName = account.full_name;
         participantEmail = account.email;
-        console.log(`✅ [POST] Accès partenaire validé pour ${dossierRef}`);
+        console.log(`✅ [POST] Accès validé pour ${dossierRef} (${participantType})`);
       } else {
         console.error(`❌ [POST] Aucun compte trouvé pour ${userEmail} avec dossier ${dossierRef}`);
       }
@@ -346,7 +425,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Préparer le nouveau message
+    // 6. Déterminer le nom de l'expéditeur
+    let senderDisplayName = "";
+    if (isStaff) {
+      senderDisplayName = `Staff ${userName}`;
+    } else if (participantType === "player") {
+      senderDisplayName = participantName || "Joueur";
+    } else {
+      senderDisplayName = participantName || "Partenaire";
+    }
+
+    // 7. Préparer le nouveau message
     const now = new Date().toISOString();
     const messageId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
@@ -354,16 +443,16 @@ export async function POST(request: NextRequest) {
       id: messageId,
       dossier_ref: dossierRef,
       sender_email: userEmail,
-      sender_name: isStaff ? `Staff ${userName}` : participantName,
+      sender_name: senderDisplayName,
       content: content.trim(),
       file_url: fileUrl || null,
       file_key: fileKey || null,
       is_read: false,
       created_at: now,
     };
-    console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}, content length: ${newMessage.content.length}`);
+    console.log(`📝 [POST] Message préparé - id: ${messageId}, sender: ${newMessage.sender_name}, type: ${participantType}`);
 
-    // ✅ 7. Écrire le message UNIQUEMENT dans GITHUB
+    // ✅ 8. Écrire le message UNIQUEMENT dans GITHUB
     const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
     console.log(`💾 [POST] Tentative d'écriture GitHub: ${gitHubPath}`);
     
@@ -402,7 +491,6 @@ export async function POST(request: NextRequest) {
       const errorStatus = (gitHubError as { status?: number })?.status;
       console.error(`❌ [POST] Erreur écriture GitHub - status: ${errorStatus}, message: ${errorMessage}`);
       
-      // Retourner une erreur explicite
       return NextResponse.json(
         { 
           error: "Erreur lors de l’envoi du message (GitHub)", 
@@ -413,12 +501,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ 8. Plus de mise à jour de messagerie_conversations
-
-    // 9. Envoyer une notification email au partenaire lorsque le staff envoie un message
+    // 9. Envoyer une notification email au destinataire lorsque le staff envoie un message
     if (isStaff && participantEmail) {
-      console.log(`📧 [POST] Envoi notification email à ${participantEmail}`);
+      console.log(`📧 [POST] Envoi notification email à ${participantEmail} (${participantType})`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+      
+      // ✅ URL de la messagerie selon le type
+      const messagerieUrl = participantType === "player" 
+        ? `${frontendUrl}/espace-joueur/messagerie`
+        : `${frontendUrl}/messagerie`;
       
       const notificationHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
@@ -441,7 +532,7 @@ export async function POST(request: NextRequest) {
               Connectez-vous à votre messagerie privée pour consulter et répondre à ce message.
             </p>
           </div>
-          <a href="${frontendUrl}/messagerie" style="background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block; margin:20px 0;">
+          <a href="${messagerieUrl}" style="background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block; margin:20px 0;">
             ACCÉDER À MA MESSAGERIE
           </a>
           <p style="margin-top:30px; font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
@@ -454,7 +545,7 @@ export async function POST(request: NextRequest) {
         </div>
       `;
 
-      const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${frontendUrl}/messagerie\n\nRéférence dossier : ${dossierRef}`;
+      const textContent = `VAGONDYS - Nouveau message\n\nBonjour ${participantName},\n\nVous avez reçu un nouveau message de l'équipe VAGONDYS.\n\nConnectez-vous à votre messagerie privée pour le consulter : ${messagerieUrl}\n\nRéférence dossier : ${dossierRef}`;
 
       try {
         await sendGeneralEmail(
@@ -464,22 +555,23 @@ export async function POST(request: NextRequest) {
           notificationHtml,
           "no-reply@vagondys.com"
         );
-        console.log(`✅ [POST] Email notification envoyé à ${participantEmail}`);
+        console.log(`✅ [POST] Email notification envoyé à ${participantEmail} (${participantType})`);
       } catch (emailError) {
         console.error(`❌ [POST] Erreur envoi email à ${participantEmail}:`, emailError instanceof Error ? emailError.message : String(emailError));
         // Non bloquant
       }
     }
     
-    // 10. Si le message vient d’un partenaire, notifier le staff
+    // 10. Si le message vient d’un partenaire ou joueur, notifier le staff
     if (!isStaff) {
-      console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName}`);
+      console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName} (${participantType})`);
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
       const notificationHtml = `
         <div style="background:black; color:white; padding:20px; font-family:sans-serif;">
           <h2 style="color:#dc2626;">📩 Nouveau message de ${participantName}</h2>
+          <p><strong>Type :</strong> ${participantType === "player" ? "Joueur" : "Partenaire"}</p>
           <p><strong>Dossier :</strong> ${dossierRef}</p>
           <p><strong>Message :</strong></p>
           <div style="background:#09090b; padding:15px; border-radius:8px; margin:10px 0;">
@@ -494,12 +586,12 @@ export async function POST(request: NextRequest) {
       try {
         await sendGeneralEmail(
           staffEmails.join(","),
-          `📩 Nouveau message de ${participantName}`,
+          `📩 Nouveau message de ${participantName} (${participantType === "player" ? "Joueur" : "Partenaire"})`,
           `Nouveau message dans le dossier ${dossierRef}:\n\n${content.trim()}`,
           notificationHtml,
           "no-reply@vagondys.com"
         );
-        console.log(`✅ [POST] Notification staff envoyée pour ${dossierRef}`);
+        console.log(`✅ [POST] Notification staff envoyée pour ${dossierRef} (${participantType})`);
       } catch (emailError) {
         console.error(`❌ [POST] Erreur envoi notification staff:`, emailError instanceof Error ? emailError.message : String(emailError));
         // Non bloquant

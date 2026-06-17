@@ -11,6 +11,7 @@ import { cookies } from "next/headers";
  * Sécurité : Réservé au staff (email @vagondys.com ou dans staff_registry)
  * 
  * ✅ CORRECTION : Ajout du statut d'activation du compte (messagerie_accounts.status)
+ * ✅ AJOUT : Récupération des JOUEURS (athlètes) en plus des PARTENAIRES
  */
 export async function GET() {
   try {
@@ -54,9 +55,10 @@ export async function GET() {
 
     let isStaff = isStaffEmail;
 
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     if (!isStaff) {
       // Vérification supplémentaire dans staff_registry
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
       const { data: staffRecord } = await supabaseAdmin
         .from("staff_registry")
         .select("email")
@@ -73,27 +75,65 @@ export async function GET() {
       );
     }
 
-    // 4. Récupérer les demandes (ordre chronologique inverse)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: requests, error: fetchError } = await supabaseAdmin
+    // ✅ 4. Récupérer les demandes PARTENAIRES (pending_messagerie_requests)
+    const { data: partnerRequests, error: fetchPartnerError } = await supabaseAdmin
       .from("pending_messagerie_requests")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (fetchError) {
-      console.error("Erreur récupération demandes:", fetchError);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des demandes" },
-        { status: 500 }
-      );
+    if (fetchPartnerError) {
+      console.error("Erreur récupération demandes partenaires:", fetchPartnerError);
+      // Non bloquant - on continue
     }
 
-    if (!requests || requests.length === 0) {
-      return NextResponse.json({ requests: [] });
+    // ✅ 5. Récupérer les JOUEURS (athlètes) avec un dossier_ref
+    const { data: players, error: fetchPlayersError } = await supabaseAdmin
+      .from("athletes")
+      .select("id, full_name, email, phone, dossier_ref, city, country, created_at, status")
+      .not("dossier_ref", "is", null)
+      .order("created_at", { ascending: false });
+
+    if (fetchPlayersError) {
+      console.error("Erreur récupération joueurs:", fetchPlayersError);
+      // Non bloquant - on continue
     }
 
-    // ✅ 5. Récupérer les comptes messagerie associés (pour le statut d'activation)
-    const emails = requests.map(r => r.email);
+    // ✅ 6. Transformer les joueurs en format compatible avec MessagerieRequest
+    const playerRequests = (players || []).map((player) => ({
+      id: player.id || `player_${Date.now()}`,
+      full_name: player.full_name || "Joueur",
+      email: player.email || "",
+      company: null,
+      phone: player.phone || null,
+      reason: "Joueur actif VAGONDYS - Accès à la messagerie",
+      status: "approved" as const, // Les joueurs sont déjà approuvés
+      reviewed_by: "system",
+      reviewed_at: player.created_at || new Date().toISOString(),
+      created_at: player.created_at || new Date().toISOString(),
+      dossier_ref: player.dossier_ref || null,
+      city: player.city || null,
+      type: "player" as const, // ✅ Type "player" pour identifier les joueurs
+      account_status: player.status === "ACTIF" ? "active" : "inactive",
+    }));
+
+    // ✅ 7. Transformer les partenaires en format compatible avec MessagerieRequest
+    const partnerRequestsFormatted = (partnerRequests || []).map((request) => ({
+      ...request,
+      type: "partner" as const, // ✅ Type "partner" pour identifier les partenaires
+    }));
+
+    // ✅ 8. Fusionner les deux listes
+    const allRequests = [...partnerRequestsFormatted, ...playerRequests];
+
+    // Trier par date décroissante (plus récent en premier)
+    allRequests.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    // ✅ 9. Récupérer les comptes messagerie associés (pour le statut d'activation)
+    const emails = allRequests.map(r => r.email);
     const { data: accounts, error: accountsError } = await supabaseAdmin
       .from("messagerie_accounts")
       .select("email, status")
@@ -104,7 +144,7 @@ export async function GET() {
       // Non bloquant – on continue sans le statut
     }
 
-    // ✅ 6. Construire un map email -> status
+    // ✅ 10. Construire un map email -> status
     const accountStatusMap = new Map();
     if (accounts) {
       for (const account of accounts) {
@@ -112,8 +152,8 @@ export async function GET() {
       }
     }
 
-    // ✅ 7. Ajouter le champ account_status à chaque demande
-    const enrichedRequests = requests.map(request => ({
+    // ✅ 11. Ajouter le champ account_status à chaque demande
+    const enrichedRequests = allRequests.map(request => ({
       ...request,
       account_status: accountStatusMap.get(request.email) || "not_created",
     }));

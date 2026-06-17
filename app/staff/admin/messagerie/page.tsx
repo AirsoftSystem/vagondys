@@ -22,7 +22,8 @@ import {
   Eye,
   Maximize2,
   Minimize2,
-  DatabaseBackup
+  DatabaseBackup,
+  UserCircle
 } from "lucide-react";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
@@ -52,6 +53,8 @@ interface MessagerieRequest {
   // ✅ NOUVEAUX CHAMPS
   account_status?: "active" | "inactive" | "suspended" | "not_created";
   is_online?: boolean;
+  // ✅ AJOUT : Type de messagerie (partenaire ou joueur)
+  type?: "partner" | "player";
 }
 
 interface GlobalRequestsStats {
@@ -147,6 +150,24 @@ function getAccountStatusBadge(accountStatus?: string) {
   );
 }
 
+// ✅ FONCTION POUR LE BADGE DE TYPE
+function getTypeBadge(type?: string) {
+  if (type === "player") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600/20 border border-blue-600/30">
+        <UserCircle className="w-3 h-3 text-blue-500" />
+        <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">Joueur</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-600/30">
+      <Building2 className="w-3 h-3 text-purple-500" />
+      <span className="text-[8px] font-black uppercase tracking-widest text-purple-500">Partenaire</span>
+    </span>
+  );
+}
+
 export default function AdminMessageriePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -161,6 +182,7 @@ export default function AdminMessageriePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MessagerieRequest | null>(null);
@@ -207,13 +229,20 @@ export default function AdminMessageriePage() {
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      setRequests(allRequests);
+      // ✅ Marquer les demandes comme "partner" par défaut
+      // Les joueurs seront ajoutés via une autre source
+      const requestsWithType = allRequests.map((r: MessagerieRequest) => ({
+        ...r,
+        type: "partner" as const
+      }));
+      
+      setRequests(requestsWithType);
       
       const stats: GlobalRequestsStats = {
-        total: allRequests.length,
-        pending: allRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
-        approved: allRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
-        rejected: allRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
+        total: requestsWithType.length,
+        pending: requestsWithType.filter((r: MessagerieRequest) => r.status === "pending").length,
+        approved: requestsWithType.filter((r: MessagerieRequest) => r.status === "approved").length,
+        rejected: requestsWithType.filter((r: MessagerieRequest) => r.status === "rejected").length
       };
       setGlobalStats(stats);
       
@@ -305,7 +334,7 @@ export default function AdminMessageriePage() {
     }
   }, []);
 
-  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire) via dossierRef
+  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire ou joueur) via dossierRef
   const handleSendReply = async () => {
     if (!selectedRequest || !replyContent.trim() || !selectedRequest.dossier_ref) return;
     
@@ -317,6 +346,7 @@ export default function AdminMessageriePage() {
         body: JSON.stringify({
           dossierRef: selectedRequest.dossier_ref,
           content: replyContent.trim(),
+          senderType: selectedRequest.type === "player" ? "staff-to-player" : "staff-to-partner",
         }),
       });
       
@@ -345,6 +375,7 @@ export default function AdminMessageriePage() {
         body: JSON.stringify({
           dossierRef: modalDossierRef,
           content: modalReplyContent.trim(),
+          senderType: selectedRequest.type === "player" ? "staff-to-player" : "staff-to-partner",
         }),
       });
       
@@ -687,6 +718,9 @@ export default function AdminMessageriePage() {
     if (filterStatus !== "all" && request.status !== filterStatus) {
       return false;
     }
+    if (filterType !== "all" && request.type !== filterType) {
+      return false;
+    }
     return true;
   });
 
@@ -708,7 +742,7 @@ export default function AdminMessageriePage() {
             Demandes <span className="text-red-600">Messagerie</span>
           </h1>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-            Gestion des demandes d&apos;accès à la messagerie privée
+            Gestion des demandes d&apos;accès à la messagerie privée (Partenaires & Joueurs)
           </p>
         </div>
         <button
@@ -825,6 +859,17 @@ export default function AdminMessageriePage() {
           <option value="approved">Approuvées</option>
           <option value="rejected">Rejetées</option>
         </select>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white focus:border-red-600 outline-none cursor-pointer"
+          title="Filtrer par type"
+          aria-label="Filtrer par type"
+        >
+          <option value="all">Tous les types</option>
+          <option value="partner">Partenaires</option>
+          <option value="player">Joueurs</option>
+        </select>
         <button
           onClick={loadRequests}
           className="flex items-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
@@ -849,7 +894,7 @@ export default function AdminMessageriePage() {
               <tr className="border-b border-zinc-800 bg-black/30">
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Demandeur</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Email</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Société</th>
+                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Type</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
                 <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Compte</th>
@@ -880,10 +925,7 @@ export default function AdminMessageriePage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-3 h-3 text-zinc-500" />
-                        <span className="text-xs text-zinc-400">{request.company || "Non renseigné"}</span>
-                      </div>
+                      {getTypeBadge(request.type)}
                     </td>
                     <td className="p-4">
                       <span className="text-[10px] text-zinc-500">{formatDate(request.created_at)}</span>
@@ -926,6 +968,10 @@ export default function AdminMessageriePage() {
                               <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
                                 <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
                                 <span className="font-mono text-white">{request.dossier_ref || "En attente d'approbation"}</span>
+                              </p>
+                              <p className="text-[10px] text-zinc-400">
+                                <strong className="text-blue-500">Type:</strong>{' '}
+                                <span className="text-zinc-400">{request.type === "player" ? "Joueur" : "Partenaire"}</span>
                               </p>
                             </div>
                             
@@ -1150,6 +1196,7 @@ export default function AdminMessageriePage() {
                 </h2>
                 <p className="text-[8px] text-zinc-500 uppercase tracking-widest mt-1">
                   {selectedRequest.email} • {selectedRequest.company || "Particulier"} • N° Dossier: <span className="text-red-600 font-mono">{selectedRequest.dossier_ref || "N/A"}</span>
+                  <span className="ml-2 text-blue-500">• {selectedRequest.type === "player" ? "Joueur" : "Partenaire"}</span>
                 </p>
               </div>
               <button
