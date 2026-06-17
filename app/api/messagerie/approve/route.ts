@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendGeneralEmail } from "@/lib/email/gmail";
 import { createClient } from "@supabase/supabase-js";
-import { GitHubDB } from "@/lib/github-db/client"; // ✅ AJOUTÉ
+// ❌ SUPPRESSION : import { GitHubDB } from "@/lib/github-db/client"; // Plus besoin ici
 
 /**
  * API d’approbation des demandes d’inscription à la messagerie privée
@@ -19,7 +19,7 @@ import { GitHubDB } from "@/lib/github-db/client"; // ✅ AJOUTÉ
  * ✅ CORRECTION : Upsert dans messagerie_accounts (vérification email OU dossier_ref)
  * ✅ CORRECTION : Status 'pending' au lieu de 'active' (le statut deviendra actif uniquement après définition du mot de passe)
  * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
- * ✅ AJOUT : Création du fichier GitHub avec message de bienvenue à l'approbation
+ * ❌ SUPPRESSION : Création du fichier GitHub avec message de bienvenue (déplacé vers la première connexion)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "pending", // ✅ CORRECTION : reste en attente jusqu'à définition du mot de passe
+          status: "pending",
           created_by: staffEmail,
           updated_at: now,
         })
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
           phone: requestData.phone,
           dossier_ref: dossierRef,
           role: "partner",
-          status: "pending", // ✅ CORRECTION : en attente de définition du mot de passe
+          status: "pending",
           created_by: staffEmail,
           created_at: now,
         });
@@ -316,34 +316,8 @@ export async function POST(request: NextRequest) {
     }
     console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending)`);
 
-    // ✅ 8bis. CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE
-    console.log(`📝 Création du fichier GitHub pour ${dossierRef} avec message de bienvenue`);
-    
-    try {
-      const gitHubPath = `conversations/${dossierRef}/messages.json.gz`;
-      
-      // Créer le message de bienvenue
-      const welcomeMessage = {
-        id: randomUUID(),
-        dossier_ref: dossierRef,
-        sender_email: staffEmail,
-        sender_name: "Staff VAGONDYS",
-        content: "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.",
-        file_url: null,
-        file_key: null,
-        is_read: false,
-        created_at: now,
-      };
-      
-      // Écrire dans GitHub (compressé)
-      await GitHubDB.write(gitHubPath, [welcomeMessage], { compress: true });
-      console.log(`✅ Fichier GitHub créé avec message de bienvenue: ${gitHubPath}`);
-      
-    } catch (gitHubError) {
-      console.error("❌ Erreur création fichier GitHub:", gitHubError);
-      // Non bloquant - on continue même si GitHub échoue
-      // Le message sera créé lors du premier échange réel
-    }
+    // ❌ SUPPRESSION : La section 8bis "CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE" a été supprimée
+    // Le message de bienvenue sera créé lors de la première connexion de l'utilisateur
 
     // 9. Mettre à jour le statut de la demande
     const { error: updateRequestError } = await supabaseAdmin

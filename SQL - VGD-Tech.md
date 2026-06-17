@@ -704,11 +704,12 @@ CREATE TABLE public.messagerie_accounts (
     phone TEXT,
     dossier_ref TEXT UNIQUE,
     role TEXT NOT NULL DEFAULT 'partner' CHECK (role IN ('partner', 'supplier', 'provider', 'admin')),
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive', 'pending')),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     last_login_at TIMESTAMPTZ,
-    created_by TEXT
+    created_by TEXT,
+    welcome_sent BOOLEAN DEFAULT false  -- ✅ AJOUT : Flag pour savoir si le message de bienvenue a été envoyé
 );
 
 -- Index

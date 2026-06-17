@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User as SupabaseUser } from "@supabase/supabase-js";
@@ -35,6 +35,40 @@ export default function MessageriePage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // ✅ FONCTION : Vérifier la première connexion (déclarée AVANT le useEffect)
+  const checkFirstLogin = useCallback(async () => {
+    try {
+      const response = await fetch("/api/messagerie/check-first-login");
+      const data = await response.json();
+      
+      if (data.success && data.welcome_sent) {
+        console.log("✅ Message de bienvenue envoyé lors de la première connexion");
+        
+        // ✅ Recharger les conversations pour afficher le nouveau message
+        if (user?.email) {
+          const updatedConversations = await getUserConversations(user.email);
+          setConversations(updatedConversations);
+          
+          // Si une conversation est sélectionnée, recharger ses messages
+          if (selectedConversation) {
+            const updatedMessages = await getConversationMessages(
+              selectedConversation.dossier_ref,
+              user.email
+            );
+            setMessages(updatedMessages);
+          }
+        }
+      } else if (data.success && !data.welcome_sent) {
+        console.log("ℹ️ Message de bienvenue non encore envoyé (compte non actif ou déjà envoyé)");
+      } else {
+        console.warn("⚠️ check-first-login: réponse inattendue", data);
+      }
+    } catch (err) {
+      console.error("❌ Erreur check-first-login:", err);
+      // Non bloquant - l'utilisateur peut toujours utiliser la messagerie
+    }
+  }, [user, selectedConversation]);
+
   // 1. Vérifier l'authentification et charger les conversations
   useEffect(() => {
     const checkAuth = async () => {
@@ -53,6 +87,10 @@ export default function MessageriePage() {
           const userConversations = await getUserConversations(currentUser.email);
           setConversations(userConversations);
         }
+        
+        // ✅ AJOUT : Vérifier si c'est la première connexion pour créer le message de bienvenue
+        await checkFirstLogin();
+        
       } catch (err) {
         console.error("Erreur auth:", err);
         setError("Erreur d'authentification");
@@ -63,7 +101,7 @@ export default function MessageriePage() {
     };
     
     checkAuth();
-  }, [supabase, router]);
+  }, [supabase, router, checkFirstLogin]); // ✅ AJOUT de checkFirstLogin dans les dépendances
 
   // 2. Charger les messages quand une conversation est sélectionnée
   // ✅ CORRECTION : utiliser dossier_ref au lieu de id
