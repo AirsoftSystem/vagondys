@@ -110,13 +110,25 @@ export async function GET(request: Request) {
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
         // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS (is_read = false)
-        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true }).eq("is_read", false),
+        // ✅ EXCLURE les messages du staff (sender_email se terminant par @vagondys.com)
+        // ✅ EXCLURE les messages du système (system@vagondys.com)
+        adminClient.from("messagerie_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("is_read", false)
+          .not("sender_email", "like", "%@vagondys.com")
+          .neq("sender_email", "system@vagondys.com"),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
         // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents
-        adminClient.from("messagerie_messages").select("*").eq("is_read", false).order("created_at", { ascending: false }).limit(3),
+        // ✅ EXCLURE les messages du staff et du système
+        adminClient.from("messagerie_messages")
+          .select("*")
+          .eq("is_read", false)
+          .not("sender_email", "like", "%@vagondys.com")
+          .neq("sender_email", "system@vagondys.com")
+          .order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
@@ -141,8 +153,12 @@ export async function GET(request: Request) {
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
         // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS avec filtre city
-        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true })
+        // ✅ EXCLURE les messages du staff et du système
+        adminClient.from("messagerie_messages")
+          .select("*", { count: "exact", head: true })
           .eq("is_read", false)
+          .not("sender_email", "like", "%@vagondys.com")
+          .neq("sender_email", "system@vagondys.com")
           .in("dossier_ref", (await adminClient
             .from("messagerie_accounts")
             .select("dossier_ref")
@@ -154,8 +170,12 @@ export async function GET(request: Request) {
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
         // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents avec filtre city
-        adminClient.from("messagerie_messages").select("*")
+        // ✅ EXCLURE les messages du staff et du système
+        adminClient.from("messagerie_messages")
+          .select("*")
           .eq("is_read", false)
+          .not("sender_email", "like", "%@vagondys.com")
+          .neq("sender_email", "system@vagondys.com")
           .in("dossier_ref", (await adminClient
             .from("messagerie_accounts")
             .select("dossier_ref")
@@ -172,7 +192,7 @@ export async function GET(request: Request) {
     // ✅ Extraction des stats globales
     const totalAthletesCount = athletesResult.count || 0;
     const activeAthletesCount = activeAthletesResult.count || 0;
-    totalMessagesCount = messagesResult.count || 0; // ✅ UNIQUEMENT les messages NON LUS
+    totalMessagesCount = messagesResult.count || 0; // ✅ UNIQUEMENT les messages NON LUS (hors staff)
     const totalGameLaunches = launchesResult.count || 0;
     pendingMessagerieCount = messagerieRequestsResult?.count || 0;
     totalStaffCount = staffResult?.count || 0;
@@ -196,7 +216,7 @@ export async function GET(request: Request) {
         }
       }
 
-      // ✅ CORRECTION : Ajouter les messages NON LUS par ville (depuis messagerie_messages)
+      // ✅ CORRECTION : Ajouter les messages NON LUS par ville (hors staff)
       if (isAdmin) {
         // Récupérer les comptes messagerie avec leur ville
         const { data: accounts } = await adminClient
@@ -204,12 +224,14 @@ export async function GET(request: Request) {
           .select("dossier_ref, city, country");
         
         if (accounts && accounts.length > 0) {
-          // Récupérer les messages NON LUS par dossier
+          // Récupérer les messages NON LUS par dossier (hors staff)
           const dossierRefs = accounts.map(a => a.dossier_ref);
           const { data: messages } = await adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
             .eq("is_read", false)
+            .not("sender_email", "like", "%@vagondys.com")
+            .neq("sender_email", "system@vagondys.com")
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
@@ -230,7 +252,7 @@ export async function GET(request: Request) {
           }
         }
       } else {
-        // Pour les agents, les messages NON LUS sont déjà filtrés par ville
+        // Pour les agents, les messages NON LUS sont déjà filtrés par ville (hors staff)
         const { data: accounts } = await adminClient
           .from("messagerie_accounts")
           .select("dossier_ref")
@@ -243,6 +265,8 @@ export async function GET(request: Request) {
             .from("messagerie_messages")
             .select("dossier_ref")
             .eq("is_read", false)
+            .not("sender_email", "like", "%@vagondys.com")
+            .neq("sender_email", "system@vagondys.com")
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
@@ -296,13 +320,13 @@ export async function GET(request: Request) {
       totalAthletes: totalAthletesCount,
       totalCities: totalCitiesCount,
       totalStaff: totalStaffCount,
-      totalMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS
+      totalMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS (hors staff)
       pendingMessagerieRequests: pendingMessagerieCount,
       activeAthletes: activeAthletesCount,
       newAthletesThisMonth: newAthletesThisMonth
     };
 
-    // ✅ Traitement des activités récentes (uniquement messages NON LUS)
+    // ✅ Traitement des activités récentes (uniquement messages NON LUS hors staff)
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
@@ -393,7 +417,7 @@ export async function GET(request: Request) {
       cities: Array.from(uniqueCities.values()),
       totalAthletes: totalAthletesCount,
       activeAthletes: activeAthletesCount,
-      pendingMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS
+      pendingMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS (hors staff)
       totalGameLaunches: totalGameLaunches,
       recentActivities: activities,
       topPlayers: topPlayers,
