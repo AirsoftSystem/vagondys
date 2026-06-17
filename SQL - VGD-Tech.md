@@ -708,8 +708,8 @@ CREATE TABLE public.messagerie_accounts (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     last_login_at TIMESTAMPTZ,
-    created_by TEXT,
-    welcome_sent BOOLEAN DEFAULT false  -- ✅ AJOUT : Flag pour savoir si le message de bienvenue a été envoyé
+    created_by TEXT
+    -- ❌ SUPPRESSION : welcome_sent BOOLEAN DEFAULT false (plus nécessaire)
 );
 
 -- Index

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, RefreshCcw, ShieldCheck, MessageSquare, ArrowLeft, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
@@ -68,39 +68,6 @@ export default function EspaceJoueurMessageriePage() {
   const [targetCity, setTargetCity] = useState<string>("MASTER");
   const [showCitySelector, setShowCitySelector] = useState(false);
 
-  // ✅ FONCTION : Vérifier la première connexion (mémorisée avec useCallback)
-  const checkFirstLogin = useCallback(async () => {
-    try {
-      const response = await fetch("/api/messagerie/check-first-login");
-      const data = await response.json();
-      
-      if (data.success && data.welcome_sent) {
-        console.log("✅ Message de bienvenue envoyé lors de la première connexion");
-        
-        // ✅ Recharger les messages pour afficher le message de bienvenue
-        if (conversation && user) {
-          const updatedMessages = await getPlayerMessages(user.id, user.email, conversation.dossier_ref);
-          const adaptedMessages: AdaptedMessage[] = updatedMessages.map((msg) => ({
-            id: msg.id,
-            content: msg.content,
-            created_at: msg.created_at,
-            sender: msg.sender === "player" ? "user" : (msg.sender === "staff" ? "staff" : "system"),
-            sender_name: msg.sender_name,
-            document_url: msg.document_url,
-          }));
-          setMessages(adaptedMessages);
-        }
-      } else if (data.success && !data.welcome_sent) {
-        console.log("ℹ️ Message de bienvenue non encore envoyé (compte non actif ou déjà envoyé)");
-      } else {
-        console.warn("⚠️ check-first-login: réponse inattendue", data);
-      }
-    } catch (err) {
-      console.error("❌ Erreur check-first-login:", err);
-      // Non bloquant - l'utilisateur peut toujours utiliser la messagerie
-    }
-  }, [conversation, user]);
-
   // 1. Vérifier l'authentification et charger la conversation
   useEffect(() => {
     const checkAuthAndLoad = async () => {
@@ -156,9 +123,6 @@ export default function EspaceJoueurMessageriePage() {
         setMessages(adaptedMessages);
         setLoadingMessages(false);
 
-        // ✅ AJOUT : Vérifier si c'est la première connexion pour créer le message de bienvenue
-        await checkFirstLogin();
-
       } catch (err) {
         console.error("Erreur chargement messagerie:", err);
         setError("Erreur lors du chargement de la messagerie");
@@ -168,10 +132,10 @@ export default function EspaceJoueurMessageriePage() {
     };
 
     checkAuthAndLoad();
-  }, [supabase, router, checkFirstLogin]); // ✅ AJOUT de checkFirstLogin dans les dépendances
+  }, [supabase, router]);
 
   // 2. Envoyer un nouveau message vers la ville sélectionnée
-  const handleSendMessage = useCallback(async (content: string, fileUrl?: string, fileKey?: string) => {
+  const handleSendMessage = async (content: string, fileUrl?: string, fileKey?: string) => {
     if (!conversation || !user) {
       throw new Error("Conversation non disponible");
     }
@@ -210,10 +174,10 @@ export default function EspaceJoueurMessageriePage() {
       last_message: content.substring(0, 100),
       last_message_date: new Date().toISOString(),
     } : null);
-  }, [conversation, user, targetCity]);
+  };
 
   // 3. Rafraîchir les messages
-  const refreshMessages = useCallback(async () => {
+  const refreshMessages = async () => {
     if (!conversation || !user) return;
 
     setLoadingMessages(true);
@@ -233,7 +197,7 @@ export default function EspaceJoueurMessageriePage() {
     } finally {
       setLoadingMessages(false);
     }
-  }, [conversation, user]);
+  };
 
   // ✅ Obtenir le nom de la ville sélectionnée
   const getSelectedCityName = () => {

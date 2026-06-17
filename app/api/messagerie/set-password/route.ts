@@ -1,5 +1,22 @@
 
 import { NextRequest, NextResponse } from "next/server";
+import { sendGeneralEmail } from "@/lib/email/gmail";
+import { GitHubDB } from "@/lib/github-db/client";
+
+/**
+ * Interface pour un message GitHub
+ */
+interface GitHubMessage {
+  id: string;
+  dossier_ref: string;
+  sender_email: string;
+  sender_name: string;
+  content: string;
+  file_url: string | null;
+  file_key: string | null;
+  is_read: boolean;
+  created_at: string;
+}
 
 /**
  * API de définition du mot de passe pour un compte messagerie
@@ -10,7 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
  * 
  * ✅ CORRECTION : Passage du statut de "pending" à "active" uniquement ici
  *                 (après que l'utilisateur a défini son mot de passe)
- * 
+ * ✅ AJOUT : Création du message de bienvenue dans Supabase + GitHub + Email
  * ✅ AJOUT : Logs détaillés pour debug (token, utilisateur, mise à jour)
  */
 export async function POST(request: NextRequest) {
@@ -61,7 +78,7 @@ export async function POST(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 3. Vérifier le token de confirmation (non utilisé)
+    // 3. Vérifier le token de confirmation
     console.log(`🔍 [set-password] Recherche token ${token.substring(0, 8)}... pour email ${email.toLowerCase()}`);
     
     const { data: confirmation, error: tokenError } = await supabaseAdmin
@@ -188,6 +205,118 @@ export async function POST(request: NextRequest) {
       // Non bloquant
     } else {
       console.log(`✅ [set-password] Compte ${messagerieAccount.dossier_ref} activé (status: active, last_login_at mis à jour)`);
+    }
+
+    // ✅ 10. CRÉATION DU MESSAGE DE BIENVENUE (Supabase + GitHub + Email)
+    console.log(`📝 [set-password] Création du message de bienvenue pour ${messagerieAccount.dossier_ref}`);
+    
+    try {
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+      const welcomeContent = "Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.";
+      
+      // 10a. Créer le message dans Supabase (instantané)
+      const welcomeMessage = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+        dossier_ref: messagerieAccount.dossier_ref,
+        sender_email: "system@vagondys.com",
+        sender_name: "Système VAGONDYS",
+        content: welcomeContent,
+        file_url: null,
+        file_key: null,
+        is_read: false,
+        created_at: now.toISOString(),
+      };
+
+      const { error: insertWelcomeError } = await supabaseAdmin
+        .from("messagerie_messages")
+        .insert([welcomeMessage]);
+
+      if (insertWelcomeError) {
+        console.error(`❌ [set-password] Erreur insertion message bienvenue dans Supabase:`, insertWelcomeError);
+      } else {
+        console.log(`✅ [set-password] Message de bienvenue créé dans Supabase pour ${messagerieAccount.dossier_ref}`);
+      }
+
+      // 10b. Synchroniser vers GitHub (asynchrone, non bloquant)
+      try {
+        const gitHubPath = `conversations/${messagerieAccount.dossier_ref}/messages.json.gz`;
+        let existingMessages: GitHubMessage[] = [];
+        try {
+          const existing = await GitHubDB.read<GitHubMessage[]>(gitHubPath);
+          if (existing && Array.isArray(existing)) {
+            existingMessages = existing;
+          }
+        } catch {
+          existingMessages = [];
+        }
+        
+        const exists = existingMessages.some((m: GitHubMessage) => m.id === welcomeMessage.id);
+        if (!exists) {
+          existingMessages.push(welcomeMessage);
+          await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
+          console.log(`✅ [set-password] Message de bienvenue synchronisé vers GitHub`);
+        }
+      } catch (gitHubError) {
+        console.error(`⚠️ [set-password] Erreur synchro GitHub (non bloquante):`, gitHubError);
+      }
+
+      // 10c. Envoyer l'email de bienvenue (uniquement si l'email est défini)
+      if (userData.user.email) {
+        const messagerieUrl = `${frontendUrl}/messagerie`;
+        
+        const welcomeEmailHtml = `
+          <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
+            <div style="margin-bottom:30px;">
+              <div style="display:inline-block; padding:10px 20px; border:1px solid #dc2626; border-radius:8px; margin-bottom:20px;">
+                <span style="color:#dc2626; font-size:12px; font-weight:900; letter-spacing:3px;">VAGONDYS</span>
+              </div>
+            </div>
+            <h1 style="font-size:18px; font-weight:900; letter-spacing:-1px; text-transform:uppercase; font-style:italic; margin-bottom:20px;">
+              Bienvenue <span style="color:#22c55e;">sur VAGONDYS</span>
+            </h1>
+            <p style="font-size:10px; color:#52525b; text-transform:uppercase; letter-spacing:2px; margin-bottom:30px;">
+              Référence Dossier : ${messagerieAccount.dossier_ref}
+            </p>
+            <div style="margin-bottom:30px; padding:20px; border:1px solid #18181b; background:#09090b; border-radius:12px; text-align:left;">
+              <p style="font-size:9px; color:#71717a; text-transform:uppercase; margin-bottom:10px;">Votre compte est maintenant actif.</p>
+              <p style="font-size:11px; color:#a1a1aa; line-height:1.6;">
+                Bienvenue sur la messagerie privée VAGONDYS. Notre équipe prendra contact avec vous sous 48h.
+              </p>
+              <p style="font-size:9px; color:#a1a1aa; margin-top:10px;">
+                Vous pouvez dès à présent consulter vos messages et échanger avec notre équipe.
+              </p>
+            </div>
+            <a href="${messagerieUrl}" style="background:#dc2626; color:white; padding:15px 30px; text-decoration:none; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:3px; border-radius:8px; display:inline-block; margin:20px 0;">
+              ACCÉDER À MA MESSAGERIE
+            </a>
+            <p style="margin-top:30px; font-size:8px; color:#3f3f46; text-transform:uppercase; letter-spacing:1px;">
+              Cet email est généré automatiquement. Merci de ne pas y répondre.
+            </p>
+            <hr style="margin:30px 0; border-color:#18181b;" />
+            <p style="font-size:7px; color:#52525b;">
+              VAGONDYS - Messagerie sécurisée
+            </p>
+          </div>
+        `;
+
+        const welcomeTextContent = `VAGONDYS - Bienvenue\n\nBonjour,\n\nBienvenue sur la messagerie privée VAGONDYS.\nNotre équipe prendra contact avec vous sous 48h.\n\nRéférence dossier : ${messagerieAccount.dossier_ref}\n\nAccéder à votre messagerie : ${messagerieUrl}`;
+
+        await sendGeneralEmail(
+          userData.user.email,
+          "Bienvenue sur VAGONDYS - Messagerie privée",
+          welcomeTextContent,
+          welcomeEmailHtml,
+          "no-reply@vagondys.com"
+        );
+        
+        console.log(`✅ [set-password] Email de bienvenue envoyé à ${userData.user.email}`);
+      } else {
+        console.warn(`⚠️ [set-password] Email non envoyé - userData.user.email est undefined`);
+      }
+
+    } catch (welcomeError) {
+      console.error(`❌ [set-password] Erreur création message bienvenue:`, welcomeError);
+      // Non bloquant - on continue
     }
 
     const duration = Date.now() - startTime;
