@@ -87,6 +87,7 @@ export async function GET(request: Request) {
     let totalCitiesCount = 0;
     let totalStaffCount = 0;
     let pendingMessagerieCount = 0;
+    let totalMessagesCount = 0;
 
     // ✅ STATS GLOBALES - avec/sans filtre selon isAdmin
     if (isAdmin) {
@@ -108,12 +109,14 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("is_read", false),
+        // ✅ CORRECTION : Compter les messages depuis messagerie_messages (plus de pending_signals)
+        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true }),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        adminClient.from("pending_signals").select("*").order("created_at", { ascending: false }).limit(3),
+        // ✅ CORRECTION : Récupérer les messages récents depuis messagerie_messages
+        adminClient.from("messagerie_messages").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
@@ -137,22 +140,38 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
-        adminClient.from("pending_signals").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("is_read", false),
+        // ✅ CORRECTION : Compter les messages depuis messagerie_messages avec filtre city (via dossier_ref)
+        // Pour les agents, on filtre par ville via les comptes associés aux messages
+        adminClient.from("messagerie_messages").select("*", { count: "exact", head: true })
+          .in("dossier_ref", (await adminClient
+            .from("messagerie_accounts")
+            .select("dossier_ref")
+            .eq("city", cityUpper)
+            .eq("country", countryUpper)
+          ).data?.map(a => a.dossier_ref) || []),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
-        adminClient.from("pending_signals").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
+        // ✅ CORRECTION : Récupérer les messages récents depuis messagerie_messages avec filtre city
+        adminClient.from("messagerie_messages").select("*")
+          .in("dossier_ref", (await adminClient
+            .from("messagerie_accounts")
+            .select("dossier_ref")
+            .eq("city", cityUpper)
+            .eq("country", countryUpper)
+          ).data?.map(a => a.dossier_ref) || [])
+          .order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").eq("city", cityUpper).eq("country", countryUpper).order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").eq("city", cityUpper).eq("country", countryUpper).order("date", { ascending: false }).limit(3),
-        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", countryUpper).order("points", { ascending: false }).limit(5),
+        adminClient.from("athletes").select("id, pseudo, full_name, points, rank").eq("city", cityUpper).eq("country", cityUpper).order("points", { ascending: false }).limit(5),
       ]);
     }
 
     // ✅ Extraction des stats globales
     const totalAthletesCount = athletesResult.count || 0;
     const activeAthletesCount = activeAthletesResult.count || 0;
-    const pendingMessagesCount = messagesResult.count || 0;
+    totalMessagesCount = messagesResult.count || 0; // ✅ Maintenant depuis messagerie_messages
     const totalGameLaunches = launchesResult.count || 0;
     pendingMessagerieCount = messagerieRequestsResult?.count || 0;
     totalStaffCount = staffResult?.count || 0;
@@ -176,20 +195,59 @@ export async function GET(request: Request) {
         }
       }
 
-      // Ajouter les messages par ville (depuis pending_signals)
+      // ✅ CORRECTION : Ajouter les messages par ville (depuis messagerie_messages)
       if (isAdmin) {
-        const { data: cityMessages } = await adminClient
-          .from("pending_signals")
-          .select("city, country")
-          .eq("is_read", false);
+        // Récupérer les comptes messagerie avec leur ville
+        const { data: accounts } = await adminClient
+          .from("messagerie_accounts")
+          .select("dossier_ref, city, country");
         
-        if (cityMessages) {
-          for (const msg of cityMessages) {
-            const cityKey = msg.city;
-            if (cityMap.has(cityKey)) {
-              cityMap.get(cityKey)!.messages += 1;
+        if (accounts && accounts.length > 0) {
+          // Récupérer les messages par dossier
+          const dossierRefs = accounts.map(a => a.dossier_ref);
+          const { data: messages } = await adminClient
+            .from("messagerie_messages")
+            .select("dossier_ref")
+            .in("dossier_ref", dossierRefs);
+          
+          if (messages) {
+            // Compter les messages par ville via les comptes
+            const messageCountByDossier = new Map<string, number>();
+            for (const msg of messages) {
+              messageCountByDossier.set(msg.dossier_ref, (messageCountByDossier.get(msg.dossier_ref) || 0) + 1);
+            }
+            
+            for (const account of accounts) {
+              const cityKey = account.city;
+              if (!cityMap.has(cityKey)) {
+                cityMap.set(cityKey, { athletes: 0, active: 0, messages: 0 });
+              }
+              const count = messageCountByDossier.get(account.dossier_ref) || 0;
+              cityMap.get(cityKey)!.messages += count;
+            }
+          }
+        }
+      } else {
+        // Pour les agents, les messages sont déjà filtrés par ville
+        const { data: accounts } = await adminClient
+          .from("messagerie_accounts")
+          .select("dossier_ref")
+          .eq("city", cityUpper)
+          .eq("country", countryUpper);
+        
+        if (accounts && accounts.length > 0) {
+          const dossierRefs = accounts.map(a => a.dossier_ref);
+          const { data: messages } = await adminClient
+            .from("messagerie_messages")
+            .select("dossier_ref")
+            .in("dossier_ref", dossierRefs);
+          
+          if (messages) {
+            const count = messages.length;
+            if (cityMap.has(cityUpper)) {
+              cityMap.get(cityUpper)!.messages += count;
             } else {
-              cityMap.set(cityKey, { athletes: 0, active: 0, messages: 1 });
+              cityMap.set(cityUpper, { athletes: 0, active: 0, messages: count });
             }
           }
         }
@@ -235,7 +293,7 @@ export async function GET(request: Request) {
       totalAthletes: totalAthletesCount,
       totalCities: totalCitiesCount,
       totalStaff: totalStaffCount,
-      totalMessages: pendingMessagesCount,
+      totalMessages: totalMessagesCount, // ✅ Maintenant depuis messagerie_messages
       pendingMessagerieRequests: pendingMessagerieCount,
       activeAthletes: activeAthletesCount,
       newAthletesThisMonth: newAthletesThisMonth
@@ -245,14 +303,14 @@ export async function GET(request: Request) {
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
-      recentMessagesResult.data.forEach(msg => {
+      recentMessagesResult.data.forEach((msg: { id: string; content: string; sender_name: string; created_at: string }) => {
         activities.push({
           id: msg.id,
           type: "message",
-          title: msg.payload?.subject || "Nouveau message",
-          description: `De: ${msg.payload?.email || "inconnu"}`,
+          title: "Nouveau message",
+          description: `De: ${msg.sender_name || "inconnu"}`,
           timestamp: msg.created_at,
-          link: "/staff/interface",
+          link: "/staff/admin/messagerie",
         });
       });
     }
@@ -332,7 +390,7 @@ export async function GET(request: Request) {
       cities: Array.from(uniqueCities.values()),
       totalAthletes: totalAthletesCount,
       activeAthletes: activeAthletesCount,
-      pendingMessages: pendingMessagesCount,
+      pendingMessages: totalMessagesCount, // ✅ Maintenant depuis messagerie_messages
       totalGameLaunches: totalGameLaunches,
       recentActivities: activities,
       topPlayers: topPlayers,
