@@ -44,7 +44,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const city = searchParams.get("city");
     const country = searchParams.get("country") || "FR";
-    // since est conservé pour compatibilité future mais non utilisé actuellement
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const since = searchParams.get("since");
 
@@ -55,11 +54,9 @@ export async function GET(request: Request) {
     // ✅ IMPORT DYNAMIQUE - Chargé UNIQUEMENT à l'exécution, pas au build
     const { createClient } = await import("@supabase/supabase-js");
     
-    // ✅ Récupération des variables d'environnement (Version Option B - un seul projet)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    // ✅ VÉRIFICATION CRITIQUE : Les variables doivent exister
     if (!supabaseUrl) {
       console.error("❌ Dashboard API: NEXT_PUBLIC_SUPABASE_URL manquante");
       return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
@@ -70,18 +67,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Configuration serveur invalide" }, { status: 500 });
     }
     
-    // ✅ Client ADMIN avec SERVICE_ROLE (côté serveur, créé à l'exécution)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
     const cityUpper = city.toUpperCase().trim();
     const countryUpper = country.toUpperCase().trim();
-    
-    // ✅ Détection des admins (MASTER) pour qu'ils voient TOUTES les données
     const isAdmin = cityUpper === 'MASTER';
 
-    // Récupérer toutes les données nécessaires pour le dashboard (avec ou sans filtre city selon le rôle)
     let athletesResult, activeAthletesResult, messagesResult, launchesResult, messagerieRequestsResult, staffResult, citiesResult;
     let recentMessagesResult, recentLaunchesResult, recentMatchesResult, topPlayersResult;
     let totalCitiesCount = 0;
@@ -89,9 +82,7 @@ export async function GET(request: Request) {
     let pendingMessagerieCount = 0;
     let totalMessagesCount = 0;
 
-    // ✅ STATS GLOBALES - avec/sans filtre selon isAdmin
     if (isAdmin) {
-      // ✅ ADMIN (MASTER) : PAS de filtre city - voit TOUTES les données
       console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city");
       
       [
@@ -109,9 +100,7 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS (is_read = false)
-        // ✅ EXCLURE les messages du staff (sender_email se terminant par @vagondys.com)
-        // ✅ EXCLURE les messages du système (system@vagondys.com)
+        // ✅ Compter UNIQUEMENT les messages NON LUS (hors staff)
         adminClient.from("messagerie_messages")
           .select("*", { count: "exact", head: true })
           .eq("is_read", false)
@@ -121,8 +110,7 @@ export async function GET(request: Request) {
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents
-        // ✅ EXCLURE les messages du staff et du système
+        // ✅ Récupérer UNIQUEMENT les messages NON LUS récents (hors staff)
         adminClient.from("messagerie_messages")
           .select("*")
           .eq("is_read", false)
@@ -134,7 +122,6 @@ export async function GET(request: Request) {
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
       ]);
     } else {
-      // ✅ AGENT STANDARD : filtre par city ET country
       console.log("🔍 Dashboard API: Mode STANDARD - filtre city=", cityUpper);
       
       [
@@ -152,8 +139,6 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "ACTIF"),
-        // ✅ CORRECTION : Compter UNIQUEMENT les messages NON LUS avec filtre city
-        // ✅ EXCLURE les messages du staff et du système
         adminClient.from("messagerie_messages")
           .select("*", { count: "exact", head: true })
           .eq("is_read", false)
@@ -169,8 +154,6 @@ export async function GET(request: Request) {
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("city", cityUpper).eq("country", countryUpper).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }).eq("city", cityUpper),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }).eq("city", cityUpper).eq("country", countryUpper),
-        // ✅ CORRECTION : Récupérer UNIQUEMENT les messages NON LUS récents avec filtre city
-        // ✅ EXCLURE les messages du staff et du système
         adminClient.from("messagerie_messages")
           .select("*")
           .eq("is_read", false)
@@ -189,21 +172,18 @@ export async function GET(request: Request) {
       ]);
     }
 
-    // ✅ Extraction des stats globales
     const totalAthletesCount = athletesResult.count || 0;
     const activeAthletesCount = activeAthletesResult.count || 0;
-    totalMessagesCount = messagesResult.count || 0; // ✅ UNIQUEMENT les messages NON LUS (hors staff)
+    totalMessagesCount = messagesResult.count || 0;
     const totalGameLaunches = launchesResult.count || 0;
     pendingMessagerieCount = messagerieRequestsResult?.count || 0;
     totalStaffCount = staffResult?.count || 0;
 
-    // ✅ Calcul des villes uniques
+    // ✅ CALCUL DES VILLES UNIQUES
     const uniqueCities = new Map<string, CityStats>();
     if (citiesResult.data) {
-      // Extraire les villes uniques depuis les données des athlètes
       const cityMap = new Map<string, { athletes: number; active: number; messages: number }>();
       
-      // Compter par ville
       for (const athlete of citiesResult.data as AthleteData[]) {
         const cityKey = athlete.city;
         if (!cityMap.has(cityKey)) {
@@ -216,15 +196,12 @@ export async function GET(request: Request) {
         }
       }
 
-      // ✅ CORRECTION : Ajouter les messages NON LUS par ville (hors staff)
       if (isAdmin) {
-        // Récupérer les comptes messagerie avec leur ville
         const { data: accounts } = await adminClient
           .from("messagerie_accounts")
           .select("dossier_ref, city, country");
         
         if (accounts && accounts.length > 0) {
-          // Récupérer les messages NON LUS par dossier (hors staff)
           const dossierRefs = accounts.map(a => a.dossier_ref);
           const { data: messages } = await adminClient
             .from("messagerie_messages")
@@ -235,7 +212,6 @@ export async function GET(request: Request) {
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
-            // Compter les messages NON LUS par ville via les comptes
             const messageCountByDossier = new Map<string, number>();
             for (const msg of messages) {
               messageCountByDossier.set(msg.dossier_ref, (messageCountByDossier.get(msg.dossier_ref) || 0) + 1);
@@ -252,7 +228,6 @@ export async function GET(request: Request) {
           }
         }
       } else {
-        // Pour les agents, les messages NON LUS sont déjà filtrés par ville (hors staff)
         const { data: accounts } = await adminClient
           .from("messagerie_accounts")
           .select("dossier_ref")
@@ -280,7 +255,6 @@ export async function GET(request: Request) {
         }
       }
 
-      // Convertir en tableau
       for (const [name, stats] of cityMap) {
         uniqueCities.set(name, {
           name: name,
@@ -315,18 +289,17 @@ export async function GET(request: Request) {
       newAthletesThisMonth = newAthletesCount || 0;
     }
 
-    // ✅ Construction des stats globales
     const globalStats: GlobalStats = {
       totalAthletes: totalAthletesCount,
       totalCities: totalCitiesCount,
       totalStaff: totalStaffCount,
-      totalMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS (hors staff)
+      totalMessages: totalMessagesCount,
       pendingMessagerieRequests: pendingMessagerieCount,
       activeAthletes: activeAthletesCount,
       newAthletesThisMonth: newAthletesThisMonth
     };
 
-    // ✅ Traitement des activités récentes (uniquement messages NON LUS hors staff)
+    // ✅ TRAITEMENT DES ACTIVITÉS RÉCENTES
     const activities: Activity[] = [];
 
     if (recentMessagesResult.data) {
@@ -369,10 +342,9 @@ export async function GET(request: Request) {
       });
     }
 
-    // Trier par date décroissante
     activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // ✅ Traitement des top joueurs
+    // ✅ TRAITEMENT DES TOP JOUEURS
     const topPlayers = [];
     if (topPlayersResult.data) {
       for (const player of topPlayersResult.data) {
@@ -387,7 +359,6 @@ export async function GET(request: Request) {
           .eq("player_id", player.id)
           .eq("win", true);
         
-        // ✅ Pour les agents standards, ajouter le filtre city/country
         if (!isAdmin) {
           matchesQuery = matchesQuery.eq("city", cityUpper).eq("country", countryUpper);
           winsQuery = winsQuery.eq("city", cityUpper).eq("country", countryUpper);
@@ -411,13 +382,13 @@ export async function GET(request: Request) {
       }
     }
 
-    // ✅ Construction de la réponse complète avec les stats globales et par ville
+    // ✅ CONSTRUCTION DE LA RÉPONSE
     return NextResponse.json({
       global: globalStats,
       cities: Array.from(uniqueCities.values()),
       totalAthletes: totalAthletesCount,
       activeAthletes: activeAthletesCount,
-      pendingMessages: totalMessagesCount, // ✅ UNIQUEMENT les messages NON LUS (hors staff)
+      pendingMessages: totalMessagesCount,
       totalGameLaunches: totalGameLaunches,
       recentActivities: activities,
       topPlayers: topPlayers,
