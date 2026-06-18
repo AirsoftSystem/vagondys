@@ -23,6 +23,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-18 : Utilisation directe du champ "type" de la table pour les demandes en attente
  * ✅ CORRECTION 2026-06-18 : Priorité au type stocké en base plutôt qu'au fallback par mots-clés
  * ✅ CORRECTION 2026-06-18 : Utilisation du champ "role" de messagerie_accounts pour les partenaires
+ * ✅ CORRECTION 2026-06-18 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
  */
 export async function GET() {
   try {
@@ -176,9 +177,12 @@ export async function GET() {
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
+          // ✅ CORRECTION : Inclure les messages système (system@vagondys.com) dans les messages non lus
+          // Ne pas exclure system@vagondys.com car le message de bienvenue doit déclencher une alerte
           if (msg.is_read === false && 
-              !msg.sender_email.endsWith("@vagondys.com") && 
-              msg.sender_email !== "system@vagondys.com") {
+              !msg.sender_email.endsWith("@vagondys.com")) {
+            // Tous les messages non lus qui ne viennent PAS du staff
+            // (y compris system@vagondys.com)
             unreadDossierMap.set(msg.dossier_ref, true);
           }
         }
