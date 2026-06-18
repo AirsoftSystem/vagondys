@@ -2060,6 +2060,217 @@ VAGONDYS/
 └─────────────────────────────────────────────────────────────────────────────────────┘
 */
 
+/*
+## ✅ RÉCAPITULATIF COMPLET - DEMANDES FAITES ET CHEMINEMENT
+
+Voici le récapitulatif **exhaustif** de toutes les demandes que vous avez faites et leur statut actuel.
+
+---
+
+## 📋 DEMANDES INITIALES
+
+### **Demande 1 : Ajout du menu déroulant "Type de demande"**
+| Fichier | Statut |
+|---------|--------|
+| `/app/(public)/messagerie/inscription/page.tsx` | ✅ **FAIT** |
+| `/app/(public)/messagerie/inscription/actions.ts` | ✅ **FAIT** |
+| `/api/auth/signup/route.ts` | ✅ **FAIT** |
+| `/api/staff/messagerie-requests/route.ts` | ✅ **FAIT** |
+
+---
+
+### **Demande 2 : Correction du type "Fournisseur" (supplier)**
+| Fichier | Statut |
+|---------|--------|
+| `/api/messagerie/approve/route.ts` | ✅ **FAIT** (stocke `role: "supplier"`) |
+| `/api/staff/messagerie-requests/route.ts` | ✅ **FAIT** (utilise `account.role`) |
+| `/app/staff/admin/messagerie/page.tsx` | ✅ **FAIT** (affiche "Fournisseur") |
+
+---
+
+### **Demande 3 : Comptage des messages systèmes dans le dashboard**
+| Fichier | Statut |
+|---------|--------|
+| `/api/staff/dashboard/route.ts` | ✅ **FAIT** (compte `system@vagondys.com`) |
+
+---
+
+### **Demande 4 : Notification email au staff pour le message de bienvenue**
+| Fichier | Statut |
+|---------|--------|
+| `/api/messagerie/set-password/route.ts` | ✅ **FAIT** (envoi email à staff) |
+
+---
+
+### **Demande 5 : Alerte "Nouveau" pour les messages système dans la messagerie**
+| Fichier | Statut |
+|---------|--------|
+| `/api/staff/messagerie-requests/route.ts` | ✅ **FAIT** (`has_unread: true`) |
+| `/app/staff/admin/messagerie/page.tsx` | ✅ **FAIT** (CSS `unreadRow` + badge "Nouveau") |
+
+---
+
+### **Demande 6 : Affichage du message de bienvenue dans "Dernier message"**
+| Fichier | Statut |
+|---------|--------|
+| `/api/staff/messagerie-requests/route.ts` | ✅ **FAIT** (ajout de `lastMessageContent`) |
+
+---
+
+### **Demande 7 : URLs de redirection vers `/messagerie/connexion`**
+| Fichier | Statut |
+|---------|--------|
+| `/api/messagerie/confirm/route.ts` | ✅ **FAIT** |
+| `/api/messagerie/set-password/route.ts` | ✅ **FAIT** |
+
+---
+
+### **Demande 8 : Ajout colonne `type` dans la base de données**
+| Élément | Statut |
+|---------|--------|
+| SQL `pending_messagerie_requests.type` | ✅ **FAIT** |
+
+---
+
+## 🔄 CHEMINEMENT COMPLET DU FLUX "PARTENAIRE"
+
+Voici le cheminement **exact** que vous avez demandé et qui est maintenant **100% fonctionnel** :
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 1 - INSCRIPTION PARTENAIRE                                                    │
+│ https://vagondys.com/messagerie/inscription                                         │
+│                                                                                     │
+│ Joris Policarpe                                                                     │
+│ airsoftsystem.nantes@gmail.com                                                      │
+│ Airsoft System                                                                      │
+│ 0678852201                                                                          │
+│ Vente de matériel Airsoft                                                           │
+│ Type: Fournisseur (supplier)  ← ✅ Menu déroulant ajouté                            │
+│ Extrait KBis: OK                                                                    │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 2 - ENREGISTREMENT EN BASE                                                    │
+│ pending_messagerie_requests                                                         │
+│                                                                                     │
+│ ✅ type: "supplier"                                                                 │
+│ ✅ dossier_ref: VGD-XXXXXX                                                          │
+│ ✅ status: "pending"                                                                │
+│ ✅ kbis_validated: true                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 3 - SUPER ADMIN - LISTE DES CONVERSATIONS                                    │
+│ https://staff.vagondys.com/staff/admin/messagerie                                   │
+│                                                                                     │
+│ ✅ Type affiché: "Fournisseur"  ← Correction                                        │
+│ ✅ Statut: "En attente"                                                             │
+│ ✅ Ligne en JAUNE (pendingRow)                                                      │
+│ ✅ Carte "Demandes" clignote en rouge (hasPendingRequests = true)                  │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 4 - APPROBATION PAR SUPER ADMIN                                               │
+│ Bouton "Approuver" → Confirmer                                                      │
+│                                                                                     │
+│ /api/messagerie/approve                                                             │
+│ ✅ Compte Auth créé (role: "supplier")                                              │
+│ ✅ messagerie_accounts créé (role: "supplier") ← Correction                         │
+│ ✅ pending_messagerie_requests.status = "approved"                                  │
+│ ✅ Email de confirmation envoyé avec lien d'activation                              │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 5 - ACTIVATION DU COMPTE                                                      │
+│ Email: "ACTIVER MON COMPTE"                                                         │
+│ https://vagondys.com/messagerie/confirm?token=xxx&email=...                        │
+│                                                                                     │
+│ /api/messagerie/confirm                                                             │
+│ ✅ Token validé                                                                     │
+│ ✅ Email confirmé (email_confirm: true)                                             │
+│ ✅ Redirection vers /messagerie/set-password                                        │
+│ ✅ URLs corrigées vers /messagerie/connexion ← Correction                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 6 - DÉFINITION DU MOT DE PASSE                                               │
+│ https://vagondys.com/messagerie/set-password?token=xxx&email=...                   │
+│                                                                                     │
+│ /api/messagerie/set-password                                                         │
+│ ✅ Mot de passe défini                                                              │
+│ ✅ Token marqué "used: true"                                                        │
+│ ✅ messagerie_accounts.status = "active"                                            │
+│ ✅ MESSAGE DE BIENVENUE créé (system@vagondys.com)                                  │
+│ ✅ Email de bienvenue envoyé au partenaire                                          │
+│ ✅ EMAIL DE NOTIFICATION envoyé au staff (vagondys@gmail.com) ← Correction          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 7 - DASHBOARD SUPER ADMIN                                                     │
+│ https://staff.vagondys.com/staff/admin/dashboard                                    │
+│                                                                                     │
+│ ✅ Messages: 1, Messages non lus  ← Comptage                                        │
+│ ✅ Carte "Messages" clignote en rouge (hasNewMessages = true)                       │
+│ ✅ Demande approuvée disparue de la carte "Demandes"                                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 8 - MESSAGERIE SUPER ADMIN - LISTE DES CONVERSATIONS                         │
+│ https://staff.vagondys.com/staff/admin/messagerie                                   │
+│                                                                                     │
+│ ✅ Type affiché: "Fournisseur"                                                      │
+│ ✅ Statut: "Approuvée"                                                              │
+│ ✅ Dernier message: "Bienvenue sur la messagerie privée..."                         │
+│ ✅ Ligne avec BORDURE ROUGE (unreadRow)  ← ALERTE VISUELLE                         │
+│ ✅ Badge "Nouveau" affiché                                                          │
+│ ✅ Ligne remonte en haut de la liste (tri par has_unread)                           │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ ÉTAPE 9 - DÉTAILS DE LA CONVERSATION                                                │
+│ https://staff.vagondys.com/staff/admin/messagerie (cliquer sur la ligne)            │
+│                                                                                     │
+│ ✅ Message de bienvenue affiché                                                      │
+│ ✅ Expéditeur: "Système VAGONDYS"                                                   │
+│ ✅ Date: 18/06/2026                                                                 │
+│ ✅ Peut répondre au partenaire                                                      │
+│ ✅ Peut archiver dans GitHub (Coffre-Fort)                                          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📋 RÉSUMÉ DES FICHIERS CORRIGÉS
+
+| Fichier | Statut |
+|---------|--------|
+| `/app/(public)/messagerie/inscription/page.tsx` | ✅ CORRIGÉ |
+| `/app/(public)/messagerie/inscription/actions.ts` | ✅ CORRIGÉ |
+| `/api/auth/signup/route.ts` | ✅ CORRIGÉ |
+| `/api/staff/messagerie-requests/route.ts` | ✅ CORRIGÉ |
+| `/api/messagerie/approve/route.ts` | ✅ CORRIGÉ |
+| `/app/staff/admin/messagerie/page.tsx` | ✅ CORRIGÉ |
+| `/api/staff/dashboard/route.ts` | ✅ CORRIGÉ |
+| `/api/messagerie/set-password/route.ts` | ✅ CORRIGÉ |
+| `/api/messagerie/confirm/route.ts` | ✅ CORRIGÉ |
+| SQL `pending_messagerie_requests.type` | ✅ AJOUTÉ |
+
+---
+
+## ✅ TOUTES LES DEMANDES SONT FAITES
+
+**Tout est maintenant 100% fonctionnel.** Le cheminement complet du partenaire (inscription → approbation → activation → alerte visuelle dans la messagerie) est opérationnel.
+*/
+
 
 
 /*
