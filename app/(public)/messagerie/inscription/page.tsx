@@ -15,11 +15,23 @@ import {
   AlertTriangle,
   CheckCircle2,
   FileText,
-  Loader2
+  Loader2,
+  Tag // ✅ AJOUT : Icône pour le type
 } from "lucide-react";
 import { Turnstile } from '@marsidev/react-turnstile';
 import FileUploader from "@/components/FileUploader";
 import { submitMessagerieRequest } from "./actions";
+
+// ✅ AJOUT : Types disponibles (ordre alphabétique)
+const REQUEST_TYPES = [
+  { value: "client", label: "Client" },
+  { value: "communication", label: "Communication" },
+  { value: "divers", label: "Divers" },
+  { value: "supplier", label: "Fournisseur" },
+  { value: "partner", label: "Partenaire" },
+  { value: "advertising", label: "Publicité" },
+  { value: "sponsor", label: "Sponsor" }
+];
 
 /**
  * COMPOSANT INTERNE : MessagerieInscriptionContent
@@ -86,6 +98,7 @@ function MessagerieInscriptionContent() {
     company: "",
     phone: "",
     reason: "",
+    type: "partner", // ✅ AJOUT : Type de demande (par défaut "Partenaire")
   });
   
   // ✅ État pour le fichier KBis
@@ -275,6 +288,33 @@ function MessagerieInscriptionContent() {
             />
           </div>
 
+          {/* ✅ AJOUT : Menu déroulant "Type de demande" */}
+          <div className="space-y-2">
+            <label htmlFor="type" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+              <Tag className="w-3 h-3 text-red-600" />
+              Type de demande
+            </label>
+            <div className="relative">
+              <select 
+                id="type" 
+                name="type"
+                value={formData.type} 
+                onChange={handleChange}
+                className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm focus:border-red-600 outline-none transition-colors appearance-none text-white cursor-pointer"
+              >
+                {REQUEST_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-600 text-[8px]">▼</div>
+            </div>
+            <p className="text-[8px] text-zinc-600 uppercase tracking-wider">
+              Sélectionnez le type de votre demande pour un traitement adapté
+            </p>
+          </div>
+
           {/* ✅ SECTION KBis (obligatoire) */}
           <div className="space-y-3 pt-2">
             <div className="flex items-center gap-2">
@@ -311,6 +351,7 @@ function MessagerieInscriptionContent() {
           {/* Champs hidden pour la Server Action */}
           <input type="hidden" name="kbisUrl" value={kbisUrl} />
           <input type="hidden" name="kbisKey" value={kbisKey} />
+          <input type="hidden" name="type" value={formData.type} /> {/* ✅ AJOUT : Champ hidden pour le type */}
 
           {/* Turnstile - comme dans Contact, sans onSuccess ni état */}
           <div className="flex justify-center py-2">
