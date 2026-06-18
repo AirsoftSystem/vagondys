@@ -16,6 +16,7 @@ import { cookies } from "next/headers";
  * ✅ AJOUT : Dernier message de chaque conversation
  * ✅ AJOUT : Détermination automatique du type (sponsor, client, fournisseur, etc.)
  * ✅ AJOUT : Tri alphabétique des résultats
+ * ✅ AJOUT : Champ has_unread pour identifier les conversations avec messages non lus
  */
 export async function GET() {
   try {
@@ -141,25 +142,47 @@ export async function GET() {
     let lastMessagesMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
     const dossierWithMessages = new Set<string>();
 
+    // ✅ 9bis. Récupérer les messages non lus par dossier
+    const unreadDossierMap = new Map<string, boolean>();
+
     if (allDossierRefs.length > 0) {
       // Récupérer tous les messages par dossier
       const { data: allMessages, error: messagesError } = await supabaseAdmin
         .from("messagerie_messages")
-        .select("dossier_ref, content, created_at, sender_name")
+        .select("dossier_ref, content, created_at, sender_name, is_read")
         .in("dossier_ref", allDossierRefs)
         .order("created_at", { ascending: false });
 
       if (messagesError) {
         console.error("Erreur récupération messages:", messagesError);
       } else if (allMessages) {
+        // ✅ CORRECTION : Typage explicite pour les messages
+        type RawMessage = {
+          dossier_ref: string;
+          content: string;
+          created_at: string;
+          sender_name: string;
+          is_read: boolean;
+          sender_email: string;
+        };
+        
+        const typedMessages = allMessages as RawMessage[];
+        
         // Construire un Set des dossiers qui ont des messages
-        for (const msg of allMessages) {
+        for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
+          
+          // ✅ Vérifier si le message est non lu ET non envoyé par le staff
+          if (msg.is_read === false && 
+              !msg.sender_email.endsWith("@vagondys.com") && 
+              msg.sender_email !== "system@vagondys.com") {
+            unreadDossierMap.set(msg.dossier_ref, true);
+          }
         }
         
         // Garder uniquement le plus récent par dossier
         const tempMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
-        for (const msg of allMessages) {
+        for (const msg of typedMessages) {
           if (!tempMap.has(msg.dossier_ref)) {
             tempMap.set(msg.dossier_ref, {
               content: msg.content,
@@ -173,7 +196,6 @@ export async function GET() {
     }
 
     // ✅ FONCTION : Déterminer le type en fonction du company ou reason
-    // ✅ CORRECTION : Ajout de "player" dans le type de retour
     function determineType(company: string | null, reason: string): "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player" {
       const companyLower = (company || "").toLowerCase();
       const reasonLower = reason.toLowerCase();
@@ -221,7 +243,6 @@ export async function GET() {
 
     // ✅ 10. Transformer les demandes EN ATTENTE en format compatible
     const pendingRequestsFormatted = (pendingRequests || []).map((request) => {
-      // Déterminer le type pour les demandes en attente
       const type = determineType(request.company, request.reason);
       
       return {
@@ -245,6 +266,7 @@ export async function GET() {
         account_status: "not_created",
         last_message: null,
         last_message_date: null,
+        has_unread: false,
       };
     });
 
@@ -255,9 +277,8 @@ export async function GET() {
       })
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
-        
-        // Déterminer le type en fonction du company ou reason
         const type = determineType(account.company, "Compte partenaire VAGONDYS");
+        const hasUnread = unreadDossierMap.has(account.dossier_ref) || false;
         
         return {
           id: account.id || `partner_${Date.now()}`,
@@ -280,6 +301,7 @@ export async function GET() {
           account_status: account.status === "active" ? "active" : "inactive",
           last_message: lastMsg?.content || null,
           last_message_date: lastMsg?.created_at || null,
+          has_unread: hasUnread,
         };
       });
 
@@ -290,6 +312,7 @@ export async function GET() {
       })
       .map((player) => {
         const lastMsg = lastMessagesMap.get(player.dossier_ref);
+        const hasUnread = unreadDossierMap.has(player.dossier_ref) || false;
         
         return {
           id: player.id || `player_${Date.now()}`,
@@ -312,14 +335,18 @@ export async function GET() {
           account_status: player.status === "ACTIF" ? "active" : "inactive",
           last_message: lastMsg?.content || null,
           last_message_date: lastMsg?.created_at || null,
+          has_unread: hasUnread,
         };
       });
 
     // ✅ 13. Fusionner les trois listes
     const allRequests = [...pendingRequestsFormatted, ...partnerRequests, ...playerRequests];
 
-    // ✅ 14. TRI ALPHABÉTIQUE par nom du correspondant
+    // ✅ 14. TRI : les messages non lus remontent en premier, puis alphabétique
     allRequests.sort((a, b) => {
+      if (a.has_unread && !b.has_unread) return -1;
+      if (!a.has_unread && b.has_unread) return 1;
+      
       const nameA = a.full_name?.toLowerCase() || "";
       const nameB = b.full_name?.toLowerCase() || "";
       return nameA.localeCompare(nameB);

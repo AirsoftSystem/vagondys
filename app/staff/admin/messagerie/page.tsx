@@ -26,13 +26,16 @@ import {
   UserCircle,
   Users,
   Hourglass,
-  Sparkles,      // Sponsor
-  User,           // Client
-  Package,        // Fournisseur
-  Megaphone,      // Publicité
-  Network,        // Communication
-  MoreHorizontal  // Divers
+  Sparkles,
+  User,
+  Package,
+  Megaphone,
+  Network,
+  MoreHorizontal
 } from "lucide-react";
+
+// ✅ IMPORT DU MODULE CSS
+import styles from "./page.module.css";
 
 // ✅ INTERFACE ÉTENDUE avec les champs KBis et messages
 interface MessagerieRequest {
@@ -48,7 +51,6 @@ interface MessagerieRequest {
   created_at: string;
   dossier_ref?: string | null;
   city?: string | null;
-  // ✅ AJOUT : Champs KBis
   kbis_url?: string | null;
   kbis_key?: string | null;
   kbis_validated?: boolean;
@@ -58,14 +60,12 @@ interface MessagerieRequest {
     isAuthentic?: boolean;
     confidence?: number;
   } | null;
-  // ✅ NOUVEAUX CHAMPS
   account_status?: "active" | "inactive" | "suspended" | "not_created";
   is_online?: boolean;
-  // ✅ AJOUT : Type de messagerie (partenaire, joueur, sponsor, client, fournisseur, publicite, communication, divers)
   type?: "partner" | "player" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "pending";
-  // ✅ AJOUT : Dernier message
   last_message?: string;
   last_message_date?: string;
+  has_unread?: boolean;
 }
 
 interface GlobalRequestsStats {
@@ -75,7 +75,6 @@ interface GlobalRequestsStats {
   rejected: number;
 }
 
-// ✅ Interface pour un message dans le fil de discussion
 interface ConversationMessage {
   id: string;
   content: string;
@@ -86,7 +85,6 @@ interface ConversationMessage {
   file_url?: string | null;
 }
 
-// ✅ Interface pour les réponses staff
 interface StaffReply {
   id: string;
   created_at: string;
@@ -96,7 +94,6 @@ interface StaffReply {
   document_url?: string | null;
 }
 
-// Interface pour les données brutes de l'API (remplacement de any)
 interface StaffReplyRaw {
   id: string;
   created_at: string;
@@ -106,7 +103,6 @@ interface StaffReplyRaw {
   document_url?: string | null;
 }
 
-// ✅ FONCTION DE FORMATAGE DE DATE
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('fr-FR', {
@@ -116,7 +112,6 @@ function formatDate(dateString: string): string {
   });
 }
 
-// ✅ FONCTION POUR LE BADGE DE STATUT DE LA DEMANDE
 function getStatusBadge(status: "pending" | "approved" | "rejected") {
   switch (status) {
     case "approved":
@@ -143,7 +138,6 @@ function getStatusBadge(status: "pending" | "approved" | "rejected") {
   }
 }
 
-// ✅ FONCTION POUR LE BADGE DE TYPE (avec tous les nouveaux types)
 function getTypeBadge(type?: string) {
   switch (type) {
     case "player":
@@ -232,29 +226,27 @@ export default function AdminMessageriePage() {
   const [selectedRequest, setSelectedRequest] = useState<MessagerieRequest | null>(null);
   const [approveNotes, setApproveNotes] = useState("");
   
-  // ✅ ÉTATS POUR LE FIL DE DISCUSSION
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   
-  // ✅ ÉTAT POUR LE MODAL D'EXPANSION
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDossierRef, setModalDossierRef] = useState<string | null>(null);
   const [modalMessages, setModalMessages] = useState<ConversationMessage[]>([]);
   const [modalReplyContent, setModalReplyContent] = useState("");
   const [modalSendingReply, setModalSendingReply] = useState(false);
 
-  // ✅ ÉTATS POUR L'ARCHIVAGE GITHUB
   const [searchGitHubRef, setSearchGitHubRef] = useState("");
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoringRef, setRestoringRef] = useState<string | null>(null);
 
-  // ✅ Ref pour éviter les appels multiples
   const hasLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
 
-  // ✅ Charger les conversations depuis messagerie_accounts + messagerie_messages
   const loadRequests = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
     setLoading(true);
     setError(null);
 
@@ -273,55 +265,95 @@ export default function AdminMessageriePage() {
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      // ✅ TRI ALPHABÉTIQUE par nom du correspondant
-      const sortedRequests = [...allRequests].sort((a, b) => {
+      // ✅ 1. Récupérer les messages non lus pour chaque dossier
+      const unreadMap = new Map<string, boolean>();
+      try {
+        const unreadResponse = await fetch("/api/messagerie/messages/unread");
+        if (unreadResponse.ok) {
+          const unreadData = await unreadResponse.json();
+          if (unreadData && Array.isArray(unreadData)) {
+            for (const item of unreadData) {
+              unreadMap.set(item.dossier_ref, true);
+            }
+          }
+        }
+      } catch (unreadErr) {
+        console.warn("⚠️ Erreur récupération messages non lus:", unreadErr);
+      }
+      
+      // ✅ 2. Marquer les demandes avec has_unread
+      const requestsWithUnread = allRequests.map((req: MessagerieRequest) => ({
+        ...req,
+        has_unread: req.dossier_ref ? unreadMap.has(req.dossier_ref) : false
+      }));
+      
+      // ✅ 3. Tri : les messages non lus remontent en premier, puis alphabétique
+      const sortedRequests = requestsWithUnread.sort((a: MessagerieRequest, b: MessagerieRequest) => {
+        if (a.has_unread && !b.has_unread) return -1;
+        if (!a.has_unread && b.has_unread) return 1;
+        
         const nameA = a.full_name?.toLowerCase() || "";
         const nameB = b.full_name?.toLowerCase() || "";
         return nameA.localeCompare(nameB);
       });
       
-      setRequests(sortedRequests);
-      
-      const stats: GlobalRequestsStats = {
-        total: sortedRequests.length,
-        pending: sortedRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
-        approved: sortedRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
-        rejected: sortedRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
-      };
-      setGlobalStats(stats);
+      if (isMountedRef.current) {
+        setRequests(sortedRequests);
+        
+        const stats: GlobalRequestsStats = {
+          total: sortedRequests.length,
+          pending: sortedRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
+          approved: sortedRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
+          rejected: sortedRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
+        };
+        setGlobalStats(stats);
+        setLoading(false);
+      }
       
     } catch (err) {
       console.error("Erreur chargement conversations:", err);
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+        setLoading(false);
+      }
     }
   }, [router]);
 
-  // ✅ AJOUT : Vérification de l'authentification admin
+  const markConversationAsRead = useCallback((dossierRef: string) => {
+    setRequests(prev => prev.map(req => 
+      req.dossier_ref === dossierRef 
+        ? { ...req, has_unread: false }
+        : req
+    ));
+  }, []);
+
+  // ✅ Vérification de l'authentification admin
   useEffect(() => {
     const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
     if (!isAuthenticated) {
       router.push("/staff/admin/verification");
     }
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [router]);
 
-  // ✅ AJOUT : Chargement des données
+  // ✅ Chargement initial avec gestion du mounted
   useEffect(() => {
     if (hasLoadedRef.current) return;
     const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
-    if (isAuthenticated) {
+    if (isAuthenticated && isMountedRef.current) {
       hasLoadedRef.current = true;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadRequests();
     }
   }, [loadRequests]);
 
-  // ✅ AJOUT : Rechargement automatique quand la page devient visible (retour de set-password)
+  // ✅ Rechargement quand la page devient visible
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        // Recharger les données quand l'utilisateur revient sur l'onglet
+      if (document.visibilityState === "visible" && isMountedRef.current) {
         loadRequests();
       }
     };
@@ -332,7 +364,6 @@ export default function AdminMessageriePage() {
     };
   }, [loadRequests]);
 
-  // ✅ RÉCUPÉRER LES RÉPONSES STAFF (communication_replies)
   const getStaffReplies = async (dossierRef: string): Promise<StaffReply[]> => {
     try {
       const response = await fetch(`/api/staff/history?ref=${encodeURIComponent(dossierRef)}`);
@@ -353,7 +384,6 @@ export default function AdminMessageriePage() {
     return [];
   };
 
-  // ✅ CHARGER LES MESSAGES D'UNE CONVERSATION (via dossierRef)
   const loadConversationMessages = useCallback(async (dossierRef: string) => {
     if (!dossierRef) return;
     
@@ -367,6 +397,7 @@ export default function AdminMessageriePage() {
           is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
         }));
         setMessages(formattedMessages);
+        markConversationAsRead(dossierRef);
       } else {
         setMessages([]);
       }
@@ -376,9 +407,8 @@ export default function AdminMessageriePage() {
     } finally {
       setLoadingMessages(false);
     }
-  }, []);
+  }, [markConversationAsRead]);
 
-  // ✅ ENVOYER UNE RÉPONSE (staff → partenaire ou joueur) via dossierRef
   const handleSendReply = async () => {
     if (!selectedRequest || !replyContent.trim() || !selectedRequest.dossier_ref) return;
     
@@ -407,7 +437,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ ENVOYER UNE RÉPONSE DEPUIS LE MODAL (via dossierRef)
   const handleModalSendReply = async () => {
     if (!selectedRequest || !modalReplyContent.trim() || !modalDossierRef) return;
     
@@ -446,7 +475,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ OUVRIR LE MODAL D'EXPANSION (via dossierRef)
   const openExpandedModal = async (request: MessagerieRequest) => {
     if (!request.dossier_ref) {
       alert("Ce dossier n'a pas encore de référence.");
@@ -467,6 +495,7 @@ export default function AdminMessageriePage() {
           is_staff: msg.sender_email?.endsWith("@vagondys.com") || false
         }));
         setModalMessages(formattedMessages);
+        markConversationAsRead(request.dossier_ref);
       } else {
         setModalMessages([]);
       }
@@ -476,7 +505,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ FERMER LE MODAL
   const closeExpandedModal = () => {
     setIsModalOpen(false);
     setModalDossierRef(null);
@@ -484,7 +512,6 @@ export default function AdminMessageriePage() {
     setModalReplyContent("");
   };
 
-  // ✅ SUPPRIMER UNE DEMANDE
   const handleDelete = async (request: MessagerieRequest) => {
     if (!confirm(`Supprimer définitivement la demande de ${request.full_name} ? Cette action est irréversible.`)) return;
     
@@ -509,7 +536,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ RÉOUVRIR UNE DEMANDE (remettre en attente)
   const handleReopen = async (request: MessagerieRequest) => {
     if (!confirm(`Remettre la demande de ${request.full_name} en attente ?`)) return;
     
@@ -536,7 +562,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // Approuver une demande
   const handleApprove = async (request: MessagerieRequest) => {
     setProcessingId(request.id);
     try {
@@ -569,7 +594,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // Rejeter une demande
   const handleReject = async (request: MessagerieRequest) => {
     if (!confirm(`Refuser la demande de ${request.full_name} ?`)) return;
     
@@ -601,7 +625,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ ARCHIVAGE VERS GITHUB (Coffre-Fort) - VERSION CORRIGÉE avec dossierRef
   const handleArchiveToGitHub = async (request: MessagerieRequest) => {
     if (!request.dossier_ref) {
       alert("Ce dossier n'a pas encore de référence. Approuvez-le d'abord.");
@@ -612,7 +635,6 @@ export default function AdminMessageriePage() {
     
     setProcessingId(request.id);
     try {
-      // 1. Récupérer les messages de la conversation via dossierRef
       let conversationMessages: ConversationMessage[] = [];
       
       const messagesResponse = await fetch(`/api/messagerie/messages?dossierRef=${encodeURIComponent(request.dossier_ref)}`);
@@ -624,10 +646,8 @@ export default function AdminMessageriePage() {
         }));
       }
       
-      // 2. Récupérer les réponses staff
       const staffReplies = await getStaffReplies(request.dossier_ref);
       
-      // 3. Construire le payload pour l'archivage (format compatible avec l'API)
       const archivePayload = {
         message: {
           dossier_ref: request.dossier_ref,
@@ -679,14 +699,12 @@ export default function AdminMessageriePage() {
         throw new Error(result.error || "Erreur lors de l'archivage");
       }
       
-      // ✅ Vérifier que la purge a bien été effectuée
       if (result.purged === true) {
         console.log(`✅ Purge effectuée pour ${request.dossier_ref}`);
       } else {
         console.warn(`⚠️ Purge non confirmée pour ${request.dossier_ref}, résultat:`, result);
       }
       
-      // Rafraîchir la liste (la demande devrait disparaître)
       await loadRequests();
       alert(`Dossier ${request.dossier_ref} archivé avec succès dans le Coffre-Fort GitHub et purgé des données locales.`);
       
@@ -698,7 +716,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ RESTAURATION DEPUIS GITHUB
   const handleRestoreFromGitHub = async () => {
     if (!searchGitHubRef.trim()) {
       alert("Veuillez saisir une référence de dossier (ex: VGD-XXXXXX)");
@@ -738,7 +755,6 @@ export default function AdminMessageriePage() {
     }
   };
 
-  // ✅ EXPANSION AVEC CHARGEMENT DES MESSAGES (via dossierRef)
   const handleExpand = async (request: MessagerieRequest) => {
     if (expandedRequest === request.id) {
       setExpandedRequest(null);
@@ -778,8 +794,6 @@ export default function AdminMessageriePage() {
 
   return (
     <div className="space-y-8">
-      
-      {/* En-tête */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-black uppercase tracking-tighter">
@@ -798,7 +812,6 @@ export default function AdminMessageriePage() {
         </button>
       </div>
 
-      {/* Barre de recherche GitHub (Coffre-Fort) */}
       <div className="flex items-center gap-4 bg-black/50 border border-zinc-800 rounded-xl p-3">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
@@ -826,7 +839,6 @@ export default function AdminMessageriePage() {
         </button>
       </div>
 
-      {/* Erreur */}
       {error && (
         <div className="bg-red-600/10 border border-red-600/30 rounded-xl p-4 flex items-center gap-3 text-red-500">
           <AlertTriangle className="w-5 h-5" />
@@ -834,7 +846,6 @@ export default function AdminMessageriePage() {
         </div>
       )}
 
-      {/* Cartes statistiques globales */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
@@ -877,7 +888,6 @@ export default function AdminMessageriePage() {
         </div>
       </div>
 
-      {/* Filtres et recherche */}
       <div className="flex flex-wrap gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
@@ -931,7 +941,6 @@ export default function AdminMessageriePage() {
         </button>
       </div>
 
-      {/* Tableau des conversations */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-zinc-800">
           <h2 className="text-sm font-black uppercase tracking-tighter">
@@ -952,10 +961,18 @@ export default function AdminMessageriePage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRequests.map((request) => (
+              {filteredRequests.map((request) => {
+                const isUnread = request.has_unread === true;
+                const isPending = request.status === "pending";
+                
+                return (
                 <React.Fragment key={request.id}>
-                  <tr className="border-b border-zinc-800/50 hover:bg-white/5 transition-colors cursor-pointer"
-                      onClick={() => handleExpand(request)}>
+                  <tr 
+                    className={`${styles.tableRow} border-b border-zinc-800/50 hover:bg-white/5 transition-colors cursor-pointer ${
+                      isUnread ? styles.unreadRow : ''
+                    } ${isPending ? styles.pendingRow : ''}`}
+                    onClick={() => handleExpand(request)}
+                  >
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
@@ -963,9 +980,17 @@ export default function AdminMessageriePage() {
                             {request.full_name.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
-                          {request.full_name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
+                            {request.full_name}
+                          </span>
+                          {isUnread && (
+                            <span className={styles.newBadge}>
+                              <span className={styles.newDot} />
+                              Nouveau
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="p-4">
@@ -999,9 +1024,7 @@ export default function AdminMessageriePage() {
                   {expandedRequest === request.id && (
                     <tr className="bg-black/50">
                       <td colSpan={7} className="p-5">
-                        {/* Contenu de l'expansion inchangé - utilise dossier_ref pour les messages */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          {/* Colonne gauche : Coordonnées + motif + KBis */}
                           <div className="space-y-4">
                             <div className="space-y-2">
                               <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Coordonnées</h4>
@@ -1103,7 +1126,6 @@ export default function AdminMessageriePage() {
                             </div>
                           </div>
                           
-                          {/* Colonne droite : Fil de discussion */}
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
                               <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
@@ -1230,13 +1252,13 @@ export default function AdminMessageriePage() {
                     </tr>
                   )}
                 </React.Fragment>
-              ))}
+              );
+              })}
             </tbody>
            </table>
         </div>
       </div>
 
-      {/* MODAL D'EXPANSION POUR LE FIL DE DISCUSSION */}
       {isModalOpen && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={closeExpandedModal} />
@@ -1346,7 +1368,6 @@ export default function AdminMessageriePage() {
         </div>
       )}
 
-      {/* Modal d'approbation */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setShowApproveModal(false)} />

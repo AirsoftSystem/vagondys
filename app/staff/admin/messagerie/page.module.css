@@ -1,0 +1,217 @@
+
+/* ==========================================================
+   PAGE : CONVERSATIONS MESSAGERIE (SUPER ADMIN)
+   Styles pour les conversations et les indicateurs de nouveaux messages
+   ========================================================== */
+
+/* ==========================================================
+   ANIMATION DE CLIGNOTEMENT POUR LES LIGNES AVEC NOUVEAUX MESSAGES
+   BORDURE ROUGE UNIQUEMENT (SANS HALO)
+   ========================================================== */
+
+@keyframes blinkBorder {
+  0% {
+    border-left-color: #dc2626;
+    border-left-width: 4px;
+  }
+  25% {
+    border-left-color: #dc2626;
+    border-left-width: 4px;
+  }
+  50% {
+    border-left-color: #dc2626;
+    border-left-width: 4px;
+  }
+  75% {
+    border-left-color: #dc2626;
+    border-left-width: 4px;
+  }
+  100% {
+    border-left-color: #dc2626;
+    border-left-width: 4px;
+  }
+}
+
+@keyframes pulseBorder {
+  0% {
+    border-left-color: #dc2626;
+    opacity: 1;
+  }
+  50% {
+    border-left-color: #dc2626;
+    opacity: 0.5;
+  }
+  100% {
+    border-left-color: #dc2626;
+    opacity: 1;
+  }
+}
+
+/* ✅ Classe pour la ligne avec nouveau message */
+.unreadRow {
+  border-left: 4px solid #dc2626 !important;
+  animation: pulseBorder 1.2s ease-in-out infinite;
+  background-color: rgba(220, 38, 38, 0.03);
+  transition: background-color 0.3s ease;
+}
+
+.unreadRow:hover {
+  background-color: rgba(220, 38, 38, 0.08);
+}
+
+/* ==========================================================
+   BADGE "NOUVEAU" POUR LES LIGNES AVEC MESSAGES NON LUS
+   ========================================================== */
+
+@keyframes pulseDot {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.newBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 7px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.12);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  animation: pulseBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Point rouge clignotant dans le badge */
+.newDot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #dc2626;
+  animation: pulseDot 1.2s ease-in-out infinite;
+}
+
+/* ==========================================================
+   STATUT "EN ATTENTE" (PENDING) - DEMANDES NON TRAITÉES
+   ========================================================== */
+
+.pendingRow {
+  border-left: 3px solid #eab308;
+  background-color: rgba(234, 179, 8, 0.03);
+}
+
+.pendingRow:hover {
+  background-color: rgba(234, 179, 8, 0.08);
+}
+
+/* ==========================================================
+   STATUT "APPROUVÉ" - DEMANDES TRAITÉES
+   ========================================================== */
+
+.approvedRow {
+  border-left: 3px solid #22c55e;
+  background-color: rgba(34, 197, 94, 0.02);
+}
+
+/* ==========================================================
+   STATUT "REJETÉ" - DEMANDES REFUSÉES
+   ========================================================== */
+
+.rejectedRow {
+  border-left: 3px solid #ef4444;
+  background-color: rgba(239, 68, 68, 0.02);
+  opacity: 0.6;
+}
+
+/* ==========================================================
+   ANIMATION D'APPARITION DES NOUVELLES LIGNES
+   ========================================================== */
+
+@keyframes slideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.newRow {
+  animation: slideIn 0.4s ease-out forwards;
+}
+
+/* ==========================================================
+   COMPTEUR DE MESSAGES NON LUS DANS LE BADGE
+   ========================================================== */
+
+.unreadCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  font-size: 8px;
+  font-weight: 900;
+  color: #ffffff;
+  background-color: #dc2626;
+  border-radius: 9999px;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+/* ==========================================================
+   SURVOL DES LIGNES AVEC EFFET DE TRANSITION
+   ========================================================== */
+
+.tableRow {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.tableRow:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* ==========================================================
+   RESPONSIVE : AJUSTEMENTS POUR PETITS ÉCRANS
+   ========================================================== */
+
+@media (max-width: 768px) {
+  .unreadRow {
+    border-left-width: 3px !important;
+  }
+  
+  .newBadge {
+    font-size: 6px;
+    padding: 1px 5px;
+  }
+  
+  .newDot {
+    width: 4px;
+    height: 4px;
+  }
+}
