@@ -17,6 +17,7 @@ import { cookies } from "next/headers";
  * ✅ AJOUT : Détermination automatique du type (sponsor, client, fournisseur, etc.)
  * ✅ AJOUT : Tri alphabétique des résultats
  * ✅ AJOUT : Champ has_unread pour identifier les conversations avec messages non lus
+ * ✅ AJOUT : Utilisation du request_type du payload pour les demandes en attente
  */
 export async function GET() {
   try {
@@ -156,7 +157,6 @@ export async function GET() {
       if (messagesError) {
         console.error("Erreur récupération messages:", messagesError);
       } else if (allMessages) {
-        // ✅ CORRECTION : Typage explicite pour les messages
         type RawMessage = {
           dossier_ref: string;
           content: string;
@@ -168,11 +168,9 @@ export async function GET() {
         
         const typedMessages = allMessages as RawMessage[];
         
-        // Construire un Set des dossiers qui ont des messages
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
-          // ✅ Vérifier si le message est non lu ET non envoyé par le staff
           if (msg.is_read === false && 
               !msg.sender_email.endsWith("@vagondys.com") && 
               msg.sender_email !== "system@vagondys.com") {
@@ -180,7 +178,6 @@ export async function GET() {
           }
         }
         
-        // Garder uniquement le plus récent par dossier
         const tempMap = new Map<string, { content: string; created_at: string; sender_name: string }>();
         for (const msg of typedMessages) {
           if (!tempMap.has(msg.dossier_ref)) {
@@ -195,12 +192,25 @@ export async function GET() {
       }
     }
 
-    // ✅ FONCTION : Déterminer le type en fonction du company ou reason
-    function determineType(company: string | null, reason: string): "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player" {
+    // ✅ FONCTION : Déterminer le type en fonction du request_type (prioritaire), company ou reason
+    function determineType(
+      requestType: string | null | undefined,
+      company: string | null,
+      reason: string
+    ): "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player" {
+      
+      // ✅ PRIORITÉ : Utiliser le request_type s'il est présent
+      if (requestType) {
+        const validTypes = ["partner", "sponsor", "client", "supplier", "advertising", "communication", "divers", "player"];
+        if (validTypes.includes(requestType)) {
+          return requestType as "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player";
+        }
+      }
+
+      // ✅ FALLBACK : Analyse par mots-clés (comme avant)
       const companyLower = (company || "").toLowerCase();
       const reasonLower = reason.toLowerCase();
 
-      // Mots-clés pour chaque type
       const keywords: Record<string, string[]> = {
         "sponsor": ["sponsor", "sponsoring", "partenaire financier", "mécène"],
         "client": ["client", "acheteur", "consommateur", "utilisateur"],
@@ -209,41 +219,30 @@ export async function GET() {
         "communication": ["communication", "presse", "media", "relations publiques", "rp"]
       };
 
-      // Vérifier dans le company
       for (const [type, words] of Object.entries(keywords)) {
         for (const word of words) {
-          if (companyLower.includes(word)) {
+          if (companyLower.includes(word) || reasonLower.includes(word)) {
             return type as "sponsor" | "client" | "supplier" | "advertising" | "communication";
           }
         }
       }
 
-      // Vérifier dans le reason
-      for (const [type, words] of Object.entries(keywords)) {
-        for (const word of words) {
-          if (reasonLower.includes(word)) {
-            return type as "sponsor" | "client" | "supplier" | "advertising" | "communication";
-          }
-        }
-      }
-
-      // Si "joueur" ou "player" dans le reason
       if (reasonLower.includes("joueur") || reasonLower.includes("player")) {
         return "player";
       }
 
-      // Si "partenaire" ou "partner" dans le reason
       if (reasonLower.includes("partenaire") || reasonLower.includes("partner")) {
         return "partner";
       }
 
-      // Par défaut : divers
       return "divers";
     }
 
     // ✅ 10. Transformer les demandes EN ATTENTE en format compatible
     const pendingRequestsFormatted = (pendingRequests || []).map((request) => {
-      const type = determineType(request.company, request.reason);
+      // ✅ Récupérer le request_type du payload s'il existe
+      const requestType = request.payload?.request_type || null;
+      const type = determineType(requestType, request.company, request.reason);
       
       return {
         id: request.id,
@@ -277,7 +276,8 @@ export async function GET() {
       })
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
-        const type = determineType(account.company, "Compte partenaire VAGONDYS");
+        // ✅ Pour les partenaires, on utilise la détermination par mots-clés (pas de request_type)
+        const type = determineType(null, account.company, "Compte partenaire VAGONDYS");
         const hasUnread = unreadDossierMap.has(account.dossier_ref) || false;
         
         return {

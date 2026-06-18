@@ -75,7 +75,7 @@ async function findExistingDossierRef(
   // 3. Recherche dans Archive GitHub
   try {
     const emailSlug = cleanEmail.replace(/[@.]/g, "_");
-    const searchUrl = `${siteUrl}/api/archive-external?search=${emailSlug}`;
+    const searchUrl = `${siteUrl}/api/archive-external/find-by-email?search=${emailSlug}`;
     const searchRes = await fetch(searchUrl);
     
     if (searchRes.ok) {
@@ -122,7 +122,8 @@ export async function POST(request: Request) {
       city, 
       country, // "FRANCE" ou "ESPAGNE"
       dossierRef: providedDossierRef, 
-      turnstileToken 
+      turnstileToken,
+      type // ✅ AJOUT : Type de demande (client, communication, divers, supplier, partner, advertising, sponsor)
     } = body;
 
     // 1. Validation Turnstile (Sécurité Anti-Bot)
@@ -251,7 +252,9 @@ export async function POST(request: Request) {
               city: cityCode,
               country: country, // Nom complet pour le staff
               subject: "NOUVEL ENRÔLEMENT",
-              message: `DEMANDE d'ACTIVATION POUR : ${full_name} (${cityCode} - ${countryCode}).`
+              message: `DEMANDE d'ACTIVATION POUR : ${full_name} (${cityCode} - ${countryCode}).`,
+              // ✅ AJOUT : Type de demande pour le filtrage
+              request_type: type || "partner"
             },
             confirmed: false,
             is_read: false,

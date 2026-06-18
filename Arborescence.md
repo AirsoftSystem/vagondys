@@ -215,10 +215,12 @@ VAGONDYS/
 ┃  ┃  ┃  ┣━ configuration/                         ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ logs/                                  ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ messagerie/                            ✅ EXISTANT
+┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
 ┃  ┃  ┃  ┣━ staff/                                 ✅ EXISTANT
 ┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
@@ -310,6 +312,7 @@ VAGONDYS/
 ┃  ┃  ┗━ tournament.ts                             ✅ EXISTANT
 ┃  ┣━ hooks/                                       ✅ EXISTANT
 ┃  ┃  ┣━ useAudioControl.ts                        ✅ EXISTANT
+┃  ┃  ┣━ usDashboardData.ts                        ✅ EXISTANT
 ┃  ┃  ┗━ usePhysicalButton.ts                      ✅ EXISTANT
 ┃  ┣━ storage/                                     ✅ EXISTANT
 ┃  ┃  ┗━ r2-client.ts                              ✅ EXISTANT
