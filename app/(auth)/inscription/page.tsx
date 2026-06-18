@@ -18,8 +18,7 @@ import {
   AlertTriangle,
   Eye, 
   EyeOff,
-  Hash,
-  Tag
+  Hash
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,8 +28,6 @@ import Link from "next/link";
  * ✅ AJOUT : Géolocalisation par IP pour pré-remplir la ville la plus proche
  * ✅ CORRECTION : URL de recherche GitHub corrigée (/find-by-email)
  * ✅ CORRECTION : Suppression des variables inutilisées cityCode/countryCode (ESLint)
- * ✅ AJOUT : Menu déroulant "Type de demande" (Client, Communication, Divers, Fournisseur, Partenaire, Publicité, Sponsor)
- * ✅ CORRECTION : Texte simplifié pour le champ "Motif de la demande"
  */
 
 type TurnstileOptions = {
@@ -61,17 +58,6 @@ const CITIES_COORDINATES = [
   { name: "Madrid", lat: 40.4168, lon: -3.7038, country: "ES" }
 ];
 
-// ✅ Types disponibles (ordre alphabétique)
-const REQUEST_TYPES = [
-  { value: "client", label: "Client" },
-  { value: "communication", label: "Communication" },
-  { value: "divers", label: "Divers" },
-  { value: "supplier", label: "Fournisseur" },
-  { value: "partner", label: "Partenaire" },
-  { value: "advertising", label: "Publicité" },
-  { value: "sponsor", label: "Sponsor" }
-];
-
 export default function InscriptionJoueurPage() {
   const [formData, setFormData] = useState({
     full_name: "",
@@ -81,7 +67,6 @@ export default function InscriptionJoueurPage() {
     password: "",
     country_select: "FR",
     city: "Nantes",
-    type: "partner", // ✅ AJOUT : Type de demande (par défaut "Partenaire")
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -168,6 +153,8 @@ export default function InscriptionJoueurPage() {
         try {
           const emailSlug = formData.email.toLowerCase().trim().replace('@', '_');
           
+          // ✅ CORRECTION : URL corrigée vers /find-by-email
+          // ✅ CORRECTION : Suppression des variables inutilisées cityCode/countryCode
           const res = await fetch(`/api/archive-external/find-by-email?search=${emailSlug}`);
           
           if (res.ok) {
@@ -283,7 +270,6 @@ export default function InscriptionJoueurPage() {
         phone: formData.phone || "",
         city: formData.city.toUpperCase(), 
         country: formData.country_select.toUpperCase(),
-        type: formData.type, // ✅ AJOUT : Type de demande
         turnstileToken: turnstileToken,
         dossierRef: dossierRef 
       };
@@ -512,33 +498,6 @@ export default function InscriptionJoueurPage() {
                 </select>
               </div>
             </div>
-          </div>
-
-          {/* ✅ AJOUT : Menu déroulant "Type de demande" */}
-          <div className="space-y-2">
-            <label htmlFor="type" className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Tag className="w-3 h-3 text-red-600" />
-              Type de demande
-            </label>
-            <div className="relative">
-              <select 
-                id="type" 
-                name="type"
-                value={formData.type} 
-                onChange={handleInputChange}
-                className="w-full bg-black border border-zinc-900 rounded-xl p-4 pl-4 text-xs font-bold outline-none focus:border-red-600 transition-all appearance-none text-white cursor-pointer"
-              >
-                {REQUEST_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-600 text-[8px]">▼</div>
-            </div>
-            <p className="text-[8px] text-zinc-600 uppercase tracking-wider ml-1">
-              Sélectionnez le type de votre demande pour un traitement adapté
-            </p>
           </div>
 
           <div className="flex justify-center py-2 min-h-[65px]">
