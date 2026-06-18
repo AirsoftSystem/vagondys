@@ -283,7 +283,7 @@ function MessagerieInscriptionContent() {
               onChange={handleChange}
               required
               rows={4}
-              placeholder="Décrivez brièvement votre activité et pourquoi vous avez besoin d&apos;un accès à la messagerie privée..."
+              placeholder="Décrivez brièvement votre activité afin d'avoir un accès à la messagerie privée..."
               className="w-full bg-black border border-zinc-800 rounded-xl p-4 text-sm focus:border-red-600 outline-none transition-colors resize-none"
             />
           </div>
