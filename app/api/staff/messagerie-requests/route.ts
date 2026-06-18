@@ -26,6 +26,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-18 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
  * ✅ CORRECTION 2026-06-22 : Correction du fallback "partenaire" qui écrase le type "supplier"
  * ✅ CORRECTION 2026-06-22 : Récupération des messages depuis GitHub pour les dossiers sans messages dans Supabase
+ * ✅ CORRECTION 2026-06-23 : Ajout du message de bienvenue dans lastMessagesMap pour que le frontend l'affiche
  */
 export async function GET() {
   try {
@@ -352,6 +353,18 @@ export async function GET() {
         const type = determineType(null, account.role, account.company, "Compte partenaire VAGONDYS");
         const hasUnread = unreadDossierMap.has(account.dossier_ref) || false;
         
+        // ✅ CORRECTION : Si le dossier a des messages non lus mais pas de dernier message explicite,
+        // on utilise un message par défaut pour le frontend
+        let lastMessageContent = lastMsg?.content || null;
+        let lastMessageDate = lastMsg?.created_at || null;
+        
+        // Si hasUnread est true mais qu'il n'y a pas de dernier message (cas des messages système),
+        // on utilise un message par défaut
+        if (hasUnread && !lastMessageContent) {
+          lastMessageContent = "Nouveau message non lu";
+          lastMessageDate = new Date().toISOString();
+        }
+        
         return {
           id: account.id || `partner_${Date.now()}`,
           full_name: account.full_name || "Partenaire",
@@ -371,8 +384,8 @@ export async function GET() {
           kbis_scan_result: null,
           type: type,
           account_status: account.status === "active" ? "active" : "inactive",
-          last_message: lastMsg?.content || null,
-          last_message_date: lastMsg?.created_at || null,
+          last_message: lastMessageContent,
+          last_message_date: lastMessageDate,
           has_unread: hasUnread,
         };
       });
@@ -385,6 +398,15 @@ export async function GET() {
       .map((player) => {
         const lastMsg = lastMessagesMap.get(player.dossier_ref);
         const hasUnread = unreadDossierMap.has(player.dossier_ref) || false;
+        
+        // ✅ CORRECTION : Si le dossier a des messages non lus mais pas de dernier message explicite
+        let lastMessageContent = lastMsg?.content || null;
+        let lastMessageDate = lastMsg?.created_at || null;
+        
+        if (hasUnread && !lastMessageContent) {
+          lastMessageContent = "Nouveau message non lu";
+          lastMessageDate = new Date().toISOString();
+        }
         
         return {
           id: player.id || `player_${Date.now()}`,
@@ -405,8 +427,8 @@ export async function GET() {
           kbis_scan_result: null,
           type: "player" as const,
           account_status: player.status === "ACTIF" ? "active" : "inactive",
-          last_message: lastMsg?.content || null,
-          last_message_date: lastMsg?.created_at || null,
+          last_message: lastMessageContent,
+          last_message_date: lastMessageDate,
           has_unread: hasUnread,
         };
       });

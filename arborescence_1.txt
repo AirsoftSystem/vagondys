@@ -2016,7 +2016,7 @@ VAGONDYS/
 */
 
 
-
+/*
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
 │                              SUPER ADMIN                                            │
 │  (vagondys@gmail.com, admin@vagondys.com)                                           │
@@ -2058,8 +2058,7 @@ VAGONDYS/
 │  ❌ Ne voit PAS les échanges confidentiels                                          │
 │  ❌ Ne voit PAS les échanges des autres villes                                      │
 └─────────────────────────────────────────────────────────────────────────────────────┘
-
-
+*/
 
 
 
