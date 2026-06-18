@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     
     // ✅ DÉTERMINER SI L'AGENT EST ADMIN
     const lowerEmail = agentEmail.toLowerCase();
-    const admins = ["contact@vagondys.com", "vagondys@gmail.com", "admin@vagondys.com"];
+    const admins = ["contact@vagondys.com", "vagondys@gmail.com"];
     const isAdmin = admins.includes(lowerEmail);
     
     // ✅ CONSTRUCTION DE LA REQUÊTE

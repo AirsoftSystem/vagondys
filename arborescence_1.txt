@@ -2044,7 +2044,7 @@ VAGONDYS/
 │  (admin@vagondys.com)                                                               │
 │  ✅ Gère les villes (NANTES, LYON, PARIS, etc.)                                     │
 │  ✅ Voit les échanges de SA ville                                                   │
-│  ❌ Ne voit PAS les échanges des autres villes                                      │
+│  ✅ voit les échanges des autres villes                                             │
 │  ❌ Ne voit PAS les échanges confidentiels                                          │
 └─────────────────────────────────────────────────────────────────────────────────────┘
                                         │
@@ -2055,8 +2055,8 @@ VAGONDYS/
 │  (nantes@vagondys.com, lyon@vagondys.com, etc.)                                     │
 │  ✅ Répond aux demandes de SA ville                                                 │
 │  ✅ Voit les échanges de SA ville                                                   │
+│  ✅ voit les échanges des autres villes                                             │
 │  ❌ Ne voit PAS les échanges confidentiels                                          │
-│  ❌ Ne voit PAS les échanges des autres villes                                      │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 */
 

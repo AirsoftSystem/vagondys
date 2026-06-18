@@ -71,6 +71,29 @@ export async function GET(request: Request) {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
+    // ✅ Récupérer l'utilisateur authentifié pour savoir qui fait la requête
+    const { createServerClient } = await import("@supabase/ssr");
+    const { cookies } = await import("next/headers");
+    
+    const cookieStore = await cookies();
+    const supabaseServer = createServerClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set() {},
+        remove() {},
+      },
+    });
+    
+    const { data: { user } } = await supabaseServer.auth.getUser();
+    const userEmail = user?.email?.toLowerCase() || "";
+    
+    // ✅ SUPER ADMIN = vagondys@gmail.com UNIQUEMENT
+    const isSuperAdmin = userEmail === "vagondys@gmail.com";
+    
+    console.log(`🔍 Dashboard API: userEmail=${userEmail}, isSuperAdmin=${isSuperAdmin}`);
+
     const cityUpper = city.toUpperCase().trim();
     const countryUpper = country.toUpperCase().trim();
     const isAdmin = cityUpper === 'MASTER';
@@ -87,6 +110,30 @@ export async function GET(request: Request) {
     if (isAdmin) {
       console.log("🔍 Dashboard API: Mode ADMIN - pas de filtre city (messagerie_messages)");
       
+      // ✅ CORRECTION : Ne compter que les messages non lus
+      // - SUPER ADMIN (vagondys@gmail.com) voit TOUS les messages (y compris système)
+      // - Les autres (admin@vagondys.com, etc.) ne voient PAS les messages système
+      let messagesQuery = adminClient
+        .from("messagerie_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("is_read", false);
+      
+      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système
+      if (!isSuperAdmin) {
+        messagesQuery = messagesQuery.neq("sender_email", "system@vagondys.com");
+      }
+      
+      let recentMessagesQuery = adminClient
+        .from("messagerie_messages")
+        .select("*")
+        .eq("is_read", false)
+        .order("created_at", { ascending: false }).limit(3);
+      
+      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système
+      if (!isSuperAdmin) {
+        recentMessagesQuery = recentMessagesQuery.neq("sender_email", "system@vagondys.com");
+      }
+      
       [
         athletesResult, 
         activeAthletesResult, 
@@ -102,20 +149,12 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        // ✅ CORRECTION : Compter TOUS les messages NON LUS (y compris système)
-        // Le message de bienvenue "system@vagondys.com" doit être compté pour que le staff voit qu'il y a un nouveau message
-        adminClient.from("messagerie_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("is_read", false),
+        messagesQuery,
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        // ✅ CORRECTION : Messages récents (tous, y compris système)
-        adminClient.from("messagerie_messages")
-          .select("*")
-          .eq("is_read", false)
-          .order("created_at", { ascending: false }).limit(3),
+        recentMessagesQuery,
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
         adminClient.from("athletes").select("id, pseudo, full_name, points, rank").order("points", { ascending: false }).limit(5),
@@ -196,12 +235,19 @@ export async function GET(request: Request) {
         
         if (accounts && accounts.length > 0) {
           const dossierRefs = accounts.map(a => a.dossier_ref);
-          // ✅ CORRECTION : Compter TOUS les messages (y compris système)
-          const { data: messages } = await adminClient
+          
+          // ✅ CORRECTION : Compter les messages non lus (exclure système si pas SUPER ADMIN)
+          let messagesQuery = adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
             .eq("is_read", false)
             .in("dossier_ref", dossierRefs);
+          
+          if (!isSuperAdmin) {
+            messagesQuery = messagesQuery.neq("sender_email", "system@vagondys.com");
+          }
+          
+          const { data: messages } = await messagesQuery;
           
           if (messages) {
             const messageCountByDossier = new Map<string, number>();

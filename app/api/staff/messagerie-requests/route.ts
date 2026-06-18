@@ -27,6 +27,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-22 : Correction du fallback "partenaire" qui écrase le type "supplier"
  * ✅ CORRECTION 2026-06-22 : Récupération des messages depuis GitHub pour les dossiers sans messages dans Supabase
  * ✅ CORRECTION 2026-06-23 : Ajout du message de bienvenue dans lastMessagesMap pour que le frontend l'affiche
+ * ✅ CORRECTION 2026-06-24 : Exclusion des messages système pour tous sauf le SUPER ADMIN (vagondys@gmail.com)
  */
 export async function GET() {
   try {
@@ -89,6 +90,10 @@ export async function GET() {
         { status: 403 }
       );
     }
+
+    // ✅ SUPER ADMIN = vagondys@gmail.com UNIQUEMENT
+    const isSuperAdmin = userEmail === "vagondys@gmail.com";
+    console.log(`🔍 [messagerie-requests] userEmail=${userEmail}, isSuperAdmin=${isSuperAdmin}`);
 
     // ✅ 4. Récupérer les demandes EN ATTENTE (pending_messagerie_requests)
     const { data: pendingRequests, error: fetchPendingError } = await supabaseAdmin
@@ -158,12 +163,18 @@ export async function GET() {
     // ✅ CORRECTION : Récupérer les messages depuis Supabase ET depuis GitHub
     // 1. D'abord depuis Supabase
     if (allDossierRefs.length > 0) {
-      // Récupérer tous les messages par dossier depuis Supabase
-      const { data: allMessages, error: messagesError } = await supabaseAdmin
+      // ✅ CORRECTION : Exclure les messages système (system@vagondys.com) pour tous sauf SUPER ADMIN
+      let query = supabaseAdmin
         .from("messagerie_messages")
         .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
-        .in("dossier_ref", allDossierRefs)
-        .order("created_at", { ascending: false });
+        .in("dossier_ref", allDossierRefs);
+      
+      // Si ce n'est pas le SUPER ADMIN, exclure les messages système
+      if (!isSuperAdmin) {
+        query = query.neq("sender_email", "system@vagondys.com");
+      }
+      
+      const { data: allMessages, error: messagesError } = await query.order("created_at", { ascending: false });
 
       if (messagesError) {
         console.error("Erreur récupération messages Supabase:", messagesError);
@@ -182,8 +193,11 @@ export async function GET() {
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
+          // ✅ CORRECTION : Messages non lus - exclure système si pas SUPER ADMIN
+          const isSystemMessage = msg.sender_email === "system@vagondys.com";
           if (msg.is_read === false && 
-              !msg.sender_email.endsWith("@vagondys.com")) {
+              !msg.sender_email.endsWith("@vagondys.com") &&
+              (!isSystemMessage || isSuperAdmin)) {
             unreadDossierMap.set(msg.dossier_ref, true);
           }
         }
@@ -228,21 +242,24 @@ export async function GET() {
                 // Récupérer le dernier message
                 const lastMsg = threadMessages[threadMessages.length - 1];
                 if (lastMsg && lastMsg.content) {
-                  lastMessagesMap.set(ref, {
-                    content: lastMsg.content.substring(0, 100),
-                    created_at: lastMsg.created_at || new Date().toISOString(),
-                    sender_name: lastMsg.sender_name || lastMsg.sender || "Système"
-                  });
+                  // ✅ CORRECTION : Si ce n'est pas le SUPER ADMIN, ne pas afficher les messages système
+                  const isSystemMessage = lastMsg.sender === "SYSTEM" || lastMsg.sender_name?.includes("Système");
+                  if (!isSystemMessage || isSuperAdmin) {
+                    lastMessagesMap.set(ref, {
+                      content: lastMsg.content.substring(0, 100),
+                      created_at: lastMsg.created_at || new Date().toISOString(),
+                      sender_name: lastMsg.sender_name || lastMsg.sender || "Système"
+                    });
+                  }
                 }
                 
                 // Vérifier s'il y a des messages non lus (pour l'alerte)
-                // Dans le contexte de l'archive, on considère que le message est non lu
-                // car il vient d'être créé
+                // ✅ CORRECTION : Si ce n'est pas le SUPER ADMIN, ne pas compter les messages système
                 const hasSystemMessage = threadMessages.some((msg: { sender?: string; sender_name?: string }) => 
                   msg.sender === "SYSTEM" || msg.sender_name === "Système VAGONDYS" || msg.sender_name?.includes("Système")
                 );
                 
-                if (hasSystemMessage) {
+                if (hasSystemMessage && isSuperAdmin) {
                   unreadDossierMap.set(ref, true);
                 }
                 
