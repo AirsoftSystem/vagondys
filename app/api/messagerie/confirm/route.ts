@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
  * ✅ CORRECTION 2026-06-18 : Vérification que le token est bien marqué comme utilisé
  * ✅ CORRECTION 2026-06-18 : Ajout de logs détaillés pour le debug
  * ✅ CORRECTION 2026-06-18 : Redirection vers set-password uniquement si tout est OK
+ * ✅ CORRECTION 2026-06-18 : TOUTES les redirections utilisent /messagerie/connexion (pas /connexion)
  */
 export async function GET(request: NextRequest) {
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!token || !email) {
       console.error("❌ [confirm] Paramètres manquants");
       return NextResponse.redirect(
-        new URL("/connexion?error=missing_params", frontendUrl)
+        new URL("/messagerie/connexion?error=missing_params", frontendUrl)
       );
     }
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     if (!supabaseUrl || !supabaseKey) {
       console.error("❌ [confirm] Variables Supabase manquantes");
       return NextResponse.redirect(
-        new URL("/connexion?error=config_error", frontendUrl)
+        new URL("/messagerie/connexion?error=config_error", frontendUrl)
       );
     }
 
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
     if (tokenError || !confirmation) {
       console.error("❌ [confirm] Token invalide ou déjà utilisé:", tokenError);
       return NextResponse.redirect(
-        new URL("/connexion?error=invalid_token", frontendUrl)
+        new URL("/messagerie/connexion?error=invalid_token", frontendUrl)
       );
     }
     console.log(`✅ [confirm] Token trouvé - id: ${confirmation.id}, user_id: ${confirmation.user_id}`);
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (expiresAt < now) {
       console.error(`❌ [confirm] Token expiré - expires_at: ${confirmation.expires_at}, now: ${now.toISOString()}`);
       return NextResponse.redirect(
-        new URL("/connexion?error=token_expired", frontendUrl)
+        new URL("/messagerie/connexion?error=token_expired", frontendUrl)
       );
     }
     console.log(`✅ [confirm] Token valide (non expiré)`);
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     if (userError || !userData.user) {
       console.error("❌ [confirm] Utilisateur introuvable:", userError);
       return NextResponse.redirect(
-        new URL("/connexion?error=user_not_found", frontendUrl)
+        new URL("/messagerie/connexion?error=user_not_found", frontendUrl)
       );
     }
 
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
     if (accountFetchError || !messagerieAccount) {
       console.error("❌ [confirm] Compte messagerie introuvable:", accountFetchError);
       return NextResponse.redirect(
-        new URL("/connexion?error=account_not_found", frontendUrl)
+        new URL("/messagerie/connexion?error=account_not_found", frontendUrl)
       );
     }
 
@@ -135,14 +136,14 @@ export async function GET(request: NextRequest) {
       });
       // ✅ CORRECTION : Si l'update échoue, on bloque la redirection
       return NextResponse.redirect(
-        new URL("/connexion?error=token_update_failed", frontendUrl)
+        new URL("/messagerie/connexion?error=token_update_failed", frontendUrl)
       );
     }
     
     if (!updatedToken || updatedToken.length === 0) {
       console.error("❌ [confirm] Aucune ligne mise à jour pour le token");
       return NextResponse.redirect(
-        new URL("/connexion?error=token_update_failed", frontendUrl)
+        new URL("/messagerie/connexion?error=token_update_failed", frontendUrl)
       );
     }
     
@@ -221,7 +222,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ [confirm] Erreur API messagerie/confirm:", error);
     return NextResponse.redirect(
-      new URL("/connexion?error=internal_error", frontendUrl)
+      new URL("/messagerie/connexion?error=internal_error", frontendUrl)
     );
   }
 }
