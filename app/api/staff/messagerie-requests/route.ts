@@ -18,10 +18,6 @@ import { cookies } from "next/headers";
  * ✅ AJOUT : Tri alphabétique des résultats
  * ✅ AJOUT : Champ has_unread pour identifier les conversations avec messages non lus
  * ✅ AJOUT : Utilisation du request_type du payload pour les demandes en attente
- * 
- * ✅ CORRECTION 2026-06-18 : Gestion des cas où dossier_ref est null
- * ✅ CORRECTION 2026-06-18 : Gestion du cas allDossierRefs vide
- * ✅ CORRECTION 2026-06-18 : Ajout de logs pour faciliter le debug
  */
 export async function GET() {
   try {
@@ -98,22 +94,16 @@ export async function GET() {
     }
 
     // ✅ 5. Récupérer les comptes PARTENAIRES avec messages (messagerie_accounts)
-    // ✅ CORRECTION : Exclusion des comptes avec dossier_ref null ET du compte admin
-    // ✅ CORRECTION : Ajout de .not("dossier_ref", "is", null) pour éviter les erreurs
-    console.log("🔍 Récupération des comptes partenaires (hors null et admin)");
-    
+    // ✅ Exclusion du compte admin VGD-ADMIN001
     const { data: partnerAccounts, error: fetchPartnerError } = await supabaseAdmin
       .from("messagerie_accounts")
       .select("*")
-      .not("dossier_ref", "is", null)           // ✅ CORRECTION : Exclure les null
-      .neq("dossier_ref", "VGD-ADMIN001")       // ✅ Exclure l'admin
+      .neq("dossier_ref", "VGD-ADMIN001")
       .order("created_at", { ascending: false });
 
     if (fetchPartnerError) {
       console.error("Erreur récupération comptes partenaires:", fetchPartnerError);
       // Non bloquant - on continue
-    } else {
-      console.log(`✅ ${partnerAccounts?.length || 0} comptes partenaires trouvés`);
     }
 
     // ✅ 6. Récupérer les JOUEURS (athlètes) avec un dossier_ref
@@ -126,8 +116,6 @@ export async function GET() {
     if (fetchPlayersError) {
       console.error("Erreur récupération joueurs:", fetchPlayersError);
       // Non bloquant - on continue
-    } else {
-      console.log(`✅ ${players?.length || 0} joueurs trouvés`);
     }
 
     // ✅ 7. Récupérer les dossier_ref des partenaires (pour vérifier s'ils ont des messages)
@@ -139,7 +127,6 @@ export async function GET() {
         }
       }
     }
-    console.log(`📁 ${partnerDossierRefs.length} dossier_ref partenaires`);
 
     // ✅ 8. Récupérer les dossier_ref des joueurs
     const playerDossierRefs: string[] = [];
@@ -150,7 +137,6 @@ export async function GET() {
         }
       }
     }
-    console.log(`📁 ${playerDossierRefs.length} dossier_ref joueurs`);
 
     // ✅ 9. Récupérer TOUS les messages pour vérifier quels dossiers ont des messages
     const allDossierRefs = [...partnerDossierRefs, ...playerDossierRefs];
@@ -160,22 +146,17 @@ export async function GET() {
     // ✅ 9bis. Récupérer les messages non lus par dossier
     const unreadDossierMap = new Map<string, boolean>();
 
-    // ✅ CORRECTION : Vérifier si allDossierRefs n'est pas vide AVANT la requête
     if (allDossierRefs.length > 0) {
-      console.log(`🔍 Récupération des messages pour ${allDossierRefs.length} dossiers`);
-      
       // Récupérer tous les messages par dossier
       const { data: allMessages, error: messagesError } = await supabaseAdmin
         .from("messagerie_messages")
-        .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
+        .select("dossier_ref, content, created_at, sender_name, is_read")
         .in("dossier_ref", allDossierRefs)
         .order("created_at", { ascending: false });
 
       if (messagesError) {
-        console.error("❌ Erreur récupération messages:", messagesError);
-      } else if (allMessages && allMessages.length > 0) {
-        console.log(`✅ ${allMessages.length} messages récupérés`);
-        
+        console.error("Erreur récupération messages:", messagesError);
+      } else if (allMessages) {
         type RawMessage = {
           dossier_ref: string;
           content: string;
@@ -208,11 +189,7 @@ export async function GET() {
           }
         }
         lastMessagesMap = tempMap;
-      } else {
-        console.log(`ℹ️ Aucun message trouvé pour les dossiers spécifiés`);
       }
-    } else {
-      console.log(`ℹ️ Aucun dossier_ref à rechercher (allDossierRefs est vide)`);
     }
 
     // ✅ FONCTION : Déterminer le type en fonction du request_type (prioritaire), company ou reason
@@ -295,8 +272,7 @@ export async function GET() {
     // ✅ 11. Transformer les partenaires (uniquement ceux avec des messages)
     const partnerRequests = (partnerAccounts || [])
       .filter((account) => {
-        const hasMessages = dossierWithMessages.has(account.dossier_ref);
-        return hasMessages;
+        return dossierWithMessages.has(account.dossier_ref);
       })
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
@@ -332,8 +308,7 @@ export async function GET() {
     // ✅ 12. Transformer les joueurs (uniquement ceux avec des messages)
     const playerRequests = (players || [])
       .filter((player) => {
-        const hasMessages = dossierWithMessages.has(player.dossier_ref);
-        return hasMessages;
+        return dossierWithMessages.has(player.dossier_ref);
       })
       .map((player) => {
         const lastMsg = lastMessagesMap.get(player.dossier_ref);
@@ -366,7 +341,6 @@ export async function GET() {
 
     // ✅ 13. Fusionner les trois listes
     const allRequests = [...pendingRequestsFormatted, ...partnerRequests, ...playerRequests];
-    console.log(`📊 ${allRequests.length} requêtes au total (${pendingRequestsFormatted.length} en attente, ${partnerRequests.length} partenaires, ${playerRequests.length} joueurs)`);
 
     // ✅ 14. TRI : les messages non lus remontent en premier, puis alphabétique
     allRequests.sort((a, b) => {
@@ -380,41 +354,33 @@ export async function GET() {
 
     // ✅ 15. Récupérer les comptes messagerie associés (pour le statut d'activation)
     const emails = allRequests.map(r => r.email);
-    
-    // ✅ CORRECTION : Vérifier si emails n'est pas vide avant d'utiliser .in()
-    if (emails.length > 0) {
-      const { data: accounts, error: accountsError } = await supabaseAdmin
-        .from("messagerie_accounts")
-        .select("email, status")
-        .in("email", emails);
+    const { data: accounts, error: accountsError } = await supabaseAdmin
+      .from("messagerie_accounts")
+      .select("email, status")
+      .in("email", emails);
 
-      if (accountsError) {
-        console.error("Erreur récupération comptes messagerie:", accountsError);
-        // Non bloquant – on continue sans le statut
-      }
-
-      // ✅ 16. Construire un map email -> status
-      const accountStatusMap = new Map();
-      if (accounts) {
-        for (const account of accounts) {
-          accountStatusMap.set(account.email, account.status);
-        }
-      }
-
-      // ✅ 17. Ajouter le champ account_status à chaque demande
-      const enrichedRequests = allRequests.map(request => ({
-        ...request,
-        account_status: accountStatusMap.get(request.email) || "not_created",
-      }));
-
-      return NextResponse.json({ requests: enrichedRequests });
-    } else {
-      // ✅ CORRECTION : Aucun email à vérifier
-      console.log("ℹ️ Aucune requête à enrichir avec account_status");
-      return NextResponse.json({ requests: allRequests });
+    if (accountsError) {
+      console.error("Erreur récupération comptes messagerie:", accountsError);
+      // Non bloquant – on continue sans le statut
     }
+
+    // ✅ 16. Construire un map email -> status
+    const accountStatusMap = new Map();
+    if (accounts) {
+      for (const account of accounts) {
+        accountStatusMap.set(account.email, account.status);
+      }
+    }
+
+    // ✅ 17. Ajouter le champ account_status à chaque demande
+    const enrichedRequests = allRequests.map(request => ({
+      ...request,
+      account_status: accountStatusMap.get(request.email) || "not_created",
+    }));
+
+    return NextResponse.json({ requests: enrichedRequests });
   } catch (error) {
-    console.error("❌ Erreur API staff/messagerie-requests:", error);
+    console.error("Erreur API staff/messagerie-requests:", error);
     return NextResponse.json(
       { error: "Erreur interne du serveur" },
       { status: 500 }
