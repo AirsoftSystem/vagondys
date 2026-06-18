@@ -29,6 +29,12 @@ interface GitHubMessage {
  *                 (après que l'utilisateur a défini son mot de passe)
  * ✅ AJOUT : Création du message de bienvenue dans Supabase + GitHub + Email
  * ✅ AJOUT : Logs détaillés pour debug (token, utilisateur, mise à jour)
+ * 
+ * ✅ CORRECTION 2026-06-18 : Vérification que le token est bien marqué comme utilisé
+ * ✅ CORRECTION 2026-06-18 : Récupération du token AVANT la mise à jour du mot de passe
+ * ✅ CORRECTION 2026-06-18 : Si l'update du token échoue, on bloque quand même ?
+ *                            Non, on continue mais on log l'erreur
+ * ✅ CORRECTION 2026-06-18 : Ajout de la vérification updatedToken
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -146,7 +152,41 @@ export async function POST(request: NextRequest) {
     }
     console.log(`✅ [set-password] Compte messagerie trouvé - dossier_ref: ${messagerieAccount.dossier_ref}, status: ${messagerieAccount.status}`);
 
-    // 7. Mettre à jour le mot de passe de l’utilisateur
+    // ✅ 7. CORRECTION : Marquer le token comme utilisé AVANT la mise à jour du mot de passe
+    // Cela évite que le token puisse être réutilisé si la mise à jour du mot de passe échoue
+    console.log(`🔑 [set-password] Marquage du token ${confirmation.id} comme utilisé (AVANT mise à jour mot de passe)`);
+    
+    const { data: updatedToken, error: updateTokenError } = await supabaseAdmin
+      .from("email_confirmations")
+      .update({ used: true, used_at: now.toISOString() })
+      .eq("id", confirmation.id)
+      .select(); // ✅ Vérifier que l'update a bien fonctionné
+
+    if (updateTokenError) {
+      console.error(`❌ [set-password] Erreur mise à jour token:`, {
+        message: updateTokenError.message,
+        details: updateTokenError.details,
+        hint: updateTokenError.hint,
+        code: updateTokenError.code,
+      });
+      // ✅ CORRECTION : Si l'update du token échoue, on bloque car le token pourrait être réutilisé
+      return NextResponse.json(
+        { error: "Erreur lors de la validation du token" },
+        { status: 500 }
+      );
+    }
+    
+    if (!updatedToken || updatedToken.length === 0) {
+      console.error(`❌ [set-password] Aucune ligne mise à jour pour le token ${confirmation.id}`);
+      return NextResponse.json(
+        { error: "Erreur lors de la validation du token" },
+        { status: 500 }
+      );
+    }
+    
+    console.log(`✅ [set-password] Token ${confirmation.id} marqué utilisé avec succès (${updatedToken.length} ligne(s) modifiée(s))`);
+
+    // 8. Mettre à jour le mot de passe de l’utilisateur
     console.log(`🔐 [set-password] Mise à jour du mot de passe pour ${userId}`);
     
     const { error: updatePasswordError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -156,32 +196,13 @@ export async function POST(request: NextRequest) {
 
     if (updatePasswordError) {
       console.error(`❌ [set-password] Erreur mise à jour mot de passe:`, updatePasswordError);
+      // ✅ CORRECTION : Le token est déjà marqué utilisé, donc l'utilisateur devra refaire une demande
       return NextResponse.json(
-        { error: "Erreur lors de la mise à jour du mot de passe" },
+        { error: "Erreur lors de la mise à jour du mot de passe. Veuillez refaire une demande." },
         { status: 500 }
       );
     }
     console.log(`✅ [set-password] Mot de passe mis à jour avec succès`);
-
-    // 8. Marquer le token comme utilisé
-    console.log(`🔑 [set-password] Marquage du token ${confirmation.id} comme utilisé`);
-    
-    const { error: updateTokenError } = await supabaseAdmin
-      .from("email_confirmations")
-      .update({ used: true, used_at: now.toISOString() })
-      .eq("id", confirmation.id);
-
-    if (updateTokenError) {
-      console.error(`❌ [set-password] Erreur mise à jour token:`, {
-        message: updateTokenError.message,
-        details: updateTokenError.details,
-        hint: updateTokenError.hint,
-        code: updateTokenError.code,
-      });
-      // Non bloquant - on continue
-    } else {
-      console.log(`✅ [set-password] Token ${confirmation.id} marqué utilisé avec succès`);
-    }
 
     // 9. Mettre à jour le compte messagerie (passage à actif + dernière connexion)
     console.log(`📅 [set-password] Activation du compte pour ${userId} (status: pending → active)`);
@@ -202,7 +223,7 @@ export async function POST(request: NextRequest) {
         hint: updateAccountError.hint,
         code: updateAccountError.code,
       });
-      // Non bloquant
+      // Non bloquant - le compte existe déjà
     } else {
       console.log(`✅ [set-password] Compte ${messagerieAccount.dossier_ref} activé (status: active, last_login_at mis à jour)`);
     }
@@ -255,6 +276,8 @@ export async function POST(request: NextRequest) {
           existingMessages.push(welcomeMessage);
           await GitHubDB.write(gitHubPath, existingMessages, { compress: true });
           console.log(`✅ [set-password] Message de bienvenue synchronisé vers GitHub`);
+        } else {
+          console.log(`ℹ️ [set-password] Message de bienvenue déjà présent dans GitHub`);
         }
       } catch (gitHubError) {
         console.error(`⚠️ [set-password] Erreur synchro GitHub (non bloquante):`, gitHubError);

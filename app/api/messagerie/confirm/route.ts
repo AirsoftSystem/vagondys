@@ -13,6 +13,10 @@ import { NextRequest, NextResponse } from "next/server";
  *                Le passage à "active" se fera uniquement après définition du mot de passe
  * 
  * ⚠️ CORRECTION : Le message de bienvenue a été supprimé (sera envoyé après définition du mot de passe)
+ * 
+ * ✅ CORRECTION 2026-06-18 : Vérification que le token est bien marqué comme utilisé
+ * ✅ CORRECTION 2026-06-18 : Ajout de logs détaillés pour le debug
+ * ✅ CORRECTION 2026-06-18 : Redirection vers set-password uniquement si tout est OK
  */
 export async function GET(request: NextRequest) {
   const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
@@ -22,7 +26,10 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get("token");
     const email = searchParams.get("email");
 
+    console.log(`🔑 [confirm] Début - token: ${token?.substring(0, 8)}..., email: ${email}`);
+
     if (!token || !email) {
+      console.error("❌ [confirm] Paramètres manquants");
       return NextResponse.redirect(
         new URL("/connexion?error=missing_params", frontendUrl)
       );
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Variables Supabase manquantes");
+      console.error("❌ [confirm] Variables Supabase manquantes");
       return NextResponse.redirect(
         new URL("/connexion?error=config_error", frontendUrl)
       );
@@ -45,6 +52,8 @@ export async function GET(request: NextRequest) {
     });
 
     // 1. Vérifier le token
+    console.log(`🔍 [confirm] Vérification du token ${token.substring(0, 8)}... pour ${email.toLowerCase()}`);
+    
     const { data: confirmation, error: tokenError } = await supabaseAdmin
       .from("email_confirmations")
       .select("*")
@@ -54,34 +63,40 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (tokenError || !confirmation) {
-      console.error("Token invalide ou déjà utilisé:", tokenError);
+      console.error("❌ [confirm] Token invalide ou déjà utilisé:", tokenError);
       return NextResponse.redirect(
         new URL("/connexion?error=invalid_token", frontendUrl)
       );
     }
+    console.log(`✅ [confirm] Token trouvé - id: ${confirmation.id}, user_id: ${confirmation.user_id}`);
 
     // 2. Vérifier l’expiration
     const now = new Date();
     const expiresAt = new Date(confirmation.expires_at);
     if (expiresAt < now) {
+      console.error(`❌ [confirm] Token expiré - expires_at: ${confirmation.expires_at}, now: ${now.toISOString()}`);
       return NextResponse.redirect(
         new URL("/connexion?error=token_expired", frontendUrl)
       );
     }
+    console.log(`✅ [confirm] Token valide (non expiré)`);
 
     // 3. Récupérer l’utilisateur
+    console.log(`👤 [confirm] Récupération utilisateur ${confirmation.user_id}`);
+    
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(
       confirmation.user_id
     );
 
     if (userError || !userData.user) {
-      console.error("Utilisateur introuvable:", userError);
+      console.error("❌ [confirm] Utilisateur introuvable:", userError);
       return NextResponse.redirect(
         new URL("/connexion?error=user_not_found", frontendUrl)
       );
     }
 
     const userId = userData.user.id;
+    console.log(`✅ [confirm] Utilisateur trouvé - id: ${userId}, email: ${userData.user.email}`);
 
     // ✅ CORRECTION : Récupérer la référence depuis messagerie_accounts AVANT activation
     const { data: messagerieAccount, error: accountFetchError } = await supabaseAdmin
@@ -91,7 +106,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (accountFetchError || !messagerieAccount) {
-      console.error("Compte messagerie introuvable:", accountFetchError);
+      console.error("❌ [confirm] Compte messagerie introuvable:", accountFetchError);
       return NextResponse.redirect(
         new URL("/connexion?error=account_not_found", frontendUrl)
       );
@@ -100,31 +115,56 @@ export async function GET(request: NextRequest) {
     const dossierRef = messagerieAccount.dossier_ref;
     const fullName = messagerieAccount.full_name;
 
-    console.log(`✅ Confirmation email: ${email} -> ${dossierRef}`);
+    console.log(`✅ [confirm] Dossier trouvé: ${dossierRef} pour ${fullName}`);
 
-    // 4. Marquer le token comme utilisé
-    const { error: updateTokenError } = await supabaseAdmin
+    // ✅ 4. CORRECTION : Marquer le token comme utilisé AVEC VÉRIFICATION
+    console.log(`🔑 [confirm] Marquage du token ${confirmation.id} comme utilisé`);
+    
+    const { data: updatedToken, error: updateTokenError } = await supabaseAdmin
       .from("email_confirmations")
       .update({ used: true, used_at: now.toISOString() })
-      .eq("id", confirmation.id);
+      .eq("id", confirmation.id)
+      .select(); // ✅ Vérifier que l'update a bien fonctionné
 
     if (updateTokenError) {
-      console.error("Erreur mise à jour token:", updateTokenError);
-      // Non bloquant
+      console.error("❌ [confirm] Erreur mise à jour token:", {
+        message: updateTokenError.message,
+        details: updateTokenError.details,
+        hint: updateTokenError.hint,
+        code: updateTokenError.code,
+      });
+      // ✅ CORRECTION : Si l'update échoue, on bloque la redirection
+      return NextResponse.redirect(
+        new URL("/connexion?error=token_update_failed", frontendUrl)
+      );
     }
+    
+    if (!updatedToken || updatedToken.length === 0) {
+      console.error("❌ [confirm] Aucune ligne mise à jour pour le token");
+      return NextResponse.redirect(
+        new URL("/connexion?error=token_update_failed", frontendUrl)
+      );
+    }
+    
+    console.log(`✅ [confirm] Token ${confirmation.id} marqué comme utilisé avec succès`);
 
     // ❌ SUPPRESSION : Ne pas mettre à jour le statut de messagerie_accounts ici
     // Le statut reste "pending" jusqu'à la définition du mot de passe
     // La mise à jour de last_login_at sera faite dans set-password
 
     // 6. Mettre à jour l’utilisateur Auth (email confirmé)
+    console.log(`📧 [confirm] Confirmation email pour ${userId}`);
+    
     const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
       { email_confirm: true }
     );
 
     if (updateAuthError) {
-      console.error("Erreur confirmation email Auth:", updateAuthError);
+      console.error("❌ [confirm] Erreur confirmation email Auth:", updateAuthError);
+      // Non bloquant - on continue
+    } else {
+      console.log(`✅ [confirm] Email confirmé dans Auth pour ${userId}`);
     }
 
     // ✅ Le message de bienvenue a été SUPPRIMÉ d’ici
@@ -132,6 +172,8 @@ export async function GET(request: NextRequest) {
 
     // ✅ AJOUT : Archivage GitHub (comme pour les athlètes dans confirm-email)
     try {
+      console.log(`📦 [confirm] Archivage GitHub pour ${dossierRef}`);
+      
       const archivePayload = {
         message: {
           dossier_ref: dossierRef,
@@ -158,15 +200,18 @@ export async function GET(request: NextRequest) {
       });
 
       if (!archiveRes.ok) {
-        console.error("Erreur archivage GitHub confirmation:", await archiveRes.text());
+        const errorText = await archiveRes.text();
+        console.error("❌ [confirm] Erreur archivage GitHub confirmation:", errorText);
       } else {
-        console.log(`✅ Archivage GitHub réussi pour ${dossierRef} (confirmation email)`);
+        console.log(`✅ [confirm] Archivage GitHub réussi pour ${dossierRef} (confirmation email)`);
       }
     } catch (archiveErr) {
-      console.error("Erreur lors de l'archivage GitHub (confirmation):", archiveErr);
+      console.error("❌ [confirm] Erreur lors de l'archivage GitHub (confirmation):", archiveErr);
     }
 
     // 7. Rediriger vers la page de définition du mot de passe
+    console.log(`🔄 [confirm] Redirection vers /messagerie/set-password pour ${email.toLowerCase()}`);
+    
     const setPasswordUrl = new URL("/messagerie/set-password", frontendUrl);
     setPasswordUrl.searchParams.set("token", token);
     setPasswordUrl.searchParams.set("email", email.toLowerCase());
@@ -174,7 +219,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(setPasswordUrl);
 
   } catch (error) {
-    console.error("Erreur API messagerie/confirm:", error);
+    console.error("❌ [confirm] Erreur API messagerie/confirm:", error);
     return NextResponse.redirect(
       new URL("/connexion?error=internal_error", frontendUrl)
     );
