@@ -899,8 +899,8 @@ export default function AdminMessageriePage() {
           aria-label="Filtrer par statut"
         >
           <option value="all">Tous les statuts</option>
-          <option value="pending">En attente</option>
           <option value="approved">Approuvées</option>
+          <option value="pending">En attente</option>
           <option value="rejected">Rejetées</option>
         </select>
         <select
@@ -911,14 +911,14 @@ export default function AdminMessageriePage() {
           aria-label="Filtrer par type"
         >
           <option value="all">Tous les types</option>
-          <option value="partner">Partenaires</option>
-          <option value="player">Joueurs</option>
-          <option value="sponsor">Sponsors</option>
           <option value="client">Clients</option>
-          <option value="supplier">Fournisseurs</option>
-          <option value="advertising">Publicité</option>
           <option value="communication">Communication</option>
           <option value="divers">Divers</option>
+          <option value="supplier">Fournisseurs</option>
+          <option value="player">Joueurs</option>          
+          <option value="partner">Partenaires</option>
+          <option value="advertising">Publicité</option>
+          <option value="sponsor">Sponsors</option>
         </select>
         <button
           onClick={loadRequests}
