@@ -29,6 +29,7 @@ interface GitHubMessage {
  *                 (après que l'utilisateur a défini son mot de passe)
  * ✅ AJOUT : Création du message de bienvenue dans Supabase + GitHub + Email
  * ✅ AJOUT : Logs détaillés pour debug (token, utilisateur, mise à jour)
+ * ✅ CORRECTION 2026-06-18 : Envoi d'une notification email au staff pour le message de bienvenue
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
       console.log(`✅ [set-password] Compte ${messagerieAccount.dossier_ref} activé (status: active, last_login_at mis à jour)`);
     }
 
-    // ✅ 10. CRÉATION DU MESSAGE DE BIENVENUE (Supabase + GitHub + Email)
+    // ✅ 10. CRÉATION DU MESSAGE DE BIENVENUE (Supabase + GitHub + Email + STAFF)
     console.log(`📝 [set-password] Création du message de bienvenue pour ${messagerieAccount.dossier_ref}`);
     
     try {
@@ -260,7 +261,7 @@ export async function POST(request: NextRequest) {
         console.error(`⚠️ [set-password] Erreur synchro GitHub (non bloquante):`, gitHubError);
       }
 
-      // 10c. Envoyer l'email de bienvenue (uniquement si l'email est défini)
+      // 10c. Envoyer l'email de bienvenue au demandeur
       if (userData.user.email) {
         const messagerieUrl = `${frontendUrl}/messagerie/connexion`;
         
@@ -313,6 +314,48 @@ export async function POST(request: NextRequest) {
       } else {
         console.warn(`⚠️ [set-password] Email non envoyé - userData.user.email est undefined`);
       }
+
+      // ✅ 10d. CORRECTION : Envoyer une notification au staff
+      console.log(`📧 [set-password] Envoi notification staff pour ${messagerieAccount.dossier_ref}`);
+      
+      const staffEmails = ["vagondys@gmail.com", "admin@vagondys.com"];
+      const messagerieAdminUrl = `${frontendUrl}/staff/admin/messagerie`;
+      
+      const staffNotificationHtml = `
+        <div style="background:black; color:white; padding:20px; font-family:sans-serif;">
+          <h2 style="color:#22c55e;">✅ Nouveau compte messagerie activé</h2>
+          <p><strong>Demandeur :</strong> ${messagerieAccount.full_name}</p>
+          <p><strong>Email :</strong> ${messagerieAccount.email}</p>
+          <p><strong>Société :</strong> ${messagerieAccount.company || "Non renseignée"}</p>
+          <p><strong>Téléphone :</strong> ${messagerieAccount.phone || "Non renseigné"}</p>
+          <p><strong>Rôle :</strong> ${messagerieAccount.role || "partner"}</p>
+          <p><strong>Référence Dossier :</strong> ${messagerieAccount.dossier_ref}</p>
+          <hr style="border-color:#18181b; margin:15px 0;" />
+          <p style="color:#a1a1aa; font-size:11px;">
+            Un message de bienvenue a été envoyé au partenaire.
+            Connectez-vous à l'administration pour lui répondre dans les plus brefs délais.
+          </p>
+          <a href="${messagerieAdminUrl}" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; display:inline-block; margin-top:15px; border-radius:6px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:1px;">
+            Voir la conversation
+          </a>
+          <hr style="border-color:#18181b; margin:15px 0;" />
+          <p style="font-size:8px; color:#52525b; text-transform:uppercase; letter-spacing:1px;">
+            VAGONDYS - Notification automatique
+          </p>
+        </div>
+      `;
+
+      const staffTextContent = `✅ Nouveau compte messagerie activé\n\nDemandeur: ${messagerieAccount.full_name}\nEmail: ${messagerieAccount.email}\nSociété: ${messagerieAccount.company || "Non renseignée"}\nRôle: ${messagerieAccount.role || "partner"}\nDossier: ${messagerieAccount.dossier_ref}\n\nVoir la conversation: ${messagerieAdminUrl}`;
+
+      await sendGeneralEmail(
+        staffEmails.join(","),
+        `✅ VAGONDYS - Nouveau compte activé : ${messagerieAccount.full_name}`,
+        staffTextContent,
+        staffNotificationHtml,
+        "no-reply@vagondys.com"
+      );
+      
+      console.log(`✅ [set-password] Notification staff envoyée pour ${messagerieAccount.dossier_ref}`);
 
     } catch (welcomeError) {
       console.error(`❌ [set-password] Erreur création message bienvenue:`, welcomeError);

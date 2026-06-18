@@ -20,6 +20,10 @@ import { createClient } from "@supabase/supabase-js";
  * ✅ CORRECTION : Status 'pending' au lieu de 'active' (le statut deviendra actif uniquement après définition du mot de passe)
  * ✅ AJOUT : Logs détaillés pour capturer l'erreur exacte de Supabase
  * ❌ SUPPRESSION : Création du fichier GitHub avec message de bienvenue (déplacé vers la première connexion)
+ * 
+ * ✅ CORRECTION 2026-06-18 : Récupération du type depuis pending_messagerie_requests
+ * ✅ CORRECTION 2026-06-18 : Stockage du type dans messagerie_accounts.role
+ * ✅ CORRECTION 2026-06-18 : Passage du type dans les user_metadata
  */
 export async function POST(request: NextRequest) {
   try {
@@ -137,6 +141,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ CORRECTION : Récupérer le type depuis la demande
+    const requestType = requestData.type || "partner";
+    console.log(`📝 Type de demande: ${requestType}`);
+
     const now = new Date().toISOString();
     const displayId = dossierRef.substring(0, 8).toUpperCase();
 
@@ -212,8 +220,10 @@ export async function POST(request: NextRequest) {
       user_metadata: {
         full_name: requestData.full_name,
         company: requestData.company,
-        role: "partner",
+        // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
+        role: requestType,
         account_type: "messagerie",
+        type: requestType, // Ajout du type explicite
       },
     });
 
@@ -261,7 +271,8 @@ export async function POST(request: NextRequest) {
           company: requestData.company,
           phone: requestData.phone,
           dossier_ref: dossierRef,
-          role: "partner",
+          // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
+          role: requestType,
           status: "pending",
           created_by: staffEmail,
           updated_at: now,
@@ -289,7 +300,8 @@ export async function POST(request: NextRequest) {
           company: requestData.company,
           phone: requestData.phone,
           dossier_ref: dossierRef,
-          role: "partner",
+          // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
+          role: requestType,
           status: "pending",
           created_by: staffEmail,
           created_at: now,
@@ -314,7 +326,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending)`);
+    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending, role: ${requestType})`);
 
     // ❌ SUPPRESSION : La section 8bis "CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE" a été supprimée
     // Le message de bienvenue sera créé lors de la première connexion de l'utilisateur
@@ -404,6 +416,7 @@ export async function POST(request: NextRequest) {
             phone: requestData.phone,
             reason: requestData.reason,
             type: "messagerie_request",
+            request_type: requestType, // ✅ Ajout du type dans l'archive
             status: "approved",
             reviewed_by: staffEmail,
             reviewed_at: now,

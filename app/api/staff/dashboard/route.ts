@@ -102,22 +102,19 @@ export async function GET(request: Request) {
       ] = await Promise.all([
         adminClient.from("athletes").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("*", { count: "exact", head: true }).eq("status", "ACTIF"),
-        // ✅ MASTER : Compter les messages NON LUS depuis messagerie_messages (hors staff)
+        // ✅ CORRECTION : Compter TOUS les messages NON LUS (y compris système)
+        // Le message de bienvenue "system@vagondys.com" doit être compté pour que le staff voit qu'il y a un nouveau message
         adminClient.from("messagerie_messages")
           .select("*", { count: "exact", head: true })
-          .eq("is_read", false)
-          .not("sender_email", "like", "%@vagondys.com")
-          .neq("sender_email", "system@vagondys.com"),
+          .eq("is_read", false),
         adminClient.from("game_launches").select("*", { count: "exact", head: true }),
         adminClient.from("pending_messagerie_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         adminClient.from("staff_registry").select("*", { count: "exact", head: true }),
         adminClient.from("athletes").select("city, country, status", { count: "exact", head: false }),
-        // ✅ MASTER : Messages récents depuis messagerie_messages
+        // ✅ CORRECTION : Messages récents (tous, y compris système)
         adminClient.from("messagerie_messages")
           .select("*")
           .eq("is_read", false)
-          .not("sender_email", "like", "%@vagondys.com")
-          .neq("sender_email", "system@vagondys.com")
           .order("created_at", { ascending: false }).limit(3),
         adminClient.from("game_launches").select("*").order("created_at", { ascending: false }).limit(3),
         adminClient.from("match_history").select("*, athletes(pseudo, full_name)").order("date", { ascending: false }).limit(3),
@@ -199,12 +196,11 @@ export async function GET(request: Request) {
         
         if (accounts && accounts.length > 0) {
           const dossierRefs = accounts.map(a => a.dossier_ref);
+          // ✅ CORRECTION : Compter TOUS les messages (y compris système)
           const { data: messages } = await adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
             .eq("is_read", false)
-            .not("sender_email", "like", "%@vagondys.com")
-            .neq("sender_email", "system@vagondys.com")
             .in("dossier_ref", dossierRefs);
           
           if (messages) {
@@ -292,7 +288,6 @@ export async function GET(request: Request) {
 
     if (recentMessagesResult.data) {
       recentMessagesResult.data.forEach((msg: { id: string; content: string; sender_name: string; created_at: string }) => {
-        // ✅ SUPPRESSION de la variable 'type' non utilisée
         activities.push({
           id: msg.id,
           type: "message",
