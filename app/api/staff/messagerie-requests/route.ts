@@ -18,6 +18,10 @@ import { cookies } from "next/headers";
  * ✅ AJOUT : Tri alphabétique des résultats
  * ✅ AJOUT : Champ has_unread pour identifier les conversations avec messages non lus
  * ✅ AJOUT : Utilisation du request_type du payload pour les demandes en attente
+ * 
+ * ✅ CORRECTION 2026-06-18 : Ajout de .not("dossier_ref", "is", null) pour éviter les erreurs
+ * ✅ CORRECTION 2026-06-18 : Utilisation directe du champ "type" de la table pour les demandes en attente
+ * ✅ CORRECTION 2026-06-18 : Priorité au type stocké en base plutôt qu'au fallback par mots-clés
  */
 export async function GET() {
   try {
@@ -94,11 +98,12 @@ export async function GET() {
     }
 
     // ✅ 5. Récupérer les comptes PARTENAIRES avec messages (messagerie_accounts)
-    // ✅ Exclusion du compte admin VGD-ADMIN001
+    // ✅ CORRECTION : Exclusion des comptes avec dossier_ref null ET du compte admin
     const { data: partnerAccounts, error: fetchPartnerError } = await supabaseAdmin
       .from("messagerie_accounts")
       .select("*")
-      .neq("dossier_ref", "VGD-ADMIN001")
+      .not("dossier_ref", "is", null)           // ✅ CORRECTION : Exclure les null
+      .neq("dossier_ref", "VGD-ADMIN001")       // ✅ Exclure l'admin
       .order("created_at", { ascending: false });
 
     if (fetchPartnerError) {
@@ -150,7 +155,7 @@ export async function GET() {
       // Récupérer tous les messages par dossier
       const { data: allMessages, error: messagesError } = await supabaseAdmin
         .from("messagerie_messages")
-        .select("dossier_ref, content, created_at, sender_name, is_read")
+        .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
         .in("dossier_ref", allDossierRefs)
         .order("created_at", { ascending: false });
 
@@ -192,18 +197,27 @@ export async function GET() {
       }
     }
 
-    // ✅ FONCTION : Déterminer le type en fonction du request_type (prioritaire), company ou reason
+    // ✅ FONCTION : Déterminer le type en fonction du request_type (prioritaire), du type stocké, company ou reason
     function determineType(
       requestType: string | null | undefined,
+      storedType: string | null | undefined,
       company: string | null,
       reason: string
     ): "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player" {
       
-      // ✅ PRIORITÉ : Utiliser le request_type s'il est présent
+      // ✅ PRIORITÉ 1 : Utiliser le request_type du payload s'il est présent
       if (requestType) {
         const validTypes = ["partner", "sponsor", "client", "supplier", "advertising", "communication", "divers", "player"];
         if (validTypes.includes(requestType)) {
           return requestType as "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player";
+        }
+      }
+
+      // ✅ PRIORITÉ 2 : Utiliser le type stocké en base (colonne "type")
+      if (storedType) {
+        const validTypes = ["partner", "sponsor", "client", "supplier", "advertising", "communication", "divers", "player"];
+        if (validTypes.includes(storedType)) {
+          return storedType as "partner" | "sponsor" | "client" | "supplier" | "advertising" | "communication" | "divers" | "player";
         }
       }
 
@@ -240,9 +254,10 @@ export async function GET() {
 
     // ✅ 10. Transformer les demandes EN ATTENTE en format compatible
     const pendingRequestsFormatted = (pendingRequests || []).map((request) => {
-      // ✅ Récupérer le request_type du payload s'il existe
+      // ✅ CORRECTION : Récupérer le request_type du payload ET le type stocké en base
       const requestType = request.payload?.request_type || null;
-      const type = determineType(requestType, request.company, request.reason);
+      const storedType = request.type || null;
+      const type = determineType(requestType, storedType, request.company, request.reason);
       
       return {
         id: request.id,
@@ -277,7 +292,7 @@ export async function GET() {
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
         // ✅ Pour les partenaires, on utilise la détermination par mots-clés (pas de request_type)
-        const type = determineType(null, account.company, "Compte partenaire VAGONDYS");
+        const type = determineType(null, null, account.company, "Compte partenaire VAGONDYS");
         const hasUnread = unreadDossierMap.has(account.dossier_ref) || false;
         
         return {
@@ -354,31 +369,39 @@ export async function GET() {
 
     // ✅ 15. Récupérer les comptes messagerie associés (pour le statut d'activation)
     const emails = allRequests.map(r => r.email);
-    const { data: accounts, error: accountsError } = await supabaseAdmin
-      .from("messagerie_accounts")
-      .select("email, status")
-      .in("email", emails);
+    
+    // ✅ CORRECTION : Vérifier si emails n'est pas vide avant d'utiliser .in()
+    if (emails.length > 0) {
+      const { data: accounts, error: accountsError } = await supabaseAdmin
+        .from("messagerie_accounts")
+        .select("email, status")
+        .in("email", emails);
 
-    if (accountsError) {
-      console.error("Erreur récupération comptes messagerie:", accountsError);
-      // Non bloquant – on continue sans le statut
-    }
-
-    // ✅ 16. Construire un map email -> status
-    const accountStatusMap = new Map();
-    if (accounts) {
-      for (const account of accounts) {
-        accountStatusMap.set(account.email, account.status);
+      if (accountsError) {
+        console.error("Erreur récupération comptes messagerie:", accountsError);
+        // Non bloquant – on continue sans le statut
       }
+
+      // ✅ 16. Construire un map email -> status
+      const accountStatusMap = new Map();
+      if (accounts) {
+        for (const account of accounts) {
+          accountStatusMap.set(account.email, account.status);
+        }
+      }
+
+      // ✅ 17. Ajouter le champ account_status à chaque demande
+      const enrichedRequests = allRequests.map(request => ({
+        ...request,
+        account_status: accountStatusMap.get(request.email) || "not_created",
+      }));
+
+      return NextResponse.json({ requests: enrichedRequests });
+    } else {
+      // ✅ CORRECTION : Aucun email à vérifier
+      console.log("ℹ️ Aucune requête à enrichir avec account_status");
+      return NextResponse.json({ requests: allRequests });
     }
-
-    // ✅ 17. Ajouter le champ account_status à chaque demande
-    const enrichedRequests = allRequests.map(request => ({
-      ...request,
-      account_status: accountStatusMap.get(request.email) || "not_created",
-    }));
-
-    return NextResponse.json({ requests: enrichedRequests });
   } catch (error) {
     console.error("Erreur API staff/messagerie-requests:", error);
     return NextResponse.json(

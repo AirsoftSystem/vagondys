@@ -36,6 +36,9 @@ interface ScanResult {
  * 
  * ✅ CORRECTION : Génération d'un dossier_ref unique dès la création
  * ✅ CORRECTION : Écriture simultanée dans GitHub (requestDB) avec le même dossier_ref
+ * ✅ CORRECTION 2026-06-18 : Ajout du champ "type" pour stocker le type de demande
+ * ✅ CORRECTION 2026-06-18 : Ajout des champs "city" et "country"
+ * ✅ CORRECTION 2026-06-18 : Suppression de request_type (non supporté par requestDB)
  */
 export async function submitMessagerieRequest(formData: FormData) {
   
@@ -49,6 +52,8 @@ export async function submitMessagerieRequest(formData: FormData) {
   const reason = formData.get("reason") as string;
   const kbisUrl = formData.get("kbisUrl") as string;
   const kbisKey = formData.get("kbisKey") as string;
+  // ✅ CORRECTION : Récupérer le type depuis le formulaire
+  const type = formData.get("type") as string;
   
   // ==========================================================
   // 2. VALIDATION DES CHAMPS OBLIGATOIRES
@@ -149,7 +154,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   const now = new Date().toISOString();
   
   // ==========================================================
-  // 7. CRÉATION DE LA DEMANDE DANS SUPABASE (avec dossier_ref)
+  // 7. CRÉATION DE LA DEMANDE DANS SUPABASE (avec dossier_ref ET type)
   // ==========================================================
   const newRequest = {
     id: requestId,
@@ -164,6 +169,10 @@ export async function submitMessagerieRequest(formData: FormData) {
     kbis_key: kbisKey,
     kbis_validated: scanResult.isAuthentic || false,
     kbis_scan_result: scanResult,
+    // ✅ CORRECTION : Ajout du type dans la table
+    type: type || "partner",
+    city: "NANTES",
+    country: "FR",
     created_at: now,
     updated_at: now,
   };
@@ -179,6 +188,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   
   // ==========================================================
   // 8. CRÉATION DE LA DEMANDE DANS GITHUB (avec le MÊME dossier_ref)
+  // ✅ CORRECTION : request_type supprimé car non supporté par requestDB
   // ==========================================================
   try {
     await requestDB.createRequest(
@@ -188,14 +198,14 @@ export async function submitMessagerieRequest(formData: FormData) {
         company: company?.trim() || null,
         phone: phone?.trim() || null,
         reason: reason.trim(),
-        city: "NANTES", // Valeur par défaut, à adapter si nécessaire
+        city: "NANTES",
         country: "FR",
         kbis_url: kbisUrl,
         kbis_key: kbisKey,
         kbis_validated: scanResult.isAuthentic || false,
         kbis_scan_result: scanResult,
       },
-      dossierRef // ✅ CORRECTION : Passer le dossier_ref existant
+      dossierRef
     );
     console.log(`✅ Demande créée dans GitHub avec dossier_ref: ${dossierRef}`);
   } catch (gitHubError) {
@@ -250,6 +260,7 @@ export async function submitMessagerieRequest(formData: FormData) {
       <p><strong>Société :</strong> ${company || "Non renseignée"}</p>
       <p><strong>Téléphone :</strong> ${phone || "Non renseigné"}</p>
       <p><strong>Motif :</strong> ${reason}</p>
+      <p><strong>Type :</strong> ${type || "Non renseigné"}</p>
       <hr />
       <p><strong>Référence Dossier :</strong> ${dossierRef}</p>
       <p><strong>KBis :</strong> <a href="${kbisUrl}" target="_blank">Voir le document</a></p>
@@ -264,7 +275,7 @@ export async function submitMessagerieRequest(formData: FormData) {
   await sendGeneralEmail(
     adminEmail,
     "🚨 VAGONDYS - Nouvelle demande messagerie privée",
-    `Nouvelle demande de ${full_name} (${email}) - Réf: ${dossierRef}`,
+    `Nouvelle demande de ${full_name} (${email}) - Réf: ${dossierRef} - Type: ${type || "Non renseigné"}`,
     adminHtml,
     "no-reply@vagondys.com"
   ).catch(console.error);

@@ -630,6 +630,7 @@ FROM athletes a;
 
 -- ==========================================================
 -- 17. TABLE pending_messagerie_requests (Demandes d'inscription à la messagerie privée)
+-- ✅ CORRECTION 2026-06-18 : Ajout de la colonne "type" pour stocker le type de demande
 -- ==========================================================
 
 DROP TABLE IF EXISTS public.pending_messagerie_requests CASCADE;
@@ -645,11 +646,17 @@ CREATE TABLE public.pending_messagerie_requests (
     reviewed_at TIMESTAMPTZ,
     dossier_ref TEXT UNIQUE,
     
+    -- ✅ CORRECTION : Ajout du type de demande (client, fournisseur, partenaire, etc.)
+    type TEXT DEFAULT 'partner',
+    
     -- Colonnes pour le stockage du KBis et validation IA/antivirus
     kbis_url TEXT,
     kbis_key TEXT,
     kbis_validated BOOLEAN DEFAULT false,
     kbis_scan_result JSONB,
+    
+    city TEXT DEFAULT 'NANTES',
+    country TEXT DEFAULT 'FR',
     
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -661,6 +668,8 @@ CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_status ON pending_mes
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_created_at ON pending_messagerie_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_dossier_ref ON pending_messagerie_requests(dossier_ref);
 CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_kbis_validated ON pending_messagerie_requests(kbis_validated);
+-- ✅ CORRECTION : Index sur la colonne type pour des requêtes plus rapides
+CREATE INDEX IF NOT EXISTS idx_pending_messagerie_requests_type ON pending_messagerie_requests(type);
 
 -- RLS
 ALTER TABLE public.pending_messagerie_requests ENABLE ROW LEVEL SECURITY;
