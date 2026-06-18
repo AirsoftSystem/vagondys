@@ -25,6 +25,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-18 : Utilisation du champ "role" de messagerie_accounts pour les partenaires
  * ✅ CORRECTION 2026-06-18 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
  * ✅ CORRECTION 2026-06-22 : Correction du fallback "partenaire" qui écrase le type "supplier"
+ * ✅ CORRECTION 2026-06-22 : Récupération des messages depuis GitHub pour les dossiers sans messages dans Supabase
  */
 export async function GET() {
   try {
@@ -153,8 +154,10 @@ export async function GET() {
     // ✅ 9bis. Récupérer les messages non lus par dossier
     const unreadDossierMap = new Map<string, boolean>();
 
+    // ✅ CORRECTION : Récupérer les messages depuis Supabase ET depuis GitHub
+    // 1. D'abord depuis Supabase
     if (allDossierRefs.length > 0) {
-      // Récupérer tous les messages par dossier
+      // Récupérer tous les messages par dossier depuis Supabase
       const { data: allMessages, error: messagesError } = await supabaseAdmin
         .from("messagerie_messages")
         .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
@@ -162,8 +165,8 @@ export async function GET() {
         .order("created_at", { ascending: false });
 
       if (messagesError) {
-        console.error("Erreur récupération messages:", messagesError);
-      } else if (allMessages) {
+        console.error("Erreur récupération messages Supabase:", messagesError);
+      } else if (allMessages && allMessages.length > 0) {
         type RawMessage = {
           dossier_ref: string;
           content: string;
@@ -178,7 +181,6 @@ export async function GET() {
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
-          // ✅ CORRECTION : Inclure les messages système (system@vagondys.com) dans les messages non lus
           if (msg.is_read === false && 
               !msg.sender_email.endsWith("@vagondys.com")) {
             unreadDossierMap.set(msg.dossier_ref, true);
@@ -196,6 +198,61 @@ export async function GET() {
           }
         }
         lastMessagesMap = tempMap;
+      }
+
+      // ✅ 2. CORRECTION : Pour les dossiers qui n'ont PAS de messages dans Supabase,
+      // vérifier dans GitHub via l'API d'archive
+      const missingDossierRefs = allDossierRefs.filter(ref => !dossierWithMessages.has(ref));
+      
+      if (missingDossierRefs.length > 0) {
+        console.log(`🔍 Vérification de ${missingDossierRefs.length} dossiers dans GitHub`);
+        
+        const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
+        
+        for (const ref of missingDossierRefs) {
+          try {
+            // Appeler l'API d'archive pour récupérer les messages du dossier
+            const archiveRes = await fetch(`${frontendUrl}/api/archive-external?ref=${encodeURIComponent(ref)}`);
+            
+            if (archiveRes.ok) {
+              const archiveData = await archiveRes.json();
+              
+              // Vérifier si l'archive contient des messages (fil_de_discussion)
+              if (archiveData && archiveData.fil_de_discussion && archiveData.fil_de_discussion.length > 0) {
+                const threadMessages = archiveData.fil_de_discussion;
+                
+                // Ajouter le dossier comme ayant des messages
+                dossierWithMessages.add(ref);
+                
+                // Récupérer le dernier message
+                const lastMsg = threadMessages[threadMessages.length - 1];
+                if (lastMsg && lastMsg.content) {
+                  lastMessagesMap.set(ref, {
+                    content: lastMsg.content.substring(0, 100),
+                    created_at: lastMsg.created_at || new Date().toISOString(),
+                    sender_name: lastMsg.sender_name || lastMsg.sender || "Système"
+                  });
+                }
+                
+                // Vérifier s'il y a des messages non lus (pour l'alerte)
+                // Dans le contexte de l'archive, on considère que le message est non lu
+                // car il vient d'être créé
+                const hasSystemMessage = threadMessages.some((msg: { sender?: string; sender_name?: string }) => 
+                  msg.sender === "SYSTEM" || msg.sender_name === "Système VAGONDYS" || msg.sender_name?.includes("Système")
+                );
+                
+                if (hasSystemMessage) {
+                  unreadDossierMap.set(ref, true);
+                }
+                
+                console.log(`✅ Messages trouvés dans GitHub pour ${ref} (${threadMessages.length} messages)`);
+              }
+            }
+          } catch (archiveErr) {
+            console.warn(`⚠️ Erreur récupération archive GitHub pour ${ref}:`, archiveErr);
+            // Non bloquant - on continue
+          }
+        }
       }
     }
 
@@ -224,7 +281,6 @@ export async function GET() {
       }
 
       // ✅ FALLBACK : Analyse par mots-clés
-      // ⚠️ IMPORTANT : Ce fallback ne doit PAS être exécuté si storedType est défini
       const companyLower = (company || "").toLowerCase();
       const reasonLower = reason.toLowerCase();
 
@@ -248,10 +304,6 @@ export async function GET() {
         return "player";
       }
 
-      // ✅ CORRECTION : Ne pas retourner "partner" automatiquement pour "partenaire"
-      // Car cela écrase le type "supplier" quand le fallback est exécuté
-      // Mais comme le fallback n'est exécuté que si storedType est null/undefined,
-      // on peut garder cette logique pour les cas où aucun type n'est défini
       if (reasonLower.includes("partenaire") || reasonLower.includes("partner")) {
         return "partner";
       }
@@ -291,14 +343,12 @@ export async function GET() {
     });
 
     // ✅ 11. Transformer les partenaires (uniquement ceux avec des messages)
-    // ✅ CORRECTION : Utiliser le champ "role" de messagerie_accounts comme type
     const partnerRequests = (partnerAccounts || [])
       .filter((account) => {
         return dossierWithMessages.has(account.dossier_ref);
       })
       .map((account) => {
         const lastMsg = lastMessagesMap.get(account.dossier_ref);
-        // ✅ CORRECTION : Utiliser account.role comme type stocké
         const type = determineType(null, account.role, account.company, "Compte partenaire VAGONDYS");
         const hasUnread = unreadDossierMap.has(account.dossier_ref) || false;
         
