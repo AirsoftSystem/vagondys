@@ -196,11 +196,20 @@ function getTypeBadge(type?: string) {
           <span className="text-[8px] font-black uppercase tracking-widest text-yellow-500">En attente</span>
         </span>
       );
-    default:
+    case "partner":
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-600/30">
           <Building2 className="w-3 h-3 text-purple-500" />
           <span className="text-[8px] font-black uppercase tracking-widest text-purple-500">Partenaire</span>
+        </span>
+      );
+    default:
+      // ✅ CORRECTION : Retourner "Partenaire" uniquement si le type est undefined/null
+      // Mais ne pas afficher "Partenaire" pour "supplier" car c'est géré plus haut
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-600/20 border border-zinc-600/30">
+          <MoreHorizontal className="w-3 h-3 text-zinc-500" />
+          <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Inconnu</span>
         </span>
       );
   }
@@ -1046,7 +1055,17 @@ export default function AdminMessageriePage() {
                               </p>
                               <p className="text-[10px] text-zinc-400">
                                 <strong className="text-blue-500">Type:</strong>{' '}
-                                <span className="text-zinc-400">{request.type === "player" ? "Joueur" : request.type === "pending" ? "Demande en attente" : "Partenaire"}</span>
+                                <span className="text-zinc-400">
+                                  {request.type === "player" ? "Joueur" : 
+                                   request.type === "supplier" ? "Fournisseur" :
+                                   request.type === "pending" ? "Demande en attente" : 
+                                   request.type === "partner" ? "Partenaire" :
+                                   request.type === "sponsor" ? "Sponsor" :
+                                   request.type === "client" ? "Client" :
+                                   request.type === "advertising" ? "Publicité" :
+                                   request.type === "communication" ? "Communication" :
+                                   request.type === "divers" ? "Divers" : "Partenaire"}
+                                </span>
                               </p>
                             </div>
                             
@@ -1270,7 +1289,17 @@ export default function AdminMessageriePage() {
                 </h2>
                 <p className="text-[8px] text-zinc-500 uppercase tracking-widest mt-1">
                   {selectedRequest.email} • {selectedRequest.company || "Particulier"} • N° Dossier: <span className="text-red-600 font-mono">{selectedRequest.dossier_ref || "N/A"}</span>
-                  <span className="ml-2 text-blue-500">• {selectedRequest.type === "player" ? "Joueur" : selectedRequest.type === "pending" ? "Demande en attente" : "Partenaire"}</span>
+                  <span className="ml-2 text-blue-500">
+                    • {selectedRequest.type === "player" ? "Joueur" : 
+                       selectedRequest.type === "supplier" ? "Fournisseur" :
+                       selectedRequest.type === "pending" ? "Demande en attente" : 
+                       selectedRequest.type === "partner" ? "Partenaire" :
+                       selectedRequest.type === "sponsor" ? "Sponsor" :
+                       selectedRequest.type === "client" ? "Client" :
+                       selectedRequest.type === "advertising" ? "Publicité" :
+                       selectedRequest.type === "communication" ? "Communication" :
+                       selectedRequest.type === "divers" ? "Divers" : "Partenaire"}
+                  </span>
                 </p>
               </div>
               <button
