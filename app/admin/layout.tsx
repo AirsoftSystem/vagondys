@@ -69,8 +69,9 @@ export default function AdminLayout({
       const auth = sessionStorage.getItem("admin_authenticated") === "true";
       setIsAuthenticated(auth);
 
-      if (!auth && pathname !== "/admin/verification") {
-        router.push("/admin/verification");
+      // ✅ CORRECTION : Rediriger vers /admin/login au lieu de /admin/verification
+      if (!auth && pathname !== "/admin/login") {
+        router.push("/admin/login");
       }
     };
 
@@ -81,8 +82,9 @@ export default function AdminLayout({
       if (e.key === "admin_authenticated") {
         const newAuth = e.newValue === "true";
         setIsAuthenticated(newAuth);
-        if (!newAuth && pathname !== "/admin/verification") {
-          router.push("/admin/verification");
+        // ✅ CORRECTION : Rediriger vers /admin/login au lieu de /admin/verification
+        if (!newAuth && pathname !== "/admin/login") {
+          router.push("/admin/login");
         }
       }
     };
@@ -93,11 +95,12 @@ export default function AdminLayout({
 
   const handleLogout = () => {
     sessionStorage.removeItem("admin_authenticated");
-    router.push("/admin/verification");
+    // ✅ CORRECTION : Rediriger vers /admin/login au lieu de /admin/verification
+    router.push("/admin/login");
   };
 
-  // Page de vérification : pas de sidebar
-  if (pathname === "/admin/verification") {
+  // ✅ CORRECTION : Page de connexion : pas de sidebar (remplace /admin/verification)
+  if (pathname === "/admin/login") {
     return <>{children}</>;
   }
 
