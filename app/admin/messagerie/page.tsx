@@ -204,8 +204,6 @@ function getTypeBadge(type?: string) {
         </span>
       );
     default:
-      // ✅ CORRECTION : Retourner "Partenaire" uniquement si le type est undefined/null
-      // Mais ne pas afficher "Partenaire" pour "supplier" car c'est géré plus haut
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-600/20 border border-zinc-600/30">
           <MoreHorizontal className="w-3 h-3 text-zinc-500" />
@@ -264,7 +262,7 @@ export default function AdminMessageriePage() {
       
       if (!response.ok) {
         if (response.status === 401) {
-          router.push("/staff/admin/verification");
+          router.push("/admin/verification");
           return;
         }
         const errorData = await response.json();
@@ -340,7 +338,7 @@ export default function AdminMessageriePage() {
   useEffect(() => {
     const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
     if (!isAuthenticated) {
-      router.push("/staff/admin/verification");
+      router.push("/admin/verification");
     }
     isMountedRef.current = true;
     

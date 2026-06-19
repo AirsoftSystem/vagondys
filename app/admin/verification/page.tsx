@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { createStaffClient } from "@/lib/supabase/client";
 
 export default function AdminVerificationPage() {
   const router = useRouter();
@@ -14,26 +13,40 @@ export default function AdminVerificationPage() {
   const [error, setError] = useState<string | null>(null);
   const [adminPasswordHash, setAdminPasswordHash] = useState<string | null>(null);
 
-  // Récupérer le mot de passe depuis Supabase (avec client staff authentifié)
+  // ✅ Récupérer le mot de passe depuis Supabase (Service Role)
   useEffect(() => {
     const fetchAdminPassword = async () => {
       try {
-        const supabase = createStaffClient();
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !supabaseServiceKey) {
+          console.error("❌ Variables Supabase manquantes");
+          setError("Configuration serveur invalide");
+          return;
+        }
+
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+
         const { data, error } = await supabase
           .from("admin_config")
           .select("value")
           .eq("key", "admin_password")
-          .single();
+          .maybeSingle();
 
         if (error || !data) {
-          console.error("Erreur récupération mot de passe admin:", error);
+          console.error("❌ Erreur récupération mot de passe admin:", error);
           setError("Configuration admin manquante");
           return;
         }
 
+        console.log("✅ Mot de passe admin récupéré avec succès");
         setAdminPasswordHash(data.value);
       } catch (err) {
-        console.error(err);
+        console.error("❌ Erreur lors de la récupération:", err);
         setError("Impossible de charger la configuration");
       }
     };
@@ -47,7 +60,7 @@ export default function AdminVerificationPage() {
     setError(null);
 
     if (!password.trim()) {
-      setError("Veuillez saisir le mot de passe d&apos;administration.");
+      setError("Veuillez saisir le mot de passe d'administration.");
       setLoading(false);
       return;
     }
@@ -62,10 +75,10 @@ export default function AdminVerificationPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (password.trim() === adminPasswordHash) {
-      // Stocker dans sessionStorage que l'admin est authentifié
+      // ✅ Stocker dans sessionStorage que l'admin est authentifié
       sessionStorage.setItem("admin_authenticated", "true");
-      // Redirection vers le nouveau chemin du dashboard admin
-      router.push("/staff/admin/dashboard");
+      // ✅ Redirection vers le nouveau chemin du dashboard admin
+      router.push("/admin/dashboard");
     } else {
       setError("Mot de passe incorrect.");
       setPassword("");
@@ -92,7 +105,7 @@ export default function AdminVerificationPage() {
         
         <div className="mb-6">
           <Link
-            href="/staff"
+            href="/admin/dashboard"
             className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest"
           >
             <ArrowLeft className="w-4 h-4" />

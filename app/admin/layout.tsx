@@ -24,32 +24,32 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     title: "DASHBOARD",
-    href: "/staff/admin/dashboard",
+    href: "/admin/dashboard",
     icon: LayoutDashboard,
   },
   {
     title: "VILLES",
-    href: "/staff/admin/villes",
+    href: "/admin/villes",
     icon: Building2,
   },
   {
     title: "STAFF",
-    href: "/staff/admin/staff",
+    href: "/admin/staff",
     icon: Users,
   },
   {
     title: "MESSAGERIE",
-    href: "/staff/admin/messagerie",
+    href: "/admin/messagerie",
     icon: MessageSquare,
   },
   {
     title: "LOGS SYSTÈME",
-    href: "/staff/admin/logs",
+    href: "/admin/logs",
     icon: FileText,
   },
   {
     title: "CONFIGURATION",
-    href: "/staff/admin/configuration",
+    href: "/admin/configuration",
     icon: Settings,
   },
 ];
@@ -69,8 +69,8 @@ export default function AdminLayout({
       const auth = sessionStorage.getItem("admin_authenticated") === "true";
       setIsAuthenticated(auth);
 
-      if (!auth && pathname !== "/staff/admin/verification") {
-        router.push("/staff/admin/verification");
+      if (!auth && pathname !== "/admin/verification") {
+        router.push("/admin/verification");
       }
     };
 
@@ -81,8 +81,8 @@ export default function AdminLayout({
       if (e.key === "admin_authenticated") {
         const newAuth = e.newValue === "true";
         setIsAuthenticated(newAuth);
-        if (!newAuth && pathname !== "/staff/admin/verification") {
-          router.push("/staff/admin/verification");
+        if (!newAuth && pathname !== "/admin/verification") {
+          router.push("/admin/verification");
         }
       }
     };
@@ -93,11 +93,11 @@ export default function AdminLayout({
 
   const handleLogout = () => {
     sessionStorage.removeItem("admin_authenticated");
-    router.push("/staff/admin/verification");
+    router.push("/admin/verification");
   };
 
   // Page de vérification : pas de sidebar
-  if (pathname === "/staff/admin/verification") {
+  if (pathname === "/admin/verification") {
     return <>{children}</>;
   }
 
@@ -133,7 +133,7 @@ export default function AdminLayout({
                 VAGONDYS
               </h1>
               <p className="text-[7px] text-red-600 uppercase tracking-widest">
-                SUPER ADMIN
+                ADMIN MASTER
               </p>
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function AdminLayout({
             </span>
           </button>
           <p className="text-[6px] text-zinc-700 uppercase tracking-widest text-center mt-4">
-            Session super admin
+            Session admin master
           </p>
         </div>
       </aside>

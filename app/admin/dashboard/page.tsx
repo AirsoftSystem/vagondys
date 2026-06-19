@@ -159,7 +159,7 @@ export default function AdminDashboardPage() {
     const init = async () => {
       const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
       if (!isAuthenticated) {
-        router.push("/staff/admin/verification");
+        router.push("/admin/verification");
         return;
       }
       await loadStats(false);

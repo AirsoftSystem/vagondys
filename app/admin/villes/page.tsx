@@ -117,7 +117,7 @@ export default function AdminVillesPage() {
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const [filterCountry, setFilterCountry] = useState<string>("all");
 
-  // ✅ CORRECTION : Envelopper loadCities dans useCallback
+  // Charger les villes
   const loadCities = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -148,14 +148,14 @@ export default function AdminVillesPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // Pas de dépendances car tout est local ou constant
+  }, []);
 
   // Vérifier l'authentification admin
   useEffect(() => {
     const checkAuth = () => {
       const isAuthenticated = sessionStorage.getItem("admin_authenticated") === "true";
       if (!isAuthenticated) {
-        router.push("/staff/admin/verification");
+        router.push("/admin/verification");
         return;
       }
       loadCities();
@@ -344,7 +344,6 @@ export default function AdminVillesPage() {
             </thead>
             <tbody>
               {filteredCities.map((city) => {
-                // Résolution sémantique et typage fort en dehors du JSX pour éviter les erreurs d'analyse statique "axe/aria"
                 const currentPercent = city.athletes > 0 ? Math.round((city.activeAthletes / city.athletes) * 100) : 0;
                 
                 return (
