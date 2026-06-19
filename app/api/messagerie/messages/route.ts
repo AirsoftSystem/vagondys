@@ -38,6 +38,7 @@ interface GitHubMessage {
  * ✅ AJOUT : Marquage des messages comme lus lors de la lecture
  * ✅ AJOUT : Logs détaillés pour debug
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
+ * ✅ CORRECTION 2026-06-24 : Inclusion du message système (system@vagondys.com) dans le marquage comme lu
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -234,20 +235,18 @@ export async function GET(request: NextRequest) {
     // Quand le staff (Super Admin) lit les messages, on les marque comme lus
     if (isStaff && messages && messages.length > 0) {
       try {
-        // Récupérer les IDs des messages non lus envoyés par des non-staff
-        // ✅ CORRECTION : Exclure également les messages du SUPER ADMIN pour les non-Super Admin
+        // ✅ CORRECTION : Récupérer les IDs des messages non lus
+        // ✅ Inclusion du message système (system@vagondys.com) pour le marquage comme lu
         const unreadMessageIds = messages
           .filter((msg: { is_read: boolean; sender_email: string }) => {
             // Si c'est le SUPER ADMIN, il peut marquer tous les messages comme lus
             if (isSuperAdmin) {
               return msg.is_read === false && 
-                     !msg.sender_email.endsWith("@vagondys.com") &&
-                     msg.sender_email !== "system@vagondys.com";
+                     !msg.sender_email.endsWith("@vagondys.com");
             }
             // Sinon, exclure les messages du Super Admin
             return msg.is_read === false && 
                    !msg.sender_email.endsWith("@vagondys.com") &&
-                   msg.sender_email !== "system@vagondys.com" &&
                    msg.sender_email !== "vagondys@gmail.com";
           })
           .map((msg: { id: string }) => msg.id);
