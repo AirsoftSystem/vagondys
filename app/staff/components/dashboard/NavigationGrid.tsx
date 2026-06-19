@@ -13,8 +13,7 @@ import {
   CalendarCheck,
   Calendar,
   Star,
-  Award,
-  ShieldCheck  // 👈 AJOUTÉ pour ADMIN
+  Award
 } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
@@ -40,6 +39,8 @@ export default function NavigationGrid({
 }: NavigationGridProps) {
 
   // Actions rapides (sans doublons)
+  // ✅ CORRECTION : Suppression de l'élément "ADMIN" (Supervision globale)
+  // L'Admin a son propre espace séparé avec sa propre connexion
   const quickActions = [
     {
       id: 'quick-message',
@@ -94,18 +95,6 @@ export default function NavigationGrid({
       color: "text-yellow-500",
       bg: "bg-yellow-500/10",
       border: "border-yellow-500/20"
-    },
-    // 👇 ADMIN - Supervision globale
-    // ✅ CORRECTION : Nouveau chemin vers la page de vérification admin
-    {
-      id: 'quick-admin',
-      title: "ADMIN",
-      description: "Supervision globale",
-      href: "/staff/admin/verification",
-      icon: ShieldCheck,
-      color: "text-red-600",
-      bg: "bg-red-600/10",
-      border: "border-red-600/20"
     }
   ];
 
