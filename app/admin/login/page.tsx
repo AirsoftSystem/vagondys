@@ -14,6 +14,7 @@ import {
   RefreshCcw,
   ChevronRight
 } from "lucide-react";
+import { createStaffClient } from "@/lib/supabase/client";
 
 /**
  * Page de connexion pour l'Admin (Master)
@@ -23,8 +24,8 @@ import {
  * ✅ Stocke la session dans sessionStorage (admin_authenticated)
  * ✅ Redirige vers /admin/dashboard
  * 
- * ✅ CORRECTION 2026-06-24 : Utilisation directe de Supabase au lieu de l'API
- * La table admin_config contient le mot de passe admin
+ * ✅ CORRECTION 2026-06-24 : Utilisation de createStaffClient() au lieu de createClient()
+ * La fonction createStaffClient() utilise les variables d'environnement MASTER correctement configurées
  */
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -62,21 +63,9 @@ export default function AdminLoginPage() {
     }
 
     try {
-      // Connexion à Supabase avec Service Role
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !supabaseServiceKey) {
-        console.error("❌ Variables Supabase manquantes");
-        setError("Configuration serveur invalide");
-        setLoading(false);
-        return;
-      }
-
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
+      // ✅ Utilisation de createStaffClient() comme dans /staff/login
+      // Cette fonction utilise les variables d'environnement MASTER correctement configurées
+      const supabase = createStaffClient();
 
       // Récupérer le mot de passe admin depuis admin_config
       const { data, error: fetchError } = await supabase
