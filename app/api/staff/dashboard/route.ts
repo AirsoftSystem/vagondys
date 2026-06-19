@@ -114,16 +114,19 @@ export async function GET(request: Request) {
       // - SUPER ADMIN (vagondys@gmail.com) voit TOUS les messages (y compris système)
       // - Les autres (admin@vagondys.com, etc.) ne voient PAS les messages système
       // - Les autres ne voient PAS les messages du SUPER ADMIN
+      // - Les autres ne voient PAS leurs propres messages (admin@vagondys.com)
       let messagesQuery = adminClient
         .from("messagerie_messages")
         .select("*", { count: "exact", head: true })
         .eq("is_read", false);
       
       // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
+      // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
       if (!isSuperAdmin) {
         messagesQuery = messagesQuery
           .neq("sender_email", "system@vagondys.com")
-          .neq("sender_email", "vagondys@gmail.com");
+          .neq("sender_email", "vagondys@gmail.com")
+          .neq("sender_email", "admin@vagondys.com");
       }
       
       let recentMessagesQuery = adminClient
@@ -133,10 +136,12 @@ export async function GET(request: Request) {
         .order("created_at", { ascending: false }).limit(3);
       
       // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
+      // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
       if (!isSuperAdmin) {
         recentMessagesQuery = recentMessagesQuery
           .neq("sender_email", "system@vagondys.com")
-          .neq("sender_email", "vagondys@gmail.com");
+          .neq("sender_email", "vagondys@gmail.com")
+          .neq("sender_email", "admin@vagondys.com");
       }
       
       [
@@ -242,6 +247,7 @@ export async function GET(request: Request) {
           const dossierRefs = accounts.map(a => a.dossier_ref);
           
           // ✅ CORRECTION : Compter les messages non lus (exclure système ET Super Admin si pas SUPER ADMIN)
+          // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
           let messagesQuery = adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
@@ -251,7 +257,8 @@ export async function GET(request: Request) {
           if (!isSuperAdmin) {
             messagesQuery = messagesQuery
               .neq("sender_email", "system@vagondys.com")
-              .neq("sender_email", "vagondys@gmail.com");
+              .neq("sender_email", "vagondys@gmail.com")
+              .neq("sender_email", "admin@vagondys.com");
           }
           
           const { data: messages } = await messagesQuery;

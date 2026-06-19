@@ -272,30 +272,12 @@ export default function AdminMessageriePage() {
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      // ✅ 1. Récupérer les messages non lus pour chaque dossier
-      const unreadMap = new Map<string, boolean>();
-      try {
-        const unreadResponse = await fetch("/api/messagerie/messages/unread");
-        if (unreadResponse.ok) {
-          const unreadData = await unreadResponse.json();
-          if (unreadData && Array.isArray(unreadData)) {
-            for (const item of unreadData) {
-              unreadMap.set(item.dossier_ref, true);
-            }
-          }
-        }
-      } catch (unreadErr) {
-        console.warn("⚠️ Erreur récupération messages non lus:", unreadErr);
-      }
+      // ✅ CORRECTION : Utilisation directe de has_unread du serveur
+      // Le serveur calcule déjà correctement has_unread via l'API /api/staff/messagerie-requests
+      // On n'écrase plus avec un appel à /api/messagerie/messages/unread
       
-      // ✅ 2. Marquer les demandes avec has_unread
-      const requestsWithUnread = allRequests.map((req: MessagerieRequest) => ({
-        ...req,
-        has_unread: req.dossier_ref ? unreadMap.has(req.dossier_ref) : false
-      }));
-      
-      // ✅ 3. Tri : les messages non lus remontent en premier, puis alphabétique
-      const sortedRequests = requestsWithUnread.sort((a: MessagerieRequest, b: MessagerieRequest) => {
+      // ✅ Tri : les messages non lus remontent en premier, puis alphabétique
+      const sortedRequests = allRequests.sort((a: MessagerieRequest, b: MessagerieRequest) => {
         if (a.has_unread && !b.has_unread) return -1;
         if (!a.has_unread && b.has_unread) return 1;
         
