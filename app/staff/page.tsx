@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
   Trophy,
@@ -58,6 +59,7 @@ interface TopPlayer {
 }
 
 export default function StaffDashboard() {
+  const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userCity, setUserCity] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>('FR');
@@ -94,6 +96,16 @@ export default function StaffDashboard() {
         if (!isMounted.current) return;
         
         setUserEmail(email);
+        
+        // ✅ Vérifier si l'utilisateur est Admin - redirection directe sans état
+        const isAdminUser = email === "admin@vagondys.com" || email === "vagondys@gmail.com";
+        
+        // ✅ Si Admin, rediriger vers /admin/dashboard
+        if (isAdminUser) {
+          router.push("/admin/dashboard");
+          return;
+        }
+        
         if (!city) {
           setError("Station non identifiée");
           setLoading(false);
@@ -156,7 +168,7 @@ export default function StaffDashboard() {
     loadDashboard();
     
     return () => { isMounted.current = false; };
-  }, []);
+  }, [router]);
 
   // Écouteur pour l'événement staff-message-updated (met à jour le compteur)
   useEffect(() => {

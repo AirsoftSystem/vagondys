@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -9,6 +10,10 @@ import Image from "next/image";
  * PAGE DE CONNEXION STAFF - VERSION CITY-AWARE
  * Cette page utilise le client MASTER pour authentifier les membres du staff.
  * Une fois authentifiés, le proxy.ts prendra le relais pour l'aiguillage.
+ * 
+ * ✅ CORRECTION : Redirection différenciée pour Admin et Agents
+ * - Admin (admin@vagondys.com, vagondys@gmail.com) → /admin/dashboard
+ * - Agents (autres @vagondys.com) → /staff
  */
 
 export default function LoginPage() {
@@ -37,9 +42,17 @@ export default function LoginPage() {
         setErrorMsg("ACCÈS REFUSÉ : IDENTIFIANTS INCORRECTS.");
         setLoading(false);
       } else if (data?.user) {
-        // Redirection vers l'interface staff. 
-        // Le proxy.ts détectera la session et autorisera l'accès.
-        window.location.href = "/staff";
+        // ✅ CORRECTION : Redirection différenciée selon le rôle
+        const userEmail = email.toLowerCase().trim();
+        const isAdmin = userEmail === "admin@vagondys.com" || userEmail === "vagondys@gmail.com";
+        
+        if (isAdmin) {
+          // Admin → rediriger vers le dashboard admin
+          window.location.href = "/admin/dashboard";
+        } else {
+          // Agents (nantes@vagondys.com, lyon@vagondys.com, etc.) → interface staff
+          window.location.href = "/staff";
+        }
       }
     } catch (err) {
       console.error("Erreur critique login staff:", err);

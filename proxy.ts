@@ -10,6 +10,11 @@ import { getAthleteCity, getAthleteCountry } from './lib/supabase/master'
  * Gestion du routage entre le site Public et le sous-domaine Staff.
  * + PROTECTION RENFORCÉE DE L'ARBORESCENCE
  * Version adaptée pour l'Option B (un seul projet Supabase)
+ * 
+ * ✅ CORRECTION 2026-06-24 : Ajout de la gestion des routes /admin/*
+ * - Redirection vers /admin/login si non authentifié
+ * - Vérification du rôle Admin (admin@vagondys.com, vagondys@gmail.com)
+ * - Les routes /admin/* ne sont pas réécrites vers /staff/*
  */
 export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
@@ -135,9 +140,38 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   
   const userEmail = user?.email?.toLowerCase() || null
-  const isLoginPage = pathname === '/staff/login' || pathname === '/login'
+  const isLoginPage = pathname === '/staff/login' || pathname === '/login' || pathname === '/admin/login'
   const isStaffRoot = pathname === '/staff' || pathname === '/staff/'
   
+  // ✅ CORRECTION : Routes Admin - Vérification spécifique
+  if (pathname.startsWith('/admin')) {
+    // Si l'utilisateur n'est pas authentifié → rediriger vers /admin/login
+    if (!userEmail && !isLoginPage) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+    
+    // Si l'utilisateur est authentifié mais n'est pas Admin → rediriger vers /staff/dashboard
+    if (userEmail) {
+      const isAdmin = userEmail === 'admin@vagondys.com' || userEmail === 'vagondys@gmail.com';
+      if (!isAdmin && !isLoginPage) {
+        return NextResponse.redirect(new URL('/staff/dashboard', request.url))
+      }
+    }
+    
+    // Admin authentifié → laisser passer
+    if (userEmail) {
+      const city = await getAthleteCity(userEmail)
+      const country = await getAthleteCountry(userEmail)
+      if (city) {
+        response.headers.set('x-vgd-city', city)
+        response.headers.set('x-vgd-country', country || 'FR')
+      }
+    }
+    
+    return response
+  }
+
+  // Authentification pour les routes Staff (agents)
   if (!userEmail && !isLoginPage && !isStaffRoot) {
     return NextResponse.redirect(new URL('/staff/login', request.url))
   }
@@ -158,7 +192,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL('/staff', request.url))
   }
 
-  if (pathname.startsWith('/staff')) {
+  // ✅ CORRECTION : Les routes /admin/* ne sont pas réécrites
+  if (pathname.startsWith('/staff') || pathname.startsWith('/admin')) {
     return response
   }
 
