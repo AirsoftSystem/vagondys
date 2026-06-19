@@ -232,21 +232,23 @@ export async function GET(request: NextRequest) {
     }
 
     // ✅ 7. MARQUER LES MESSAGES COMME LUS (uniquement pour le staff)
-    // Quand le staff (Super Admin) lit les messages, on les marque comme lus
+    // Quand le staff lit les messages, on les marque comme lus
     if (isStaff && messages && messages.length > 0) {
       try {
-        // ✅ CORRECTION : Récupérer les IDs des messages non lus
-        // ✅ Inclusion du message système (system@vagondys.com) pour le marquage comme lu
+        // ✅ CORRECTION : Inclusion du message système (system@vagondys.com)
+        // system@vagondys.com n'est PAS un email staff, même s'il finit par @vagondys.com
         const unreadMessageIds = messages
           .filter((msg: { is_read: boolean; sender_email: string }) => {
+            const isSystemEmail = msg.sender_email === "system@vagondys.com";
+            const isStaffEmail = msg.sender_email.endsWith("@vagondys.com") && !isSystemEmail;
+            
             // Si c'est le SUPER ADMIN, il peut marquer tous les messages comme lus
             if (isSuperAdmin) {
-              return msg.is_read === false && 
-                     !msg.sender_email.endsWith("@vagondys.com");
+              return msg.is_read === false && !isStaffEmail;
             }
             // Sinon, exclure les messages du Super Admin
             return msg.is_read === false && 
-                   !msg.sender_email.endsWith("@vagondys.com") &&
+                   !isStaffEmail &&
                    msg.sender_email !== "vagondys@gmail.com";
           })
           .map((msg: { id: string }) => msg.id);
