@@ -19,9 +19,12 @@ import {
  * Page de connexion pour l'Admin (Master)
  * URL : /admin/login
  * 
- * ✅ Vérifie les identifiants via /api/admin/verify
+ * ✅ Vérifie les identifiants directement via Supabase (admin_config)
  * ✅ Stocke la session dans sessionStorage (admin_authenticated)
  * ✅ Redirige vers /admin/dashboard
+ * 
+ * ✅ CORRECTION 2026-06-24 : Utilisation directe de Supabase au lieu de l'API
+ * La table admin_config contient le mot de passe admin
  */
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,7 +37,7 @@ export default function AdminLoginPage() {
 
   /**
    * Soumission du formulaire
-   * Vérifie les identifiants auprès de l'API
+   * Vérifie les identifiants directement dans Supabase
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,31 +51,66 @@ export default function AdminLoginPage() {
       return;
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Vérifier que l'email est autorisé (admin uniquement)
+    const allowedEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
+    if (!allowedEmails.includes(normalizedEmail)) {
+      setError("Accès non autorisé. Email invalide.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/admin/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          password: password,
-        }),
-      });
+      // Connexion à Supabase avec Service Role
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Identifiants incorrects");
+      if (!supabaseUrl || !supabaseServiceKey) {
+        console.error("❌ Variables Supabase manquantes");
+        setError("Configuration serveur invalide");
+        setLoading(false);
+        return;
       }
 
-      // ✅ Stocker la session
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      // Récupérer le mot de passe admin depuis admin_config
+      const { data, error: fetchError } = await supabase
+        .from("admin_config")
+        .select("value")
+        .eq("key", "admin_password")
+        .maybeSingle();
+
+      if (fetchError || !data) {
+        console.error("❌ Erreur récupération mot de passe admin:", fetchError);
+        setError("Configuration admin manquante");
+        setLoading(false);
+        return;
+      }
+
+      const storedPassword = data.value;
+
+      // Vérifier le mot de passe
+      if (password !== storedPassword) {
+        setError("Mot de passe incorrect");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Succès - Stocker la session
       sessionStorage.setItem("admin_authenticated", "true");
-      sessionStorage.setItem("admin_email", email.toLowerCase().trim());
+      sessionStorage.setItem("admin_email", normalizedEmail);
 
       // ✅ Redirection vers le dashboard
       router.push("/admin/dashboard");
       router.refresh();
 
     } catch (err) {
+      console.error("❌ Erreur connexion admin:", err);
       setError(err instanceof Error ? err.message : "Erreur de connexion");
     } finally {
       setLoading(false);
