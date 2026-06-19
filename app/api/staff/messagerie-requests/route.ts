@@ -25,6 +25,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-18 : Utilisation du champ "role" de messagerie_accounts pour les partenaires
  * ✅ CORRECTION 2026-06-24 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
+ * ✅ CORRECTION 2026-06-24 : Correction de la condition unreadDossierMap pour inclure system@vagondys.com
  */
 export async function GET() {
   try {
@@ -193,10 +194,12 @@ export async function GET() {
           
           // ✅ CORRECTION : Messages non lus - inclure les messages système (system@vagondys.com)
           // Exclusion uniquement du Super Admin (vagondys@gmail.com)
+          const isSystemMessage = msg.sender_email === "system@vagondys.com";
           const isSuperAdminMessage = msg.sender_email === "vagondys@gmail.com";
           
+          // ✅ La condition inclut system@vagondys.com (message de bienvenue)
           if (msg.is_read === false && 
-              !msg.sender_email.endsWith("@vagondys.com") &&
+              (!msg.sender_email.endsWith("@vagondys.com") || isSystemMessage) &&
               (!isSuperAdminMessage || isSuperAdmin)) {
             unreadDossierMap.set(msg.dossier_ref, true);
           }
