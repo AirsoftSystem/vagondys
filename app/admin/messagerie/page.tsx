@@ -1155,11 +1155,18 @@ export default function AdminMessageriePage() {
                                   Aucun échange pour l&apos;instant. Soyez le premier à répondre.
                                 </p>
                               ) : (
-                                messages.map((msg) => (
+                                messages.map((msg) => {
+                                  // ✅ Détection du message système (de bienvenue)
+                                  const isSystem = msg.sender_email === "system@vagondys.com";
+                                  
+                                  return (
                                   <div
                                     key={msg.id}
                                     className={`p-2 rounded-lg ${
-                                      msg.is_staff
+                                      // ✅ Message système = ROUGE à GAUCHE (comme un message important)
+                                      isSystem
+                                        ? "bg-red-600/20 border-l-2 border-red-600 text-red-300"
+                                        : msg.is_staff
                                         ? "bg-red-600/10 border-l-2 border-red-600"
                                         : "bg-zinc-800/30 border-l-2 border-zinc-600"
                                     }`}
@@ -1186,7 +1193,7 @@ export default function AdminMessageriePage() {
                                       </a>
                                     )}
                                   </div>
-                                ))
+                                )}) 
                               )}
                             </div>
                             
@@ -1303,11 +1310,18 @@ export default function AdminMessageriePage() {
                   </p>
                 </div>
               ) : (
-                modalMessages.map((msg) => (
+                modalMessages.map((msg) => {
+                  // ✅ Détection du message système (de bienvenue)
+                  const isSystem = msg.sender_email === "system@vagondys.com";
+                  
+                  return (
                   <div
                     key={msg.id}
                     className={`p-3 rounded-xl ${
-                      msg.is_staff
+                      // ✅ Message système = ROUGE à GAUCHE (comme un message important)
+                      isSystem
+                        ? "bg-red-600/20 border-l-4 border-red-600"
+                        : msg.is_staff
                         ? "bg-red-600/10 border-l-4 border-red-600 ml-4"
                         : "bg-zinc-800/30 border-l-4 border-zinc-600 mr-4"
                     }`}
@@ -1340,7 +1354,7 @@ export default function AdminMessageriePage() {
                       </a>
                     )}
                   </div>
-                ))
+                )}) 
               )}
             </div>
             

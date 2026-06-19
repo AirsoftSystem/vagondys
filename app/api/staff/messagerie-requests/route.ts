@@ -23,11 +23,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-18 : Utilisation directe du champ "type" de la table pour les demandes en attente
  * ✅ CORRECTION 2026-06-18 : Priorité au type stocké en base plutôt qu'au fallback par mots-clés
  * ✅ CORRECTION 2026-06-18 : Utilisation du champ "role" de messagerie_accounts pour les partenaires
- * ✅ CORRECTION 2026-06-18 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
- * ✅ CORRECTION 2026-06-22 : Correction du fallback "partenaire" qui écrase le type "supplier"
- * ✅ CORRECTION 2026-06-22 : Récupération des messages depuis GitHub pour les dossiers sans messages dans Supabase
- * ✅ CORRECTION 2026-06-23 : Ajout du message de bienvenue dans lastMessagesMap pour que le frontend l'affiche
- * ✅ CORRECTION 2026-06-24 : Exclusion des messages système pour tous sauf le SUPER ADMIN (vagondys@gmail.com)
+ * ✅ CORRECTION 2026-06-24 : Inclusion des messages système (system@vagondys.com) dans les messages non lus
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
  */
 export async function GET() {
@@ -164,17 +160,16 @@ export async function GET() {
     // ✅ CORRECTION : Récupérer les messages depuis Supabase ET depuis GitHub
     // 1. D'abord depuis Supabase
     if (allDossierRefs.length > 0) {
-      // ✅ CORRECTION : Exclure les messages système (system@vagondys.com) ET les messages du Super Admin (vagondys@gmail.com) pour tous sauf SUPER ADMIN
+      // ✅ CORRECTION : Inclure les messages système (system@vagondys.com) pour activer has_unread
+      // Exclusion uniquement des messages du Super Admin (vagondys@gmail.com)
       let query = supabaseAdmin
         .from("messagerie_messages")
         .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
         .in("dossier_ref", allDossierRefs);
       
-      // Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
+      // Si ce n'est pas le SUPER ADMIN, exclure uniquement les messages du Super Admin
       if (!isSuperAdmin) {
-        query = query
-          .neq("sender_email", "system@vagondys.com")
-          .neq("sender_email", "vagondys@gmail.com");
+        query = query.neq("sender_email", "vagondys@gmail.com");
       }
       
       const { data: allMessages, error: messagesError } = await query.order("created_at", { ascending: false });
@@ -196,13 +191,12 @@ export async function GET() {
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
-          // ✅ CORRECTION : Messages non lus - exclure système ET Super Admin si pas SUPER ADMIN
-          const isSystemMessage = msg.sender_email === "system@vagondys.com";
+          // ✅ CORRECTION : Messages non lus - inclure les messages système (system@vagondys.com)
+          // Exclusion uniquement du Super Admin (vagondys@gmail.com)
           const isSuperAdminMessage = msg.sender_email === "vagondys@gmail.com";
           
           if (msg.is_read === false && 
               !msg.sender_email.endsWith("@vagondys.com") &&
-              (!isSystemMessage || isSuperAdmin) &&
               (!isSuperAdminMessage || isSuperAdmin)) {
             unreadDossierMap.set(msg.dossier_ref, true);
           }

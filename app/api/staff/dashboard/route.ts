@@ -112,19 +112,19 @@ export async function GET(request: Request) {
       
       // ✅ CORRECTION : Ne compter que les messages non lus
       // - SUPER ADMIN (vagondys@gmail.com) voit TOUS les messages (y compris système)
-      // - Les autres (admin@vagondys.com, etc.) ne voient PAS les messages système
-      // - Les autres ne voient PAS les messages du SUPER ADMIN
+      // - Les autres (admin@vagondys.com, etc.) ne voient PAS les messages du SUPER ADMIN
       // - Les autres ne voient PAS leurs propres messages (admin@vagondys.com)
+      // ✅ CORRECTION : Les messages système (system@vagondys.com) sont INCLUS pour activer le compteur
       let messagesQuery = adminClient
         .from("messagerie_messages")
         .select("*", { count: "exact", head: true })
         .eq("is_read", false);
       
-      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
+      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages du Super Admin
       // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
+      // ✅ Les messages système (system@vagondys.com) sont conservés
       if (!isSuperAdmin) {
         messagesQuery = messagesQuery
-          .neq("sender_email", "system@vagondys.com")
           .neq("sender_email", "vagondys@gmail.com")
           .neq("sender_email", "admin@vagondys.com");
       }
@@ -135,11 +135,11 @@ export async function GET(request: Request) {
         .eq("is_read", false)
         .order("created_at", { ascending: false }).limit(3);
       
-      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
+      // ✅ Si ce n'est pas le SUPER ADMIN, exclure les messages du Super Admin
       // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
+      // ✅ Les messages système (system@vagondys.com) sont conservés
       if (!isSuperAdmin) {
         recentMessagesQuery = recentMessagesQuery
-          .neq("sender_email", "system@vagondys.com")
           .neq("sender_email", "vagondys@gmail.com")
           .neq("sender_email", "admin@vagondys.com");
       }
@@ -246,8 +246,9 @@ export async function GET(request: Request) {
         if (accounts && accounts.length > 0) {
           const dossierRefs = accounts.map(a => a.dossier_ref);
           
-          // ✅ CORRECTION : Compter les messages non lus (exclure système ET Super Admin si pas SUPER ADMIN)
+          // ✅ CORRECTION : Compter les messages non lus (exclure Super Admin si pas SUPER ADMIN)
           // ✅ ET exclure les messages envoyés PAR l'Admin (lui-même)
+          // ✅ Les messages système (system@vagondys.com) sont conservés
           let messagesQuery = adminClient
             .from("messagerie_messages")
             .select("dossier_ref")
@@ -256,7 +257,6 @@ export async function GET(request: Request) {
           
           if (!isSuperAdmin) {
             messagesQuery = messagesQuery
-              .neq("sender_email", "system@vagondys.com")
               .neq("sender_email", "vagondys@gmail.com")
               .neq("sender_email", "admin@vagondys.com");
           }
