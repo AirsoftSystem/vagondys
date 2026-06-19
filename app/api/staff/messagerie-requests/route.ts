@@ -28,6 +28,7 @@ import { cookies } from "next/headers";
  * ✅ CORRECTION 2026-06-22 : Récupération des messages depuis GitHub pour les dossiers sans messages dans Supabase
  * ✅ CORRECTION 2026-06-23 : Ajout du message de bienvenue dans lastMessagesMap pour que le frontend l'affiche
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages système pour tous sauf le SUPER ADMIN (vagondys@gmail.com)
+ * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
  */
 export async function GET() {
   try {
@@ -163,15 +164,17 @@ export async function GET() {
     // ✅ CORRECTION : Récupérer les messages depuis Supabase ET depuis GitHub
     // 1. D'abord depuis Supabase
     if (allDossierRefs.length > 0) {
-      // ✅ CORRECTION : Exclure les messages système (system@vagondys.com) pour tous sauf SUPER ADMIN
+      // ✅ CORRECTION : Exclure les messages système (system@vagondys.com) ET les messages du Super Admin (vagondys@gmail.com) pour tous sauf SUPER ADMIN
       let query = supabaseAdmin
         .from("messagerie_messages")
         .select("dossier_ref, content, created_at, sender_name, is_read, sender_email")
         .in("dossier_ref", allDossierRefs);
       
-      // Si ce n'est pas le SUPER ADMIN, exclure les messages système
+      // Si ce n'est pas le SUPER ADMIN, exclure les messages système ET les messages du Super Admin
       if (!isSuperAdmin) {
-        query = query.neq("sender_email", "system@vagondys.com");
+        query = query
+          .neq("sender_email", "system@vagondys.com")
+          .neq("sender_email", "vagondys@gmail.com");
       }
       
       const { data: allMessages, error: messagesError } = await query.order("created_at", { ascending: false });
@@ -193,11 +196,14 @@ export async function GET() {
         for (const msg of typedMessages) {
           dossierWithMessages.add(msg.dossier_ref);
           
-          // ✅ CORRECTION : Messages non lus - exclure système si pas SUPER ADMIN
+          // ✅ CORRECTION : Messages non lus - exclure système ET Super Admin si pas SUPER ADMIN
           const isSystemMessage = msg.sender_email === "system@vagondys.com";
+          const isSuperAdminMessage = msg.sender_email === "vagondys@gmail.com";
+          
           if (msg.is_read === false && 
               !msg.sender_email.endsWith("@vagondys.com") &&
-              (!isSystemMessage || isSuperAdmin)) {
+              (!isSystemMessage || isSuperAdmin) &&
+              (!isSuperAdminMessage || isSuperAdmin)) {
             unreadDossierMap.set(msg.dossier_ref, true);
           }
         }
@@ -244,7 +250,8 @@ export async function GET() {
                 if (lastMsg && lastMsg.content) {
                   // ✅ CORRECTION : Si ce n'est pas le SUPER ADMIN, ne pas afficher les messages système
                   const isSystemMessage = lastMsg.sender === "SYSTEM" || lastMsg.sender_name?.includes("Système");
-                  if (!isSystemMessage || isSuperAdmin) {
+                  const isSuperAdminMessage = lastMsg.sender === "vagondys@gmail.com" || lastMsg.sender_email === "vagondys@gmail.com";
+                  if ((!isSystemMessage || isSuperAdmin) && (!isSuperAdminMessage || isSuperAdmin)) {
                     lastMessagesMap.set(ref, {
                       content: lastMsg.content.substring(0, 100),
                       created_at: lastMsg.created_at || new Date().toISOString(),
@@ -255,8 +262,12 @@ export async function GET() {
                 
                 // Vérifier s'il y a des messages non lus (pour l'alerte)
                 // ✅ CORRECTION : Si ce n'est pas le SUPER ADMIN, ne pas compter les messages système
-                const hasSystemMessage = threadMessages.some((msg: { sender?: string; sender_name?: string }) => 
-                  msg.sender === "SYSTEM" || msg.sender_name === "Système VAGONDYS" || msg.sender_name?.includes("Système")
+                const hasSystemMessage = threadMessages.some((msg: { sender?: string; sender_name?: string; sender_email?: string }) => 
+                  msg.sender === "SYSTEM" || 
+                  msg.sender_name === "Système VAGONDYS" || 
+                  msg.sender_name?.includes("Système") ||
+                  msg.sender === "vagondys@gmail.com" ||
+                  msg.sender_email === "vagondys@gmail.com"
                 );
                 
                 if (hasSystemMessage && isSuperAdmin) {

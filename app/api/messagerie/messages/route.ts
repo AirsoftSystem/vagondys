@@ -37,6 +37,7 @@ interface GitHubMessage {
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Marquage des messages comme lus lors de la lecture
  * ✅ AJOUT : Logs détaillés pour debug
+ * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -83,7 +84,10 @@ export async function GET(request: NextRequest) {
 
     const userEmail = user.email?.toLowerCase() || "";
     const isStaff = userEmail.endsWith("@vagondys.com");
-    console.log(`👤 [GET] Utilisateur: ${userEmail}, isStaff: ${isStaff}`);
+    
+    // ✅ SUPER ADMIN = vagondys@gmail.com UNIQUEMENT
+    const isSuperAdmin = userEmail === "vagondys@gmail.com";
+    console.log(`👤 [GET] Utilisateur: ${userEmail}, isStaff: ${isStaff}, isSuperAdmin: ${isSuperAdmin}`);
 
     // 3. Récupérer le paramètre dossierRef
     const { searchParams } = new URL(request.url);
@@ -199,11 +203,18 @@ export async function GET(request: NextRequest) {
     // ✅ 6. Lire les messages depuis Supabase (instantané)
     console.log(`📖 [GET] Lecture Supabase: messagerie_messages pour ${dossierRef}`);
     
-    const { data: messages, error: dbError } = await supabaseAdmin
+    // ✅ CORRECTION : Exclure les messages du SUPER ADMIN si l'utilisateur n'est pas le SUPER ADMIN
+    let query = supabaseAdmin
       .from("messagerie_messages")
       .select("*")
-      .eq("dossier_ref", dossierRef)
-      .order("created_at", { ascending: true });
+      .eq("dossier_ref", dossierRef);
+    
+    // Si ce n'est pas le SUPER ADMIN, exclure les messages du Super Admin
+    if (!isSuperAdmin) {
+      query = query.neq("sender_email", "vagondys@gmail.com");
+    }
+    
+    const { data: messages, error: dbError } = await query.order("created_at", { ascending: true });
 
     if (dbError) {
       console.error(`❌ [GET] Erreur lecture Supabase:`, dbError);
@@ -224,12 +235,21 @@ export async function GET(request: NextRequest) {
     if (isStaff && messages && messages.length > 0) {
       try {
         // Récupérer les IDs des messages non lus envoyés par des non-staff
+        // ✅ CORRECTION : Exclure également les messages du SUPER ADMIN pour les non-Super Admin
         const unreadMessageIds = messages
-          .filter((msg: { is_read: boolean; sender_email: string }) => 
-            msg.is_read === false && 
-            !msg.sender_email.endsWith("@vagondys.com") &&
-            msg.sender_email !== "system@vagondys.com"
-          )
+          .filter((msg: { is_read: boolean; sender_email: string }) => {
+            // Si c'est le SUPER ADMIN, il peut marquer tous les messages comme lus
+            if (isSuperAdmin) {
+              return msg.is_read === false && 
+                     !msg.sender_email.endsWith("@vagondys.com") &&
+                     msg.sender_email !== "system@vagondys.com";
+            }
+            // Sinon, exclure les messages du Super Admin
+            return msg.is_read === false && 
+                   !msg.sender_email.endsWith("@vagondys.com") &&
+                   msg.sender_email !== "system@vagondys.com" &&
+                   msg.sender_email !== "vagondys@gmail.com";
+          })
           .map((msg: { id: string }) => msg.id);
 
         if (unreadMessageIds.length > 0) {
@@ -317,6 +337,7 @@ async function syncMessageToGitHub(message: GitHubMessage): Promise<void> {
  * ✅ CORRECTION : Plus de mise à jour de messagerie_conversations
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
+ * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN pour les notifications staff
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -364,7 +385,10 @@ export async function POST(request: NextRequest) {
     const userEmail = user.email?.toLowerCase() || "";
     const userName = user.user_metadata?.full_name || userEmail.split("@")[0];
     const isStaff = userEmail.endsWith("@vagondys.com");
-    console.log(`👤 [POST] Utilisateur: ${userEmail}, isStaff: ${isStaff}, userName: ${userName}`);
+    
+    // ✅ SUPER ADMIN = vagondys@gmail.com UNIQUEMENT
+    const isSuperAdmin = userEmail === "vagondys@gmail.com";
+    console.log(`👤 [POST] Utilisateur: ${userEmail}, isStaff: ${isStaff}, isSuperAdmin: ${isSuperAdmin}, userName: ${userName}`);
 
     // 3. Récupérer le body
     const body = await request.json();
@@ -534,7 +558,8 @@ export async function POST(request: NextRequest) {
     });
 
     // 10. Envoyer une notification email au destinataire lorsque le staff envoie un message
-    if (isStaff && participantEmail) {
+    // ✅ CORRECTION : Ne pas notifier si l'expéditeur est le SUPER ADMIN et que le destinataire est le staff
+    if (isStaff && participantEmail && !isSuperAdmin) {
       console.log(`📧 [POST] Envoi notification email à ${participantEmail} (${participantType})`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
@@ -593,7 +618,8 @@ export async function POST(request: NextRequest) {
     }
     
     // 11. Si le message vient d'un partenaire ou joueur, notifier le staff
-    if (!isStaff) {
+    // ✅ CORRECTION : Ne pas notifier si l'expéditeur est le SUPER ADMIN
+    if (!isStaff && !isSuperAdmin) {
       console.log(`📧 [POST] Notification staff pour nouveau message de ${participantName} (${participantType})`);
       const staffEmails = ["admin@vagondys.com", "vagondys@gmail.com"];
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
