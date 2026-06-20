@@ -432,3 +432,11 @@ app/(auth)/espace-joueur/
         ├── MessageThread.tsx      (lien vers ../../messagerie/components/MessageThread)
         └── MessageInput.tsx       (lien vers ../../messagerie/components/MessageInput)
 */
+
+/*
+.vagondys/
+└── .github/
+    └── workflows/
+        ├── recalculate-stats.yml
+        └── purge-old-data.yml
+*/

@@ -1,0 +1,20 @@
+
+# .github/workflows/purge-old-data.yml
+name: Purge Old Data
+
+on:
+  schedule:
+    # Tous les jours à 4h du matin (UTC)
+    - cron: '0 4 * * *'
+  # ✅ Permet de lancer manuellement depuis GitHub (Actions → Run workflow)
+  workflow_dispatch:
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API to purge old data
+        run: |
+          curl -X GET https://vagondys.com/api/cron/purge-old-data \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"
