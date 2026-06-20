@@ -6,6 +6,26 @@ import { createClient } from "@supabase/supabase-js";
 // ❌ SUPPRESSION : import { GitHubDB } from "@/lib/github-db/client"; // Plus besoin ici
 
 /**
+ * ✅ CORRECTION 2026-06-20 : Mapping des types de demande vers les rôles autorisés
+ * La base de données n'accepte que : 'partner', 'supplier', 'provider', 'admin'
+ * Les types suivants sont mappés vers 'partner' :
+ * - sponsor → partner
+ * - communication → partner
+ * - divers → partner
+ */
+function mapRoleToAllowed(type: string): string {
+  const roleMap: Record<string, string> = {
+    'partner': 'partner',
+    'supplier': 'supplier',
+    'provider': 'provider',
+    'sponsor': 'partner',
+    'communication': 'partner',
+    'divers': 'partner',
+  };
+  return roleMap[type] || 'partner';
+}
+
+/**
  * API d’approbation des demandes d’inscription à la messagerie privée
  * POST /api/messagerie/approve
  * Body: { requestId, action, notes? }
@@ -24,6 +44,7 @@ import { createClient } from "@supabase/supabase-js";
  * ✅ CORRECTION 2026-06-18 : Récupération du type depuis pending_messagerie_requests
  * ✅ CORRECTION 2026-06-18 : Stockage du type dans messagerie_accounts.role
  * ✅ CORRECTION 2026-06-18 : Passage du type dans les user_metadata
+ * ✅ CORRECTION 2026-06-20 : Mapping des types vers les rôles autorisés par la base de données
  */
 export async function POST(request: NextRequest) {
   try {
@@ -143,7 +164,8 @@ export async function POST(request: NextRequest) {
 
     // ✅ CORRECTION : Récupérer le type depuis la demande
     const requestType = requestData.type || "partner";
-    console.log(`📝 Type de demande: ${requestType}`);
+    const mappedRole = mapRoleToAllowed(requestType);
+    console.log(`📝 Type de demande: ${requestType} → Rôle mappé: ${mappedRole}`);
 
     const now = new Date().toISOString();
     const displayId = dossierRef.substring(0, 8).toUpperCase();
@@ -220,10 +242,10 @@ export async function POST(request: NextRequest) {
       user_metadata: {
         full_name: requestData.full_name,
         company: requestData.company,
-        // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
-        role: requestType,
+        // ✅ CORRECTION : Utiliser le rôle mappé au lieu du type brut
+        role: mappedRole,
         account_type: "messagerie",
-        type: requestType, // Ajout du type explicite
+        type: requestType, // ✅ Conservation du type original pour l'Admin
       },
     });
 
@@ -271,8 +293,8 @@ export async function POST(request: NextRequest) {
           company: requestData.company,
           phone: requestData.phone,
           dossier_ref: dossierRef,
-          // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
-          role: requestType,
+          // ✅ CORRECTION : Utiliser le rôle mappé au lieu du type brut
+          role: mappedRole,
           status: "pending",
           created_by: staffEmail,
           updated_at: now,
@@ -300,8 +322,8 @@ export async function POST(request: NextRequest) {
           company: requestData.company,
           phone: requestData.phone,
           dossier_ref: dossierRef,
-          // ✅ CORRECTION : Utiliser le type réel au lieu de "partner" en dur
-          role: requestType,
+          // ✅ CORRECTION : Utiliser le rôle mappé au lieu du type brut
+          role: mappedRole,
           status: "pending",
           created_by: staffEmail,
           created_at: now,
@@ -326,7 +348,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending, role: ${requestType})`);
+    console.log(`✅ messagerie_accounts mis à jour pour ${dossierRef} (status: pending, role: ${mappedRole})`);
 
     // ❌ SUPPRESSION : La section 8bis "CRÉATION DU FICHIER GITHUB AVEC MESSAGE DE BIENVENUE" a été supprimée
     // Le message de bienvenue sera créé lors de la première connexion de l'utilisateur
