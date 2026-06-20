@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -24,13 +24,26 @@ function MessagerieLoginContent() {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   
-  const [email, setEmail] = useState("");
+  // ✅ Récupération de l'email depuis l'URL (pré-remplissage)
+  const prefilledEmail = searchParams.get("email") || "";
+  
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // ✅ Référence pour le champ mot de passe (focus automatique)
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
   const supabase = createVagondysClient();
+
+  // ✅ Si un email est pré-rempli, focus automatique sur le champ mot de passe
+  useEffect(() => {
+    if (prefilledEmail && passwordInputRef.current) {
+      passwordInputRef.current.focus();
+    }
+  }, [prefilledEmail]);
 
   /**
    * Récupère le dossier_ref associé à un email via GitHub
@@ -207,6 +220,7 @@ function MessagerieLoginContent() {
           <div className="relative">
             <Lock className="absolute left-4 top-3.5 w-4 h-4 text-zinc-700" />
             <input
+              ref={passwordInputRef}
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
