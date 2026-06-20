@@ -116,9 +116,33 @@ VAGONDYS/
 ┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
 ┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
 ┃  ┃
+┃  ┣━ admin/                                       ✅ EXISTANT
+┃  ┃  ┣━ configuration/                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ dashboard/                                ✅ EXISTANT
+┃  ┃  ┃  ┣━ page.module.css                        ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ login/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ logs/                                     ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
+┃  ┃  ┃  ┣━ page.module.css                        ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ staff/                                    ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ verification/                             ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ villes/                                   ✅ EXISTANT
+┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
+┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
+┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
+┃  ┃
 ┃  ┣━ api/                                         ✅ EXISTANT
 ┃  ┃  ┣━ admin/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ stats/                                 ✅ EXISTANT
+┃  ┃  ┃  ┣━ stats/                                 ✅ EXISTANT
+┃  ┃  ┃  ┃  ┗━ route.ts                            ✅ EXISTANT
+┃  ┃  ┃  ┗━ verify/                                ✅ EXISTANT
 ┃  ┃  ┃     ┗━ route.ts                            ✅ EXISTANT
 ┃  ┃  ┣━ archive-external/                         ✅ EXISTANT
 ┃  ┃  ┃  ┣━ find-by-email/                         ✅ EXISTANT
@@ -211,24 +235,6 @@ VAGONDYS/
 ┃  ┃     ┗━ route.ts                               ✅ EXISTANT
 ┃  ┃
 ┃  ┣━ staff/                                       ✅ EXISTANT
-┃  ┃  ┣━ admin/                                    ✅ EXISTANT
-┃  ┃  ┃  ┣━ configuration/                         ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ logs/                                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ messagerie/                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ staff/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ verification/                          ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ villes/                                ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┗━ layout.tsx                             ✅ EXISTANT
 ┃  ┃  ┣━ competitions/                             ✅ EXISTANT
 ┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
 ┃  ┃  ┣━ components/                               ✅ EXISTANT
@@ -413,6 +419,7 @@ VAGONDYS/
 ┗━ vercel.json                                     ✅ EXISTANT
 */
 
+/*
 app/(auth)/espace-joueur/
 ├── page.tsx (existant)
 ├── carte-id/
@@ -424,166 +431,4 @@ app/(auth)/espace-joueur/
         ├── MessageList.tsx        (lien vers ../../messagerie/components/MessageList)
         ├── MessageThread.tsx      (lien vers ../../messagerie/components/MessageThread)
         └── MessageInput.tsx       (lien vers ../../messagerie/components/MessageInput)
-
-
-
-/*
-VAGONDYS/
-app/(auth)/
-app/(public)/
-app/api/
-app/staff/
-app/admin/
-*/
-
-/*
-Original :
----
-VAGONDYS/
-┣━ app/                                            ✅ EXISTANT 
-┃  ┣━ staff/                                       ✅ EXISTANT
-┃  ┃  ┣━ admin/                                    ✅ EXISTANT
-┃  ┃  ┃  ┣━ configuration/                         ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ logs/                                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ messagerie/                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ page.module.css                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ staff/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ verification/                          ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┣━ villes/                                ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ page.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┗━ layout.tsx                             ✅ EXISTANT
-┃  ┃  ┣━ competitions/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ components/                               ✅ EXISTANT
-┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ CityInfoCard.tsx                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ NavigationGrid.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ RecentActivity.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ StatsGrid.tsx                       ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ TopPlayers.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┣━ ui/                                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ Badge.tsx                           ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ Card.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ LoadingSpinner.ts                   ✅ EXISTANT
-┃  ┃  ┃  ┗━ AdminSidebar.tsx                       ✅ EXISTANT
-┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
-┃  ┃  ┣━ interface/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ licencies/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ login/                                    ✅ EXISTANT
-┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ mode_jeux/                                ✅ EXISTANT
-┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameHeader.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameModeButton.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameModeSection.tsx                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ LaneSelector.tsx                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ LaneStatus.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx               ✅ EXISTANT
-┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ useGameModes.ts                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ useWebSocketManager.ts              ✅ EXISTANT
-┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ game.types.ts                       ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ index.ts                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ websocket.types.ts                  ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (Ajout sélection couloirs)
-┃  ┃  ┣━ reservations/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ settings/                                 ✅ EXISTANT
-┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ types/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ dashboard.ts                           ✅ EXISTANT
-┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
-┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
-┃  ┃
----
-*/
-
-/*
-Nouvelle Arborescence :
----
-VAGONDYS/
-┣━ app/                                            ✅ EXISTANT 
-┃  ┣━ staff/                                       ✅ EXISTANT
-┃  ┃  ┣━ competitions/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ components/                               ✅ EXISTANT
-┃  ┃  ┃  ┣━ dashboard/                             ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ CityInfoCard.tsx                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ NavigationGrid.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ RecentActivity.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ StatsGrid.tsx                       ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ TopPlayers.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┣━ ui/                                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ Badge.tsx                           ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ Card.tsx                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ LoadingSpinner.ts                   ✅ EXISTANT
-┃  ┃  ┃  ┗━ AdminSidebar.tsx                       ✅ EXISTANT
-┃  ┃  ┣━ hooks/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ useDashboardData.ts                    ✅ EXISTANT
-┃  ┃  ┣━ interface/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ licencies/                                ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ login/                                    ✅ EXISTANT
-┃  ┃  ┃  ┣━ layout.tsx                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ mode_jeux/                                ✅ EXISTANT
-┃  ┃  ┃  ┣━ components/                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameHeader.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameModeButton.tsx                  ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ GameModeSection.tsx                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ LaneSelector.tsx                    ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ LaneStatus.tsx                      ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ PlayerPseudoModal.tsx               ✅ EXISTANT
-┃  ┃  ┃  ┣━ hooks/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ useGameModes.ts                     ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ useWebSocketManager.ts              ✅ EXISTANT
-┃  ┃  ┃  ┣━ types/                                 ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ game.types.ts                       ✅ EXISTANT
-┃  ┃  ┃  ┃  ┣━ index.ts                            ✅ EXISTANT
-┃  ┃  ┃  ┃  ┗━ websocket.types.ts                  ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT (Ajout sélection couloirs)
-┃  ┃  ┣━ reservations/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ settings/                                 ✅ EXISTANT
-┃  ┃  ┃  ┣━ actions.ts                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ types/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ dashboard.ts                           ✅ EXISTANT
-┃  ┃  ┣━ layout.tsx                                ✅ EXISTANT
-┃  ┃  ┗━ page.tsx                                  ✅ EXISTANT
-┃  ┃
-┃  ┣━ admin/                                       ✅ EXISTANT
-┃  ┃  ┣━ configuration/                            ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ dashboard/                                ✅ EXISTANT
-┃  ┃  ┃  ┣━ page.module.css                        ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ logs/                                     ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ messagerie/                               ✅ EXISTANT
-┃  ┃  ┃  ┣━ page.module.css                        ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ staff/                                    ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ verification/                             ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┣━ villes/                                   ✅ EXISTANT
-┃  ┃  ┃  ┗━ page.tsx                               ✅ EXISTANT
-┃  ┃  ┗━ layout.tsx                                ✅ EXISTANT
----
 */

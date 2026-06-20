@@ -272,28 +272,14 @@ export default function AdminMessageriePage() {
       const data = await response.json();
       const allRequests = data.requests || [];
       
-      // ✅ CORRECTION : Utilisation directe de has_unread du serveur
-      // Le serveur calcule déjà correctement has_unread via l'API /api/staff/messagerie-requests
-      // On n'écrase plus avec un appel à /api/messagerie/messages/unread
-      
-      // ✅ Tri : les messages non lus remontent en premier, puis alphabétique
-      const sortedRequests = allRequests.sort((a: MessagerieRequest, b: MessagerieRequest) => {
-        if (a.has_unread && !b.has_unread) return -1;
-        if (!a.has_unread && b.has_unread) return 1;
-        
-        const nameA = a.full_name?.toLowerCase() || "";
-        const nameB = b.full_name?.toLowerCase() || "";
-        return nameA.localeCompare(nameB);
-      });
-      
       if (isMountedRef.current) {
-        setRequests(sortedRequests);
+        setRequests(allRequests);
         
         const stats: GlobalRequestsStats = {
-          total: sortedRequests.length,
-          pending: sortedRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
-          approved: sortedRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
-          rejected: sortedRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
+          total: allRequests.length,
+          pending: allRequests.filter((r: MessagerieRequest) => r.status === "pending").length,
+          approved: allRequests.filter((r: MessagerieRequest) => r.status === "approved").length,
+          rejected: allRequests.filter((r: MessagerieRequest) => r.status === "rejected").length
         };
         setGlobalStats(stats);
         setLoading(false);
@@ -758,6 +744,7 @@ export default function AdminMessageriePage() {
     }
   };
 
+  // ✅ FILTRAGE des requêtes
   const filteredRequests = requests.filter(request => {
     if (searchTerm && !request.full_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !request.email.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -772,6 +759,22 @@ export default function AdminMessageriePage() {
     }
     return true;
   });
+
+  // ✅ TABLEAU 1 : Demandes en attente + Messages non lus
+  // Tri par date de création (plus ancien en haut → plus récent en bas)
+  const urgentRequests = filteredRequests
+    .filter(request => request.status === "pending" || request.has_unread === true)
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  // ✅ TABLEAU 2 : Tous les autres (approuvés, rejetés, sans nouveau message)
+  // Tri alphabétique (A → Z)
+  const regularRequests = filteredRequests
+    .filter(request => request.status !== "pending" && request.has_unread !== true)
+    .sort((a, b) => {
+      const nameA = a.full_name?.toLowerCase() || "";
+      const nameB = b.full_name?.toLowerCase() || "";
+      return nameA.localeCompare(nameB);
+    });
 
   if (loading) {
     return (
@@ -930,339 +933,692 @@ export default function AdminMessageriePage() {
         </button>
       </div>
 
+      {/* ✅ TABLEAU 1 : DEMANDES & MESSAGES NON LUS */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
-        <div className="p-5 border-b border-zinc-800">
-          <h2 className="text-sm font-black uppercase tracking-tighter">
-            Liste des <span className="text-red-600">conversations</span>
-          </h2>
+        <div className="p-5 border-b border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-red-600/10 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            </div>
+            <h2 className="text-sm font-black uppercase tracking-tighter text-red-600">
+              Demandes & Messages non lus
+            </h2>
+            <span className="text-[8px] text-zinc-600 bg-zinc-800/50 px-2 py-0.5 rounded-full">
+              {urgentRequests.length}
+            </span>
+          </div>
+          <span className="text-[7px] text-zinc-600 uppercase tracking-widest">
+            Tri par date d&apos;arrivée
+          </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-800 bg-black/30">
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Correspondant</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Email</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Type</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Dernier message</th>
-                <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRequests.map((request) => {
-                const isUnread = request.has_unread === true;
-                const isPending = request.status === "pending";
-                
-                return (
-                <React.Fragment key={request.id}>
-                  <tr 
-                    className={`${styles.tableRow} border-b border-zinc-800/50 hover:bg-white/5 transition-colors cursor-pointer ${
-                      isUnread ? styles.unreadRow : ''
-                    } ${isPending ? styles.pendingRow : ''}`}
-                    onClick={() => handleExpand(request)}
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
-                          <span className="text-xs font-black text-white">
-                            {request.full_name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+        {urgentRequests.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-[9px] text-zinc-500 uppercase tracking-widest">
+              Aucune demande en attente ou message non lu
+            </p>
+            <p className="text-[7px] text-zinc-600 mt-2">
+              Toutes les conversations sont à jour
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-black/30">
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Correspondant</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Email</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Type</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Dernier message</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {urgentRequests.map((request) => {
+                  const isUnread = request.has_unread === true;
+                  const isPending = request.status === "pending";
+                  
+                  return (
+                  <React.Fragment key={request.id}>
+                    <tr 
+                      className={`${styles.tableRow} border-b border-zinc-800/50 hover:bg-white/5 transition-colors cursor-pointer ${
+                        isUnread ? styles.unreadRow : ''
+                      } ${isPending ? styles.pendingRow : ''}`}
+                      onClick={() => handleExpand(request)}
+                    >
+                      <td className="p-4">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
-                            {request.full_name}
-                          </span>
-                          {isUnread && (
-                            <span className={styles.newBadge}>
-                              <span className={styles.newDot} />
-                              Nouveau
+                          <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                            <span className="text-xs font-black text-white">
+                              {request.full_name.charAt(0).toUpperCase()}
                             </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-3 h-3 text-zinc-500" />
-                        <span className="text-xs text-zinc-400">{request.email}</span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {getTypeBadge(request.type)}
-                    </td>
-                    <td className="p-4">
-                      <span className="text-[10px] text-zinc-500">{formatDate(request.created_at)}</span>
-                    </td>
-                    <td className="p-4">
-                      {getStatusBadge(request.status)}
-                    </td>
-                    <td className="p-4">
-                      <span className="text-[9px] text-zinc-400 truncate max-w-[150px] block">
-                        {request.last_message || "Aucun message"}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {expandedRequest === request.id ? (
-                        <ChevronUp className="w-4 h-4 text-zinc-500" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-zinc-500" />
-                      )}
-                    </td>
-                  </tr>
-                  {expandedRequest === request.id && (
-                    <tr className="bg-black/50">
-                      <td colSpan={7} className="p-5">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Coordonnées</h4>
-                              <p className="text-[10px] text-zinc-400">
-                                <strong className="text-white">Nom complet:</strong> {request.full_name}
-                              </p>
-                              <p className="text-[10px] text-zinc-400">
-                                <strong className="text-white">Email:</strong> {request.email}
-                              </p>
-                              <p className="text-[10px] text-zinc-400">
-                                <strong className="text-white">Téléphone:</strong> {request.phone || "Non renseigné"}
-                              </p>
-                              <p className="text-[10px] text-zinc-400">
-                                <strong className="text-white">Société:</strong> {request.company || "Non renseigné"}
-                              </p>
-                              <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
-                                <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
-                                <span className="font-mono text-white">{request.dossier_ref || "Non défini"}</span>
-                              </p>
-                              <p className="text-[10px] text-zinc-400">
-                                <strong className="text-blue-500">Type:</strong>{' '}
-                                <span className="text-zinc-400">
-                                  {request.type === "player" ? "Joueur" : 
-                                   request.type === "supplier" ? "Fournisseur" :
-                                   request.type === "pending" ? "Demande en attente" : 
-                                   request.type === "partner" ? "Partenaire" :
-                                   request.type === "sponsor" ? "Sponsor" :
-                                   request.type === "client" ? "Client" :
-                                   request.type === "advertising" ? "Publicité" :
-                                   request.type === "communication" ? "Communication" :
-                                   request.type === "divers" ? "Divers" : "Partenaire"}
-                                </span>
-                              </p>
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Motif de la demande</h4>
-                              <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
-                                <p className="text-[11px] text-zinc-300 leading-relaxed">
-                                  {request.reason}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {request.kbis_url && (
-                              <div className="space-y-2">
-                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                                  <FileText className="w-3 h-3 text-red-600" />
-                                  Justificatif KBis
-                                </h4>
-                                <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
-                                  <a
-                                    href={request.kbis_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-red-600 hover:text-red-500 text-[10px] font-black uppercase tracking-wider transition-colors"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    Consulter le document
-                                  </a>
-                                  {request.kbis_validated !== undefined && (
-                                    <div className="mt-2 text-[8px]">
-                                      {request.kbis_validated ? (
-                                        <span className="text-green-500">✓ Document validé par IA</span>
-                                      ) : (
-                                        <span className="text-yellow-500">⚠️ Document à vérifier manuellement</span>
-                                      )}
-                                      {request.kbis_scan_result?.confidence && (
-                                        <span className="ml-2 text-zinc-500">
-                                          (confiance: {Math.round(request.kbis_scan_result.confidence * 100)}%)
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
+                              {request.full_name}
+                            </span>
+                            {isUnread && (
+                              <span className={styles.newBadge}>
+                                <span className={styles.newDot} />
+                                Nouveau
+                              </span>
                             )}
-                            
-                            <div className="flex flex-wrap gap-2">
-                              {request.status !== "pending" && (
-                                <button
-                                  onClick={() => handleReopen(request)}
-                                  disabled={processingId === request.id}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600/30 transition-all"
-                                >
-                                  <RotateCcw className="w-3 h-3" />
-                                  Remettre en attente
-                                </button>
-                              )}
-                              
-                              <button
-                                onClick={() => handleDelete(request)}
-                                disabled={processingId === request.id}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 border border-red-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-red-500 hover:bg-red-600/30 transition-all"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                Supprimer définitivement
-                              </button>
-                              
-                              <button
-                                onClick={() => handleArchiveToGitHub(request)}
-                                disabled={processingId === request.id || !request.dossier_ref}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 border border-purple-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-purple-500 hover:bg-purple-600/30 transition-all disabled:opacity-50"
-                                title={!request.dossier_ref ? "Approuvez d'abord la demande pour obtenir une référence" : "Archiver vers le Coffre-Fort GitHub"}
-                              >
-                                <DatabaseBackup className="w-3 h-3" />
-                                Coffre-Fort GitHub
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                                <MessageSquare className="w-3 h-3 text-red-600" />
-                                Échanges avec le correspondant
-                              </h4>
-                              <div className="flex items-center gap-2">
-                                {request.dossier_ref && (
-                                  <button
-                                    onClick={() => openExpandedModal(request)}
-                                    className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
-                                    title="Agrandir la conversation"
-                                  >
-                                    <Maximize2 className="w-3 h-3" />
-                                    Agrandir
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="bg-black/30 rounded-xl border border-zinc-800 p-3 max-h-[300px] overflow-y-auto space-y-3">
-                              {loadingMessages ? (
-                                <div className="text-center py-4">
-                                  <RefreshCcw className="w-4 h-4 text-red-600 animate-spin mx-auto" />
-                                </div>
-                              ) : messages.length === 0 ? (
-                                <p className="text-[8px] text-zinc-500 text-center py-4">
-                                  Aucun échange pour l&apos;instant. Soyez le premier à répondre.
-                                </p>
-                              ) : (
-                                messages.map((msg) => {
-                                  // ✅ Détection du message système (de bienvenue)
-                                  const isSystem = msg.sender_email === "system@vagondys.com";
-                                  
-                                  return (
-                                  <div
-                                    key={msg.id}
-                                    className={`p-2 rounded-lg ${
-                                      // ✅ Message système = ROUGE à GAUCHE (comme un message important)
-                                      isSystem
-                                        ? "bg-red-600/20 border-l-2 border-red-600 text-red-300"
-                                        : msg.is_staff
-                                        ? "bg-red-600/10 border-l-2 border-red-600"
-                                        : "bg-zinc-800/30 border-l-2 border-zinc-600"
-                                    }`}
-                                  >
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className="text-[7px] font-black uppercase text-zinc-500">
-                                        {msg.sender_name} {msg.is_staff ? "(Staff)" : ""}
-                                      </span>
-                                      <span className="text-[6px] text-zinc-600">
-                                        {new Date(msg.created_at).toLocaleString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-[9px] text-zinc-300 whitespace-pre-wrap wrap-break-word">
-                                      {msg.content}
-                                    </p>
-                                    {msg.file_url && (
-                                      <a
-                                        href={msg.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-block mt-1 text-[7px] text-red-600 hover:text-red-500"
-                                      >
-                                        📎 Voir le fichier joint
-                                      </a>
-                                    )}
-                                  </div>
-                                )}) 
-                              )}
-                            </div>
-                            
-                            <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
-                              <textarea
-                                value={replyContent}
-                                onChange={(e) => setReplyContent(e.target.value)}
-                                placeholder="Saisissez votre réponse..."
-                                rows={3}
-                                className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-[10px] text-white focus:border-red-600 outline-none resize-none"
-                              />
-                              <div className="flex gap-2 justify-end">
-                                <button
-                                  onClick={handleSendReply}
-                                  disabled={sendingReply || !replyContent.trim() || !request.dossier_ref}
-                                  className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
-                                >
-                                  {sendingReply ? (
-                                    <RefreshCcw className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <Send className="w-3 h-3" />
-                                  )}
-                                  Envoyer
-                                </button>
-                              </div>
-                            </div>
+                            {isPending && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-600/20 border border-yellow-600/30">
+                                <Clock className="w-2.5 h-2.5 text-yellow-500" />
+                                <span className="text-[6px] font-black uppercase tracking-widest text-yellow-500">En attente</span>
+                              </span>
+                            )}
                           </div>
                         </div>
-                        
-                        {request.status === "pending" && (
-                          <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-800">
-                            <button
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                setShowApproveModal(true);
-                              }}
-                              disabled={processingId === request.id}
-                              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Approuver
-                            </button>
-                            <button
-                              onClick={() => handleReject(request)}
-                              disabled={processingId === request.id}
-                              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              Refuser
-                            </button>
-                          </div>
-                        )}
-                        
-                        {request.status !== "pending" && (
-                          <div className="mt-6 pt-4 border-t border-zinc-800">
-                            <p className="text-[8px] text-zinc-600 italic">
-                              Cette demande a déjà été traitée le {request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString('fr-FR') : "date inconnue"}.
-                            </p>
-                          </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-zinc-500" />
+                          <span className="text-xs text-zinc-400">{request.email}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {getTypeBadge(request.type)}
+                      </td>
+                      <td className="p-4">
+                        <span className="text-[10px] text-zinc-500">{formatDate(request.created_at)}</span>
+                      </td>
+                      <td className="p-4">
+                        {getStatusBadge(request.status)}
+                      </td>
+                      <td className="p-4">
+                        <span className="text-[9px] text-zinc-400 truncate max-w-[150px] block">
+                          {request.last_message || "Aucun message"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {expandedRequest === request.id ? (
+                          <ChevronUp className="w-4 h-4 text-zinc-500" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-zinc-500" />
                         )}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              );
-              })}
-            </tbody>
-           </table>
+                    {expandedRequest === request.id && (
+                      <tr className="bg-black/50">
+                        <td colSpan={7} className="p-5">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Coordonnées</h4>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Nom complet:</strong> {request.full_name}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Email:</strong> {request.email}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Téléphone:</strong> {request.phone || "Non renseigné"}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Société:</strong> {request.company || "Non renseigné"}
+                                </p>
+                                <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
+                                  <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
+                                  <span className="font-mono text-white">{request.dossier_ref || "Non défini"}</span>
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-blue-500">Type:</strong>{' '}
+                                  <span className="text-zinc-400">
+                                    {request.type === "player" ? "Joueur" : 
+                                     request.type === "supplier" ? "Fournisseur" :
+                                     request.type === "pending" ? "Demande en attente" : 
+                                     request.type === "partner" ? "Partenaire" :
+                                     request.type === "sponsor" ? "Sponsor" :
+                                     request.type === "client" ? "Client" :
+                                     request.type === "advertising" ? "Publicité" :
+                                     request.type === "communication" ? "Communication" :
+                                     request.type === "divers" ? "Divers" : "Partenaire"}
+                                  </span>
+                                </p>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Motif de la demande</h4>
+                                <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
+                                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                                    {request.reason}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {request.kbis_url && (
+                                <div className="space-y-2">
+                                  <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                    <FileText className="w-3 h-3 text-red-600" />
+                                    Justificatif KBis
+                                  </h4>
+                                  <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
+                                    <a
+                                      href={request.kbis_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 text-red-600 hover:text-red-500 text-[10px] font-black uppercase tracking-wider transition-colors"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      Consulter le document
+                                    </a>
+                                    {request.kbis_validated !== undefined && (
+                                      <div className="mt-2 text-[8px]">
+                                        {request.kbis_validated ? (
+                                          <span className="text-green-500">✓ Document validé par IA</span>
+                                        ) : (
+                                          <span className="text-yellow-500">⚠️ Document à vérifier manuellement</span>
+                                        )}
+                                        {request.kbis_scan_result?.confidence && (
+                                          <span className="ml-2 text-zinc-500">
+                                            (confiance: {Math.round(request.kbis_scan_result.confidence * 100)}%)
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="flex flex-wrap gap-2">
+                                {request.status !== "pending" && (
+                                  <button
+                                    onClick={() => handleReopen(request)}
+                                    disabled={processingId === request.id}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600/30 transition-all"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    Remettre en attente
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => handleDelete(request)}
+                                  disabled={processingId === request.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 border border-red-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-red-500 hover:bg-red-600/30 transition-all"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Supprimer définitivement
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleArchiveToGitHub(request)}
+                                  disabled={processingId === request.id || !request.dossier_ref}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 border border-purple-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-purple-500 hover:bg-purple-600/30 transition-all disabled:opacity-50"
+                                  title={!request.dossier_ref ? "Approuvez d'abord la demande pour obtenir une référence" : "Archiver vers le Coffre-Fort GitHub"}
+                                >
+                                  <DatabaseBackup className="w-3 h-3" />
+                                  Coffre-Fort GitHub
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                  <MessageSquare className="w-3 h-3 text-red-600" />
+                                  Échanges avec le correspondant
+                                </h4>
+                                <div className="flex items-center gap-2">
+                                  {request.dossier_ref && (
+                                    <button
+                                      onClick={() => openExpandedModal(request)}
+                                      className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
+                                      title="Agrandir la conversation"
+                                    >
+                                      <Maximize2 className="w-3 h-3" />
+                                      Agrandir
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="bg-black/30 rounded-xl border border-zinc-800 p-3 max-h-[300px] overflow-y-auto space-y-3">
+                                {loadingMessages ? (
+                                  <div className="text-center py-4">
+                                    <RefreshCcw className="w-4 h-4 text-red-600 animate-spin mx-auto" />
+                                  </div>
+                                ) : messages.length === 0 ? (
+                                  <p className="text-[8px] text-zinc-500 text-center py-4">
+                                    Aucun échange pour l&apos;instant. Soyez le premier à répondre.
+                                  </p>
+                                ) : (
+                                  messages.map((msg) => {
+                                    // ✅ Détection du message système (de bienvenue)
+                                    const isSystem = msg.sender_email === "system@vagondys.com";
+                                    
+                                    return (
+                                    <div
+                                      key={msg.id}
+                                      className={`p-2 rounded-lg ${
+                                        // ✅ Message système = ROUGE à GAUCHE (comme un message important)
+                                        isSystem
+                                          ? "bg-red-600/20 border-l-2 border-red-600 text-red-300"
+                                          : msg.is_staff
+                                          ? "bg-red-600/10 border-l-2 border-red-600"
+                                          : "bg-zinc-800/30 border-l-2 border-zinc-600"
+                                      }`}
+                                    >
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[7px] font-black uppercase text-zinc-500">
+                                          {msg.sender_name} {msg.is_staff ? "(Staff)" : ""}
+                                        </span>
+                                        <span className="text-[6px] text-zinc-600">
+                                          {new Date(msg.created_at).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-[9px] text-zinc-300 whitespace-pre-wrap wrap-break-word">
+                                        {msg.content}
+                                      </p>
+                                      {msg.file_url && (
+                                        <a
+                                          href={msg.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-block mt-1 text-[7px] text-red-600 hover:text-red-500"
+                                        >
+                                          📎 Voir le fichier joint
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}) 
+                                )}
+                              </div>
+                              
+                              <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
+                                <textarea
+                                  value={replyContent}
+                                  onChange={(e) => setReplyContent(e.target.value)}
+                                  placeholder="Saisissez votre réponse..."
+                                  rows={3}
+                                  className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-[10px] text-white focus:border-red-600 outline-none resize-none"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={handleSendReply}
+                                    disabled={sendingReply || !replyContent.trim() || !request.dossier_ref}
+                                    className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                  >
+                                    {sendingReply ? (
+                                      <RefreshCcw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Send className="w-3 h-3" />
+                                    )}
+                                    Envoyer
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {request.status === "pending" && (
+                            <div className="flex gap-3 mt-6 pt-4 border-t border-zinc-800">
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setShowApproveModal(true);
+                                }}
+                                disabled={processingId === request.id}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Approuver
+                              </button>
+                              <button
+                                onClick={() => handleReject(request)}
+                                disabled={processingId === request.id}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                Refuser
+                              </button>
+                            </div>
+                          )}
+                          
+                          {request.status !== "pending" && (
+                            <div className="mt-6 pt-4 border-t border-zinc-800">
+                              <p className="text-[8px] text-zinc-600 italic">
+                                Cette demande a déjà été traitée le {request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString('fr-FR') : "date inconnue"}.
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ✅ TABLEAU 2 : TOUS LES CORRESPONDANTS */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+        <div className="p-5 border-b border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-zinc-600/10 rounded-lg">
+              <Users className="w-4 h-4 text-zinc-500" />
+            </div>
+            <h2 className="text-sm font-black uppercase tracking-tighter text-zinc-300">
+              Tous les correspondants
+            </h2>
+            <span className="text-[8px] text-zinc-600 bg-zinc-800/50 px-2 py-0.5 rounded-full">
+              {regularRequests.length}
+            </span>
+          </div>
+          <span className="text-[7px] text-zinc-600 uppercase tracking-widest">
+            Tri alphabétique (A → Z)
+          </span>
         </div>
+        {regularRequests.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-[9px] text-zinc-500 uppercase tracking-widest">
+              Aucun correspondant
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-black/30">
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Correspondant</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Email</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Type</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Date</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Statut</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">Dernier message</th>
+                  <th className="text-left p-4 text-[9px] font-black uppercase tracking-widest text-zinc-500"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {regularRequests.map((request) => {
+                  const isPending = request.status === "pending";
+                  
+                  return (
+                  <React.Fragment key={request.id}>
+                    <tr 
+                      className={`${styles.tableRow} border-b border-zinc-800/50 hover:bg-white/5 transition-colors cursor-pointer ${
+                        isPending ? styles.pendingRow : ''
+                      }`}
+                      onClick={() => handleExpand(request)}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                            <span className="text-xs font-black text-white">
+                              {request.full_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-black ${request.is_online ? "text-green-500" : "text-white"}`}>
+                              {request.full_name}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-zinc-500" />
+                          <span className="text-xs text-zinc-400">{request.email}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {getTypeBadge(request.type)}
+                      </td>
+                      <td className="p-4">
+                        <span className="text-[10px] text-zinc-500">{formatDate(request.created_at)}</span>
+                      </td>
+                      <td className="p-4">
+                        {getStatusBadge(request.status)}
+                      </td>
+                      <td className="p-4">
+                        <span className="text-[9px] text-zinc-400 truncate max-w-[150px] block">
+                          {request.last_message || "Aucun message"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {expandedRequest === request.id ? (
+                          <ChevronUp className="w-4 h-4 text-zinc-500" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-zinc-500" />
+                        )}
+                      </td>
+                    </tr>
+                    {expandedRequest === request.id && (
+                      <tr className="bg-black/50">
+                        <td colSpan={7} className="p-5">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Coordonnées</h4>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Nom complet:</strong> {request.full_name}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Email:</strong> {request.email}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Téléphone:</strong> {request.phone || "Non renseigné"}
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-white">Société:</strong> {request.company || "Non renseigné"}
+                                </p>
+                                <p className="text-[10px] text-zinc-400 mt-2 pt-2 border-t border-zinc-800/50">
+                                  <strong className="text-red-600">N° Dossier / Référence:</strong>{' '}
+                                  <span className="font-mono text-white">{request.dossier_ref || "Non défini"}</span>
+                                </p>
+                                <p className="text-[10px] text-zinc-400">
+                                  <strong className="text-blue-500">Type:</strong>{' '}
+                                  <span className="text-zinc-400">
+                                    {request.type === "player" ? "Joueur" : 
+                                     request.type === "supplier" ? "Fournisseur" :
+                                     request.type === "pending" ? "Demande en attente" : 
+                                     request.type === "partner" ? "Partenaire" :
+                                     request.type === "sponsor" ? "Sponsor" :
+                                     request.type === "client" ? "Client" :
+                                     request.type === "advertising" ? "Publicité" :
+                                     request.type === "communication" ? "Communication" :
+                                     request.type === "divers" ? "Divers" : "Partenaire"}
+                                  </span>
+                                </p>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Motif de la demande</h4>
+                                <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
+                                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                                    {request.reason}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {request.kbis_url && (
+                                <div className="space-y-2">
+                                  <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                    <FileText className="w-3 h-3 text-red-600" />
+                                    Justificatif KBis
+                                  </h4>
+                                  <div className="bg-black/50 p-3 rounded-xl border border-zinc-800">
+                                    <a
+                                      href={request.kbis_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 text-red-600 hover:text-red-500 text-[10px] font-black uppercase tracking-wider transition-colors"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      Consulter le document
+                                    </a>
+                                    {request.kbis_validated !== undefined && (
+                                      <div className="mt-2 text-[8px]">
+                                        {request.kbis_validated ? (
+                                          <span className="text-green-500">✓ Document validé par IA</span>
+                                        ) : (
+                                          <span className="text-yellow-500">⚠️ Document à vérifier manuellement</span>
+                                        )}
+                                        {request.kbis_scan_result?.confidence && (
+                                          <span className="ml-2 text-zinc-500">
+                                            (confiance: {Math.round(request.kbis_scan_result.confidence * 100)}%)
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="flex flex-wrap gap-2">
+                                {request.status !== "pending" && (
+                                  <button
+                                    onClick={() => handleReopen(request)}
+                                    disabled={processingId === request.id}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-600/30 transition-all"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    Remettre en attente
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={() => handleDelete(request)}
+                                  disabled={processingId === request.id}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 border border-red-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-red-500 hover:bg-red-600/30 transition-all"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Supprimer définitivement
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleArchiveToGitHub(request)}
+                                  disabled={processingId === request.id || !request.dossier_ref}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 border border-purple-600/30 rounded-lg text-[8px] font-black uppercase tracking-widest text-purple-500 hover:bg-purple-600/30 transition-all disabled:opacity-50"
+                                  title={!request.dossier_ref ? "Approuvez d'abord la demande pour obtenir une référence" : "Archiver vers le Coffre-Fort GitHub"}
+                                >
+                                  <DatabaseBackup className="w-3 h-3" />
+                                  Coffre-Fort GitHub
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                                  <MessageSquare className="w-3 h-3 text-red-600" />
+                                  Échanges avec le correspondant
+                                </h4>
+                                <div className="flex items-center gap-2">
+                                  {request.dossier_ref && (
+                                    <button
+                                      onClick={() => openExpandedModal(request)}
+                                      className="flex items-center gap-1 text-[8px] font-black uppercase text-red-600 hover:text-white transition-colors"
+                                      title="Agrandir la conversation"
+                                    >
+                                      <Maximize2 className="w-3 h-3" />
+                                      Agrandir
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="bg-black/30 rounded-xl border border-zinc-800 p-3 max-h-[300px] overflow-y-auto space-y-3">
+                                {loadingMessages ? (
+                                  <div className="text-center py-4">
+                                    <RefreshCcw className="w-4 h-4 text-red-600 animate-spin mx-auto" />
+                                  </div>
+                                ) : messages.length === 0 ? (
+                                  <p className="text-[8px] text-zinc-500 text-center py-4">
+                                    Aucun échange pour l&apos;instant. Soyez le premier à répondre.
+                                  </p>
+                                ) : (
+                                  messages.map((msg) => {
+                                    // ✅ Détection du message système (de bienvenue)
+                                    const isSystem = msg.sender_email === "system@vagondys.com";
+                                    
+                                    return (
+                                    <div
+                                      key={msg.id}
+                                      className={`p-2 rounded-lg ${
+                                        // ✅ Message système = ROUGE à GAUCHE (comme un message important)
+                                        isSystem
+                                          ? "bg-red-600/20 border-l-2 border-red-600 text-red-300"
+                                          : msg.is_staff
+                                          ? "bg-red-600/10 border-l-2 border-red-600"
+                                          : "bg-zinc-800/30 border-l-2 border-zinc-600"
+                                      }`}
+                                    >
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[7px] font-black uppercase text-zinc-500">
+                                          {msg.sender_name} {msg.is_staff ? "(Staff)" : ""}
+                                        </span>
+                                        <span className="text-[6px] text-zinc-600">
+                                          {new Date(msg.created_at).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-[9px] text-zinc-300 whitespace-pre-wrap wrap-break-word">
+                                        {msg.content}
+                                      </p>
+                                      {msg.file_url && (
+                                        <a
+                                          href={msg.file_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-block mt-1 text-[7px] text-red-600 hover:text-red-500"
+                                        >
+                                          📎 Voir le fichier joint
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}) 
+                                )}
+                              </div>
+                              
+                              <div className="bg-black/50 rounded-xl border border-zinc-800 p-3 space-y-3">
+                                <textarea
+                                  value={replyContent}
+                                  onChange={(e) => setReplyContent(e.target.value)}
+                                  placeholder="Saisissez votre réponse..."
+                                  rows={3}
+                                  className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-[10px] text-white focus:border-red-600 outline-none resize-none"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={handleSendReply}
+                                    disabled={sendingReply || !replyContent.trim() || !request.dossier_ref}
+                                    className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                  >
+                                    {sendingReply ? (
+                                      <RefreshCcw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Send className="w-3 h-3" />
+                                    )}
+                                    Envoyer
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {request.status !== "pending" && (
+                            <div className="mt-6 pt-4 border-t border-zinc-800">
+                              <p className="text-[8px] text-zinc-600 italic">
+                                Cette demande a déjà été traitée le {request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString('fr-FR') : "date inconnue"}.
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {isModalOpen && selectedRequest && (
