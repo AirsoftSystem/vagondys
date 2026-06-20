@@ -30,6 +30,7 @@ interface GitHubMessage {
  * ✅ AJOUT : Création du message de bienvenue dans Supabase + GitHub + Email
  * ✅ AJOUT : Logs détaillés pour debug (token, utilisateur, mise à jour)
  * ✅ CORRECTION 2026-06-18 : Envoi d'une notification email au staff pour le message de bienvenue
+ * ✅ CORRECTION 2026-06-20 : Ajout du paramètre email dans l'URL du bouton "ACCÉDER À MA MESSAGERIE"
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -263,7 +264,8 @@ export async function POST(request: NextRequest) {
 
       // 10c. Envoyer l'email de bienvenue au demandeur
       if (userData.user.email) {
-        const messagerieUrl = `${frontendUrl}/messagerie/connexion`;
+        // ✅ CORRECTION : Ajout de l'email dans l'URL pour pré-remplir le champ de connexion
+        const messagerieUrl = `${frontendUrl}/messagerie/connexion?email=${encodeURIComponent(userData.user.email)}`;
         
         const welcomeEmailHtml = `
           <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
