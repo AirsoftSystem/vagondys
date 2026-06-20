@@ -567,8 +567,8 @@ export async function POST(request: NextRequest) {
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
       // ✅ CORRECTION : Ajout de l'email dans l'URL pour pré-remplir le champ de connexion
-      // Partenaire → /messagerie/connexion?email=xxx
-      // Joueur → /espace-joueur/messagerie?email=xxx
+      // ✅ FORCER la redirection vers /messagerie/connexion pour les partenaires
+      // ✅ FORCER la redirection vers /espace-joueur/messagerie pour les joueurs
       const messagerieUrl = participantType === "player" 
         ? `${frontendUrl}/espace-joueur/messagerie?email=${encodeURIComponent(participantEmail)}`
         : `${frontendUrl}/messagerie/connexion?email=${encodeURIComponent(participantEmail)}`;
