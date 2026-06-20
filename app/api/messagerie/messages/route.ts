@@ -39,7 +39,6 @@ interface GitHubMessage {
  * ✅ AJOUT : Logs détaillés pour debug
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN (vagondys@gmail.com) pour tous sauf le SUPER ADMIN
  * ✅ CORRECTION 2026-06-24 : Inclusion du message système (system@vagondys.com) dans le marquage comme lu
- * ✅ CORRECTION 2026-06-24 : Ajout de l'email dans l'URL du bouton "ACCÉDER À MA MESSAGERIE"
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -340,7 +339,6 @@ async function syncMessageToGitHub(message: GitHubMessage): Promise<void> {
  * ✅ AJOUT : Support des JOUEURS en plus des PARTENAIRES
  * ✅ AJOUT : Logs détaillés pour debug
  * ✅ CORRECTION 2026-06-24 : Exclusion des messages du SUPER ADMIN pour les notifications staff
- * ✅ CORRECTION 2026-06-24 : Ajout de l'email dans l'URL du bouton "ACCÉDER À MA MESSAGERIE"
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -566,12 +564,9 @@ export async function POST(request: NextRequest) {
       console.log(`📧 [POST] Envoi notification email à ${participantEmail} (${participantType})`);
       const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://vagondys.com";
       
-      // ✅ CORRECTION : Ajout de l'email dans l'URL pour pré-remplir le champ de connexion
-      // ✅ FORCER la redirection vers /messagerie/connexion pour les partenaires
-      // ✅ FORCER la redirection vers /espace-joueur/messagerie pour les joueurs
       const messagerieUrl = participantType === "player" 
-        ? `${frontendUrl}/espace-joueur/messagerie?email=${encodeURIComponent(participantEmail)}`
-        : `${frontendUrl}/messagerie/connexion?email=${encodeURIComponent(participantEmail)}`;
+        ? `${frontendUrl}/espace-joueur/messagerie`
+        : `${frontendUrl}/messagerie`;
       
       const notificationHtml = `
         <div style="background:black; color:white; padding:40px; font-family:sans-serif; text-align:center;">
