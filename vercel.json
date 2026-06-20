@@ -111,5 +111,15 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/recalculate-stats",
+      "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/cron/purge-old-data",
+      "schedule": "0 4 * * *"
+    }
   ]
 }

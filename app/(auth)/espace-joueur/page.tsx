@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { 
   LogOut,
   RefreshCcw,
@@ -10,7 +10,7 @@ import {
   Archive,
   Activity,
   Trophy,
-  MessageSquare  // ✅ AJOUTÉ pour l'icône Messagerie
+  MessageSquare
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -237,6 +237,10 @@ export default function EspaceJoueur() {
   // Token d'authentification pour les appels API
   const [authToken, setAuthToken] = useState<string>('');
 
+  // ✅ REF : Flag pour éviter les appels multiples
+  const hasLoadedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
   // Valeurs dérivées (plus besoin de useEffect pour les seuils)
   const derivedSeuilBas = 50 + (currentGradeId - 1) * 2;
   const derivedSeuilHaut = derivedSeuilBas + 25;
@@ -279,34 +283,52 @@ export default function EspaceJoueur() {
   }, []);
 
   // ==========================================
-  // Fonction : Charger le profil depuis GitHub API
+  // Fonction : Charger le profil depuis GitHub API avec fallback Supabase
   // ==========================================
   const loadProfile = useCallback(async (userId: string, token: string): Promise<ExtendedAthlete | null> => {
     try {
+      // 1. Essayer de charger depuis GitHub
       const response = await fetch(`/api/player/profile?playerId=${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (response.ok) {
+        const data: ApiProfileResponse = await response.json();
+        if (data.success && data.profile) {
+          return data.profile;
+        }
       }
       
-      const data: ApiProfileResponse = await response.json();
+      // 2. Fallback : charger depuis Supabase directement
+      console.log("ℹ️ Profil GitHub non trouvé, fallback Supabase...");
       
-      if (data.success && data.profile) {
-        return data.profile;
+      const { data: athlete, error } = await supabaseAuth
+        .from("athletes")
+        .select("id, email, full_name, pseudo, phone, city, country, dossier_ref, status, rank, points, total_matches, total_score, total_shots, total_kills, total_deaths, total_assists, total_hits_head, total_hits_body, total_hits_legs, current_grade_id, precision_progress, current_cycle_shot_count, current_cycle_precision, created_at, updated_at")
+        .eq("id", userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Erreur fallback Supabase:", error);
+        return null;
       }
+      
+      if (athlete) {
+        return athlete as ExtendedAthlete;
+      }
+      
       return null;
+      
     } catch (err) {
       console.error("Erreur chargement profil:", err);
       return null;
     }
-  }, []);
+  }, [supabaseAuth]);
 
   // ==========================================
-  // Fonction : Rafraîchir toutes les données (exposée pour le bouton de refresh)
+  // ✅ CORRECTION : Rafraîchir toutes les données
   // ==========================================
   const refreshAllData = useCallback(async () => {
     if (!playerId || !authToken) return;
@@ -347,9 +369,11 @@ export default function EspaceJoueur() {
   }, [playerId, authToken, loadProfile, loadMatchHistory]);
 
   // ==========================================
-  // Chargement des données joueur
+  // ✅ CORRECTION : Chargement des données joueur
   // ==========================================
   const fetchPlayerData = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
     try {
       // 1. Récupérer la session
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
@@ -363,46 +387,61 @@ export default function EspaceJoueur() {
       const token = await getAuthToken();
       if (!token) {
         console.error("Impossible d'obtenir le token d'authentification");
-        setLoading(false);
+        if (isMountedRef.current) setLoading(false);
         return;
       }
+      
+      if (!isMountedRef.current) return;
       
       setAuthToken(token);
       setPlayerId(user.id);
       
-      // 3. Charger le profil depuis GitHub API
+      // 3. Charger le profil depuis GitHub/Supabase
       const profile = await loadProfile(user.id, token);
       
+      if (!isMountedRef.current) return;
+      
       if (profile) {
-        setPlayer(profile);
+        // ✅ Ajouter les métadonnées utilisateur si manquantes
+        const userCity = user.user_metadata?.city || profile.city || "NANTES";
+        const userCountry = user.user_metadata?.country || profile.country || "FR";
+        
+        // ✅ S'assurer que dossier_ref est présent
+        const finalProfile = {
+          ...profile,
+          city: profile.city || userCity,
+          country: profile.country || userCountry,
+          dossier_ref: profile.dossier_ref || user.user_metadata?.dossier_ref || "",
+        };
+        
+        setPlayer(finalProfile);
         
         setGameStats({
-          totalMatches: profile.total_matches || 0,
-          totalScore: profile.total_score || 0,
-          totalShots: profile.total_shots || 0,
-          totalKills: profile.total_kills || 0,
-          totalDeaths: profile.total_deaths || 0,
-          totalAssists: profile.total_assists || 0,
-          totalHitsHead: profile.total_hits_head || 0,
-          totalHitsBody: profile.total_hits_body || 0,
-          totalHitsLegs: profile.total_hits_legs || 0
+          totalMatches: finalProfile.total_matches || 0,
+          totalScore: finalProfile.total_score || 0,
+          totalShots: finalProfile.total_shots || 0,
+          totalKills: finalProfile.total_kills || 0,
+          totalDeaths: finalProfile.total_deaths || 0,
+          totalAssists: finalProfile.total_assists || 0,
+          totalHitsHead: finalProfile.total_hits_head || 0,
+          totalHitsBody: finalProfile.total_hits_body || 0,
+          totalHitsLegs: finalProfile.total_hits_legs || 0
         });
         
-        setCurrentGradeId(profile.current_grade_id || 1);
-        setPrecisionProgress(profile.precision_progress || 0);
-        setCycleShotCount(profile.current_cycle_shot_count || 0);
-        setCyclePrecision(profile.current_cycle_precision || 0);
+        setCurrentGradeId(finalProfile.current_grade_id || 1);
+        setPrecisionProgress(finalProfile.precision_progress || 0);
+        setCycleShotCount(finalProfile.current_cycle_shot_count || 0);
+        setCyclePrecision(finalProfile.current_cycle_precision || 0);
         
         // 4. Charger l'historique
         await loadMatchHistory(user.id, token);
         
-        // 5. Charger l'archive GitHub si disponible
-        const userCity = user.user_metadata?.city || profile.city || "NANTES";
-        const userCountry = user.user_metadata?.country || profile.country || "FR";
+        if (!isMountedRef.current) return;
         
-        if (profile.dossier_ref) {
-          const archiveData = await fetchGitHubArchive(profile.dossier_ref, userCity, userCountry);
-          setArchive(archiveData);
+        // 5. Charger l'archive GitHub si disponible
+        if (finalProfile.dossier_ref) {
+          const archiveData = await fetchGitHubArchive(finalProfile.dossier_ref, userCity, userCountry);
+          if (isMountedRef.current) setArchive(archiveData);
         }
       } else {
         // Profil non trouvé - utiliser les métadonnées utilisateur
@@ -413,16 +452,16 @@ export default function EspaceJoueur() {
           email: user.email || "",
           city: user.user_metadata?.city || "En cours...",
           country: user.user_metadata?.country || "FR",
-          status: "SYNCHRONISATION...",
+          status: "ACTIF",
           created_at: new Date().toISOString(),
-          dossier_ref: ""
+          dossier_ref: user.user_metadata?.dossier_ref || ""
         } as ExtendedAthlete);
       }
       
     } catch (err) {
       console.error("CRASH ESPACE JOUEUR:", err);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, [supabaseAuth, router, getAuthToken, loadProfile, loadMatchHistory]);
 
@@ -432,16 +471,20 @@ export default function EspaceJoueur() {
   const currentGrade = GRADES.find(g => g.id === currentGradeId) || GRADES[0];
 
   // ==========================================
-  // Chargement initial
-  // Désactivation des règles ESLint pour ce cas légitime :
-  // - set-state-in-effect : nous chargeons les données initiales, ce qui nécessite des setState
-  // - exhaustive-deps : nous voulons que cet effet ne s'exécute qu'une seule fois au montage
+  // ✅ CORRECTION : Chargement initial (avec flag)
   // ==========================================
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchPlayerData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    isMountedRef.current = true;
+    
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      fetchPlayerData();
+    }
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchPlayerData]);
 
   const handleLogout = async () => {
     await supabaseAuth.auth.signOut();
@@ -535,7 +578,6 @@ export default function EspaceJoueur() {
               Carte ID
             </Link>
 
-            {/* ✅ AJOUT : Lien vers la messagerie */}
             <Link
               href="/espace-joueur/messagerie"
               className="flex items-center gap-2 bg-zinc-900/50 hover:bg-red-600/10 border border-zinc-800 hover:border-red-600/50 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white transition-all group"
