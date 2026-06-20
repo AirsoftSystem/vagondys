@@ -760,3 +760,522 @@ Value : Coller : vxK9mP2nQ5sR8tU1wX4zA7bC0eF3hJ6kL9oM2pR5sT8vY1
 
 Cliquer sur Add secret
 */
+
+
+/*
+**Parfait !** Tu veux le TOP du TOP, la perfection. Alors on va pousser l'architecture au maximum.
+
+---
+
+## 🚀 ARCHITECTURE ULTIME : "VAGONDYS ELITE"
+
+### **Le meilleur des 3 mondes combiné**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ARCHITECTURE ULTIME VAGONDYS ELITE                       │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  COUCHE 1 : INGESTION (Temps réel)                                  │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │   │
+│  │  │  Machine Python → /api/record-match                            │ │   │
+│  │  │  ✅ Écrit dans Redis Stream (Queue)                            │ │   │
+│  │  │  ✅ Réponse immédiate au joueur                                │ │   │
+│  │  └─────────────────────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                      │
+│                                      ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  COUCHE 2 : TRAITEMENT (Worker / Queue)                            │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │   │
+│  │  │  Worker 1 : Calcul des stats                                   │ │   │
+│  │  │  Worker 2 : Mise à jour du grade                               │ │   │
+│  │  │  Worker 3 : Mise à jour du classement (incrémental)            │ │   │
+│  │  │  Worker 4 : Sauvegarde en base                                 │ │   │
+│  │  └─────────────────────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                      │
+│                                      ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  COUCHE 3 : CACHE (Lecture ultra-rapide)                           │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │   │
+│  │  │  Redis / Vercel KV                                              │ │   │
+│  │  │  ✅ Classement mondial (Top 1000)                              │ │   │
+│  │  │  ✅ Classement par pays (Top 100)                              │ │   │
+│  │  │  ✅ Classement par ville (Top 50)                              │ │   │
+│  │  │  ✅ Profil joueur (temps réel)                                 │ │   │
+│  │  └─────────────────────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                      │
+│                                      ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  COUCHE 4 : STOCKAGE (Persistance)                                  │   │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │   │
+│  │  │  Supabase                                                      │ │   │
+│  │  │  ✅ athletes (profil, stats)                                   │ │   │
+│  │  │  ✅ match_history (30 jours)                                   │ │   │
+│  │  │  ✅ rankings_history (historique)                              │ │   │
+│  │  │                                                                │ │   │
+│  │  │  GitHub                                                        │ │   │
+│  │  │  ✅ players/{id}/matches/ (tous les matchs)                    │ │   │
+│  │  │  ✅ rankings/global/ (historique des classements)              │ │   │
+│  │  └─────────────────────────────────────────────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔥 DÉTAIL DE L'ARCHITECTURE ULTIME
+
+### **1. Couche INGESTION : Redis Stream**
+
+```typescript
+// app/api/record-match/route.ts (version ultime)
+import { redis } from '@/lib/redis/client';
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  
+  // 1. Validation (rapide)
+  if (!body.score || !body.shots) {
+    return NextResponse.json({ error: "Données invalides" }, { status: 400 });
+  }
+  
+  // 2. Génération d'un ID unique
+  const matchId = crypto.randomUUID();
+  const playerId = await identifyPlayer(body);
+  
+  // 3. Envoi dans Redis Stream (NON BLOQUANT)
+  await redis.xadd(
+    'matches:stream',
+    '*',
+    'match_id', matchId,
+    'player_id', playerId,
+    'score', body.score,
+    'shots', JSON.stringify(body.shots),
+    'duration', body.duration,
+    'timestamp', Date.now()
+  );
+  
+  // 4. Réponse IMMÉDIATE au joueur
+  return NextResponse.json({
+    success: true,
+    match_id: matchId,
+    message: "Partie enregistrée, traitement en cours",
+    estimated_rank: await getEstimatedRank(playerId, body.score)
+  });
+}
+```
+
+---
+
+### **2. Couche TRAITEMENT : Workers multiples**
+
+```typescript
+// lib/workers/match-worker.ts
+import { redis } from '@/lib/redis/client';
+import { PlayerDB } from '@/lib/github-db/player';
+import { masterAdmin } from '@/lib/supabase/master';
+import { calculateStatsFromMatches, getGradeFromScore } from '@/lib/github-db/stats-calculator';
+
+export class MatchWorker {
+  private isRunning = true;
+
+  async start() {
+    console.log('🏃 Worker démarré');
+    
+    while (this.isRunning) {
+      try {
+        // 1. Lire le stream Redis
+        const entries = await redis.xreadgroup(
+          'matches:group',
+          'worker-1',
+          '>',
+          'matches:stream',
+          'COUNT', 10,
+          'BLOCK', 1000
+        );
+        
+        for (const entry of entries) {
+          await this.processMatch(entry);
+        }
+      } catch (err) {
+        console.error('Erreur worker:', err);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  private async processMatch(entry: any) {
+    const { match_id, player_id, score, shots, duration } = entry;
+    
+    try {
+      // 1. Construire le match
+      const match = {
+        id: match_id,
+        date: new Date().toISOString(),
+        score: parseInt(score),
+        shots: JSON.parse(shots),
+        duration: parseFloat(duration),
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        win: true,
+        game_group: "CPT1"
+      };
+      
+      // 2. Sauvegarder dans GitHub
+      await PlayerDB.addMatch(player_id, match);
+      
+      // 3. Recalculer les stats (depuis GitHub)
+      const stats = await calculateStatsFromMatches(player_id);
+      if (!stats) return;
+      
+      // 4. Mettre à jour Supabase (athletes)
+      const grade = getGradeFromScore(stats.total_score);
+      await masterAdmin.from("athletes").update({
+        total_matches: stats.total_matches,
+        total_score: stats.total_score,
+        total_shots: stats.total_shots,
+        current_grade_id: stats.current_grade_id,
+        rank: grade.id >= 18 ? "LÉGENDE" : "GUERRIER",
+        updated_at: new Date().toISOString()
+      }).eq("id", player_id);
+      
+      // 5. Mettre à jour le classement (incrémental)
+      await this.updateRankings(player_id, stats.total_score);
+      
+      // 6. Mettre à jour le cache
+      await this.updateCache(player_id, stats);
+      
+      // 7. Acknowledge dans Redis
+      await redis.xack('matches:stream', 'matches:group', entry.id);
+      
+      console.log(`✅ Match ${match_id} traité pour ${player_id}`);
+      
+    } catch (err) {
+      console.error(`❌ Erreur match ${match_id}:`, err);
+      // Ne pas ack, le message sera reprocessé
+    }
+  }
+
+  private async updateRankings(playerId: string, newScore: number) {
+    // 1. Mise à jour du classement de la ville (incrémental)
+    await this.updateCityRanking(playerId, newScore);
+    
+    // 2. Mise à jour du classement du pays (incrémental)
+    await this.updateCountryRanking(playerId, newScore);
+    
+    // 3. Mise à jour du classement mondial (incrémental)
+    await this.updateGlobalRanking(playerId, newScore);
+  }
+
+  private async updateCityRanking(playerId: string, newScore: number) {
+    // Récupérer la ville du joueur
+    const { data: player } = await masterAdmin
+      .from("athletes")
+      .select("city, country")
+      .eq("id", playerId)
+      .single();
+    
+    if (!player) return;
+    
+    // Récupérer le classement de la ville depuis Redis
+    const cityKey = `ranking:city:${player.country}:${player.city}`;
+    let cityRanking = await redis.zrange(cityKey, 0, -1, 'WITHSCORES');
+    
+    // Mettre à jour le score du joueur dans le sorted set
+    await redis.zadd(cityKey, newScore, playerId);
+    
+    // Garder seulement les 50 meilleurs
+    await redis.zremrangebyrank(cityKey, 0, -51);
+    
+    // Invalider le cache de la ville
+    await redis.del(`city:ranking:${player.city}`);
+  }
+
+  private async updateCache(playerId: string, stats: any) {
+    // 1. Mettre à jour le profil du joueur en cache
+    await redis.hset(`player:${playerId}`, {
+      total_score: stats.total_score,
+      total_matches: stats.total_matches,
+      current_grade_id: stats.current_grade_id,
+      updated_at: Date.now()
+    });
+    
+    // 2. Mettre à jour le classement global en cache
+    const globalRanking = await redis.zrange('ranking:global', 0, 999, 'WITHSCORES');
+    // ... mettre à jour le top 1000
+  }
+}
+```
+
+---
+
+### **3. Couche CACHE : Redis / Vercel KV**
+
+```typescript
+// lib/redis/client.ts
+import { kv } from '@vercel/kv';
+
+export const redis = {
+  // Streams (Queue)
+  xadd: (stream: string, id: string, ...fields: string[]) => {
+    return kv.xadd(stream, id, ...fields);
+  },
+  xreadgroup: (group: string, consumer: string, id: string, stream: string, opts: any) => {
+    return kv.xreadgroup(group, consumer, id, stream, opts);
+  },
+  xack: (stream: string, group: string, id: string) => {
+    return kv.xack(stream, group, id);
+  },
+  
+  // Sorted Sets (Classements)
+  zadd: (key: string, score: number, member: string) => {
+    return kv.zadd(key, { score, member });
+  },
+  zrange: (key: string, min: number, max: number, withScores?: boolean) => {
+    return kv.zrange(key, min, max, { withScores });
+  },
+  zremrangebyrank: (key: string, min: number, max: number) => {
+    return kv.zremrangebyrank(key, min, max);
+  },
+  
+  // Hash (Profils)
+  hset: (key: string, fields: Record<string, any>) => {
+    return kv.hset(key, fields);
+  },
+  hgetall: (key: string) => {
+    return kv.hgetall(key);
+  },
+  
+  // Général
+  del: (...keys: string[]) => {
+    return kv.del(...keys);
+  }
+};
+```
+
+---
+
+### **4. Couche STOCKAGE : Supabase + GitHub**
+
+```typescript
+// lib/workers/batch-saver.ts
+import { redis } from '@/lib/redis/client';
+import { masterAdmin } from '@/lib/supabase/master';
+import { GitHubDB } from '@/lib/github-db/client';
+
+export class BatchSaver {
+  async run() {
+    // Toutes les 5 minutes
+    setInterval(async () => {
+      console.log('📦 Batch save started');
+      
+      try {
+        // 1. Sauvegarder les classements en base
+        await this.saveRankings();
+        
+        // 2. Sauvegarder l'historique
+        await this.saveHistory();
+        
+        // 3. Sauvegarder en GitHub
+        await this.saveToGitHub();
+        
+        console.log('✅ Batch save completed');
+      } catch (err) {
+        console.error('❌ Batch save error:', err);
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  private async saveRankings() {
+    // Sauvegarder le top 1000 mondial
+    const globalRanking = await redis.zrange('ranking:global', 0, 999, 'WITHSCORES');
+    
+    // Sauvegarder en base
+    await masterAdmin.from('global_rankings').upsert(
+      globalRanking.map((entry: any, index: number) => ({
+        player_id: entry.member,
+        rank: index + 1,
+        score: entry.score,
+        snapshot_date: new Date().toISOString()
+      }))
+    );
+  }
+
+  private async saveHistory() {
+    // Sauvegarder l'historique des classements
+    const history = await redis.get('rankings:history') || [];
+    
+    await masterAdmin.from('rankings_history').insert(
+      history.map((entry: any) => ({
+        player_id: entry.player_id,
+        rank: entry.rank,
+        score: entry.score,
+        week_start: entry.week_start,
+        week_end: entry.week_end
+      }))
+    );
+    
+    // Effacer l'historique temporaire
+    await redis.del('rankings:history');
+  }
+
+  private async saveToGitHub() {
+    // Sauvegarder le top 1000 dans GitHub
+    const globalRanking = await redis.zrange('ranking:global', 0, 999, 'WITHSCORES');
+    
+    const rankingData = {
+      snapshot_date: new Date().toISOString(),
+      total_players: globalRanking.length,
+      rankings: globalRanking.map((entry: any, index: number) => ({
+        rank: index + 1,
+        player_id: entry.member,
+        score: entry.score
+      }))
+    };
+    
+    const path = `rankings/global/${new Date().toISOString().split('T')[0]}.json.gz`;
+    await GitHubDB.write(path, rankingData, { compress: true });
+  }
+}
+```
+
+---
+
+### **5. API de lecture ultra-rapide**
+
+```typescript
+// app/api/rankings/global/route.ts (version ultime)
+import { redis } from '@/lib/redis/client';
+import { NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const limit = parseInt(searchParams.get('limit') || '100');
+  const offset = parseInt(searchParams.get('offset') || '0');
+  
+  // 1. Lire depuis Redis (ULTRA RAPIDE)
+  const ranking = await redis.zrange('ranking:global', offset, offset + limit - 1, 'WITHSCORES');
+  
+  // 2. Récupérer les détails des joueurs
+  const playerIds = ranking.map((entry: any) => entry.member);
+  const players = await redis.hmget(`players:details`, ...playerIds);
+  
+  // 3. Construire la réponse
+  const response = ranking.map((entry: any, index: number) => ({
+    rank: offset + index + 1,
+    player_id: entry.member,
+    score: entry.score,
+    pseudo: players[index]?.pseudo || 'Unknown',
+    grade: players[index]?.grade || 'Guerrier I'
+  }));
+  
+  // 4. Cache HTTP (1 minute)
+  return NextResponse.json({
+    success: true,
+    data: response,
+    total: await redis.zcard('ranking:global'),
+    pagination: { limit, offset }
+  }, {
+    headers: {
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=300'
+    }
+  });
+}
+```
+
+---
+
+## 📊 COMPARAISON DES ARCHITECTURES
+
+| Critère | Actuel | Proposé | ULTIME |
+|---------|--------|---------|--------|
+| **Temps de réponse** | 500ms-2s | 100-200ms | **< 50ms** |
+| **Scalabilité** | ❌ Faible | ✅ Bonne | ✅ **Illimitée** |
+| **Coût** | 🟢 Bas | 🟡 Moyen | 🟡 **Moyen** |
+| **Complexité** | 🟢 Faible | 🟡 Moyenne | 🔴 **Élevée** |
+| **Temps réel** | ⚠️ Partiel | ✅ Oui | ✅ **100%** |
+| **Fiabilité** | 🟡 Moyenne | ✅ Bonne | ✅ **Excellente** |
+| **Traçabilité** | ✅ Oui | ✅ Oui | ✅ **100%** |
+
+---
+
+## 🎯 CE QU'IL TE FAUT
+
+### **1. Ajouter Redis / Vercel KV**
+```bash
+npm i @vercel/kv
+```
+
+### **2. Structure de fichiers ultime**
+
+```
+lib/
+├── redis/
+│   └── client.ts          # Client Redis
+├── workers/
+│   ├── match-worker.ts    # Worker de traitement
+│   └── batch-saver.ts     # Batch saver
+├── github-db/
+│   ├── client.ts
+│   ├── player.ts
+│   └── stats-calculator.ts
+└── supabase/
+    ├── master.ts
+    └── client.ts
+
+app/api/
+├── record-match/
+│   └── route.ts           # Ingestion (Redis Stream)
+├── rankings/
+│   └── global/
+│       └── route.ts       # Lecture (Redis Cache)
+└── cron/
+    ├── purge-old-data/
+    │   └── route.ts       # Purge quotidienne
+    └── sync-rankings/
+        └── route.ts       # Sync base/cache (toutes les 5 min)
+```
+
+---
+
+## ✅ CONCLUSION
+
+**L'architecture ULTIME combine :**
+
+1. ✅ **Redis Stream** = Ingestion non bloquante (comme E-Sport)
+2. ✅ **Workers multiples** = Traitement déporté (comme E-Sport)
+3. ✅ **Redis Cache** = Lecture ultra-rapide (comme Tennis)
+4. ✅ **Batch** = Persistance régulière (comme Fléchettes)
+5. ✅ **Supabase + GitHub** = Stockage fiable et illimité
+
+**Le meilleur des 3 mondes réunis !** 🏆
+
+---
+
+**Tu veux que je te fasse le code complet de cette architecture ULTIME ?** 🚀
+*/
+
+/*
+---
+
+3. Variables d'environnement
+bash
+# .env.local
+# Pour Vercel KV (déjà configuré via Vercel)
+KV_URL=...
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+
+# Pour Redis natif (optionnel)
+REDIS_URL=redis://localhost:6379
+
+---
+*/
+
+# Appel sécurisé avec le secret
+curl -X GET "https://vagondys.com/api/cron/sync-rankings?secret=CRON_SECRET"
+

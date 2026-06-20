@@ -3,27 +3,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { masterAdmin } from "@/lib/supabase/master";
 import { PlayerDB, type Match, type Shot } from "@/lib/github-db/player";
-import { calculateStatsFromMatches, getGradeFromScore } from "@/lib/github-db/stats-calculator";
+import { calculateStatsFromMatches, getGradeFromScore, type CalculatedStats } from "@/lib/github-db/stats-calculator";
+import { redis } from "@/lib/redis/client";
 
 // ==========================================================
 // TYPES
 // ==========================================================
 
 interface RecordMatchRequest {
-  access_token?: string;       // Token d'authentification du joueur
-  player_id?: string;          // ID du joueur (optionnel si token)
-  pseudo?: string;             // Pseudo du joueur (pour recherche)
-  email?: string;              // Email du joueur (pour recherche)
-  city?: string;               // Ville du joueur
-  country?: string;            // Pays du joueur
-  
-  // Données de la partie
+  access_token?: string;
+  player_id?: string;
+  pseudo?: string;
+  email?: string;
+  city?: string;
+  country?: string;
   score: number;
   shots: Shot[];
   duration: number;
   shot_distribution?: Record<string, number>;
-  game_mode?: string;          // PERSO, COMPETITION, LOISIR, etc.
-  game_group?: string;         // CPT1, COMPETITION, LOISIR, etc.
+  game_mode?: string;
+  game_group?: string;
   kills?: number;
   deaths?: number;
   assists?: number;
@@ -44,9 +43,23 @@ interface RecordMatchResponse {
     current_grade_id: number;
     precision_progress: number;
   };
+  estimated_rank?: number;
   message?: string;
   error?: string;
 }
+
+interface PlayerDetails {
+  id: string;
+  email: string;
+  pseudo: string;
+  full_name: string;
+  city: string;
+  country: string;
+  dossier_ref: string;
+  status: string;
+}
+
+// ❌ SUPPRESSION : PlayerCacheData (non utilisé)
 
 // ==========================================================
 // FONCTIONS UTILITAIRES
@@ -64,7 +77,6 @@ function validateAccessToken(token: string): { player_id: string; email?: string
       return null;
     }
     
-    // Vérifier l'expiration
     if (payload.exp && payload.exp < Date.now()) {
       console.warn(`[record-match] Token expiré pour ${payload.player_id}`);
       return null;
@@ -88,7 +100,7 @@ async function findPlayerByIdentifier(
   identifier: string,
   city?: string,
   country?: string
-): Promise<{ id: string; email: string; pseudo: string; full_name: string; city: string; country: string } | null> {
+): Promise<PlayerDetails | null> {
   if (!masterAdmin) return null;
   
   try {
@@ -110,7 +122,7 @@ async function findPlayerByIdentifier(
       return null;
     }
     
-    return data;
+    return data as PlayerDetails;
   } catch (err) {
     console.error("[record-match] Erreur recherche joueur:", err);
     return null;
@@ -131,7 +143,6 @@ async function getOrCreatePlayer(
   if (!masterAdmin) return false;
   
   try {
-    // Vérifier si le joueur existe déjà
     const { data: existing, error: checkError } = await masterAdmin
       .from("athletes")
       .select("id")
@@ -144,7 +155,6 @@ async function getOrCreatePlayer(
     }
     
     if (existing) {
-      // Mettre à jour les infos si nécessaires
       const { error: updateError } = await masterAdmin
         .from("athletes")
         .update({
@@ -166,7 +176,6 @@ async function getOrCreatePlayer(
       return true;
     }
     
-    // Créer le joueur
     const { error: insertError } = await masterAdmin
       .from("athletes")
       .insert({
@@ -211,17 +220,114 @@ async function getOrCreatePlayer(
 }
 
 /**
- * ✅ CORRECTION : Met à jour les statistiques cumulées d'un joueur dans Supabase
- * Le paramètre 'match' n'est pas utilisé car on recalcule tout depuis GitHub
+ * Estimer le rang du joueur en temps réel depuis Redis
+ */
+async function getEstimatedRank(playerId: string, newScore: number): Promise<number> {
+  try {
+    const globalRanking = await redis.zrange('ranking:global', 0, 999, true);
+    
+    if (!globalRanking || globalRanking.length === 0) {
+      return -1;
+    }
+    
+    let rank = 1;
+    for (const entry of globalRanking) {
+      const score = typeof entry === 'object' && 'score' in entry ? entry.score : 0;
+      if (score > newScore) {
+        rank++;
+      } else {
+        break;
+      }
+    }
+    
+    return rank;
+  } catch (err) {
+    console.warn("[record-match] Erreur estimation rang:", err);
+    return -1;
+  }
+}
+
+/**
+ * Envoyer le match dans Redis Stream (Queue)
+ */
+async function pushToQueue(matchId: string, playerId: string, match: Match): Promise<boolean> {
+  try {
+    await redis.xadd(
+      'matches:stream',
+      '*',
+      'match_id', matchId,
+      'player_id', playerId,
+      'score', match.score.toString(),
+      'shots', JSON.stringify(match.shots),
+      'duration', match.duration.toString(),
+      'kills', match.kills.toString(),
+      'deaths', match.deaths.toString(),
+      'assists', match.assists.toString(),
+      'win', match.win ? '1' : '0',
+      'game_group', match.game_group,
+      'shot_distribution', JSON.stringify(match.shot_distribution || {}),
+      'timestamp', Date.now().toString()
+    );
+    
+    console.log(`📤 [record-match] Match ${matchId} envoyé dans la queue`);
+    return true;
+  } catch (err) {
+    console.error(`❌ [record-match] Erreur envoi queue:`, err);
+    return false;
+  }
+}
+
+/**
+ * Mettre à jour le cache Redis avec les nouvelles stats
+ */
+async function updateCache(playerId: string, stats: CalculatedStats): Promise<void> {
+  try {
+    // 1. Mettre à jour le profil du joueur en cache
+    await redis.hset(`player:${playerId}`, {
+      total_matches: stats.total_matches,
+      total_score: stats.total_score,
+      total_shots: stats.total_shots,
+      total_kills: stats.total_kills,
+      total_deaths: stats.total_deaths,
+      total_assists: stats.total_assists,
+      current_grade_id: stats.current_grade_id,
+      precision_progress: stats.precision_progress,
+      updated_at: Date.now()
+    });
+    
+    // 2. Mettre à jour le classement global (Sorted Set)
+    await redis.zadd('ranking:global', stats.total_score, playerId);
+    
+    // 3. Mettre à jour le classement de la ville
+    if (!masterAdmin) return;
+    
+    const { data: player } = await masterAdmin
+      .from("athletes")
+      .select("city, country")
+      .eq("id", playerId)
+      .single();
+    
+    if (player) {
+      const cityKey = `ranking:city:${player.country}:${player.city}`;
+      await redis.zadd(cityKey, stats.total_score, playerId);
+      await redis.zremrangebyrank(cityKey, 0, -51);
+    }
+    
+    console.log(`✅ [record-match] Cache mis à jour pour ${playerId}`);
+  } catch (err) {
+    console.warn(`⚠️ [record-match] Erreur mise à jour cache:`, err);
+  }
+}
+
+/**
+ * Met à jour les statistiques cumulées d'un joueur dans Supabase
  */
 async function updatePlayerStatsInSupabase(
   playerId: string
-  // ❌ SUPPRESSION : match: Match (non utilisé)
 ): Promise<boolean> {
   if (!masterAdmin) return false;
   
   try {
-    // Calculer les stats depuis GitHub
     const stats = await calculateStatsFromMatches(playerId);
     
     if (!stats) {
@@ -276,7 +382,6 @@ export async function POST(request: NextRequest) {
   console.log("🎯 [record-match] Réception d'une nouvelle partie");
   
   try {
-    // 1. Récupérer et parser le body
     const body = await request.json() as RecordMatchRequest;
     
     // 2. Valider les données obligatoires
@@ -342,7 +447,6 @@ export async function POST(request: NextRequest) {
         playerCountry = found.country || playerCountry;
         console.log(`🔍 [record-match] Joueur trouvé: ${playerId} (${found.email})`);
       } else {
-        // Créer un ID temporaire si le joueur n'existe pas
         playerId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         playerPseudo = body.pseudo || `Joueur_${playerId.slice(-6)}`;
         playerFullName = body.pseudo || playerPseudo;
@@ -376,7 +480,6 @@ export async function POST(request: NextRequest) {
     const matchId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const matchDate = new Date().toISOString();
     
-    // Calculer la distribution des tirs si non fournie
     const shotDistribution = body.shot_distribution || {};
     if (Object.keys(shotDistribution).length === 0 && body.shots.length > 0) {
       for (const shot of body.shots) {
@@ -401,30 +504,40 @@ export async function POST(request: NextRequest) {
     
     console.log(`📊 [record-match] Match ${matchId}: ${match.score} pts, ${match.shots.length} tirs`);
     
-    // 6. Sauvegarder dans GitHub (PlayerDB)
-    const savedInGitHub = await PlayerDB.addMatch(playerId, match);
+    // ✅ 6. Envoyer dans Redis Stream (Queue)
+    const queued = await pushToQueue(matchId, playerId, match);
     
-    if (!savedInGitHub) {
-      console.error(`❌ [record-match] Échec sauvegarde GitHub pour ${playerId}`);
-      return NextResponse.json(
-        { success: false, error: "Échec de l'enregistrement dans GitHub" },
-        { status: 500 }
-      );
+    if (!queued) {
+      console.warn(`⚠️ [record-match] Échec envoi queue, fallback synchrone`);
+      
+      const savedInGitHub = await PlayerDB.addMatch(playerId, match);
+      if (!savedInGitHub) {
+        console.error(`❌ [record-match] Échec sauvegarde GitHub pour ${playerId}`);
+        return NextResponse.json(
+          { success: false, error: "Échec de l'enregistrement dans GitHub" },
+          { status: 500 }
+        );
+      }
+      
+      await updatePlayerStatsInSupabase(playerId);
     }
     
-    console.log(`✅ [record-match] Match sauvegardé dans GitHub: ${matchId}`);
-    
-    // 7. ✅ CORRECTION : Mettre à jour les stats dans Supabase (sans passer match)
-    await updatePlayerStatsInSupabase(playerId);
-    
-    // 8. Récupérer les stats mises à jour pour la réponse
+    // ✅ 7. Mettre à jour le cache Redis
     const stats = await calculateStatsFromMatches(playerId);
+    if (stats) {
+      await updateCache(playerId, stats);
+    }
     
+    // ✅ 8. Estimer le rang du joueur
+    const estimatedRank = await getEstimatedRank(playerId, match.score);
+    
+    // 9. Construire la réponse
     const response: RecordMatchResponse = {
       success: true,
       match_id: matchId,
       player_id: playerId,
-      message: "Partie enregistrée avec succès",
+      message: queued ? "Partie enregistrée, traitement en cours" : "Partie enregistrée avec succès",
+      estimated_rank: estimatedRank > 0 ? estimatedRank : undefined,
       player_stats: stats ? {
         total_matches: stats.total_matches,
         total_score: stats.total_score,
@@ -438,7 +551,7 @@ export async function POST(request: NextRequest) {
     };
     
     const duration = Date.now() - startTime;
-    console.log(`✅ [record-match] Terminé en ${duration}ms pour ${playerId}`);
+    console.log(`✅ [record-match] Terminé en ${duration}ms pour ${playerId} (queue: ${queued})`);
     
     return NextResponse.json(response);
     
@@ -472,4 +585,4 @@ export async function OPTIONS() {
 }
 
 export const runtime = "nodejs";
-export const maxDuration = 30; // 30 secondes max pour l'enregistrement
+export const maxDuration = 30;
